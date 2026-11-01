@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="GoobDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/goobs/goob_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "fat"
+display_name = "Fat Goob"
+multiplier = 0.5
+effect_description = "Destroy — random adjacent Goob destroyed (8-way, from landed cell)."
+effect_type = 2

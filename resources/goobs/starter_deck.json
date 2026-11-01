@@ -1,0 +1,16 @@
+{
+  "name": "starter_deck_v0_1",
+  "description": "21 Goobs: 18 Vanilla, 1 each Convincing, Fat, Popular. Same deck for player and opponent.",
+  "entries": [
+    { "goob_id": "vanilla", "count": 18 },
+    { "goob_id": "convincing", "count": 1 },
+    { "goob_id": "fat", "count": 1 },
+    { "goob_id": "popular", "count": 1 }
+  ],
+  "resource_paths": {
+    "vanilla": "res://resources/goobs/vanilla_goob.tres",
+    "convincing": "res://resources/goobs/convincing_goob.tres",
+    "fat": "res://resources/goobs/fat_goob.tres",
+    "popular": "res://resources/goobs/popular_goob.tres"
+  }
+}

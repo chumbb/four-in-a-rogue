@@ -1,0 +1,25 @@
+# Godot 4+
+.godot/
+
+# Import cache (regenerated in editor)
+*.import
+
+# Export
+export/
+export_presets.cfg
+export_credentials.cfg
+
+# Translations
+*.translation
+
+# Mono / .NET
+.mono/
+data_*/
+mono_crash.*.json
+
+# OS / editors
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
