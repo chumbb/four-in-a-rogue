@@ -32,6 +32,17 @@ resources/goobs/     Vanilla, Convincing, Fat, Popular + starter_deck.json
 assets/              Art/audio placeholders
 ```
 
+## Tests
+
+Headless, no editor needed:
+
+```bash
+godot --headless -s res://tests/test_board_state.gd   # BoardState logic
+godot --headless -s res://tests/test_scenario_m2.gd    # scenario scene: picking, drops, full column, win
+```
+
+Each exits 0 on pass, 1 on failure.
+
 ## Starter Goobs (v0.1 data)
 
 | Goob | Multiplier | Effect (on play) |
@@ -46,7 +57,8 @@ Both sides use the same **21-card** starter deck (18 vanilla + 3 specials); shuf
 ## Milestones
 
 - **M1 (this repo):** Shell + wired flow ✅
-- **M2–M6:** Board core, turns, decks, Goob effects, AI — see vertical slice doc.
+- **M2:** Board core — drops, gravity, four-in-a-row, mouse column picking, full-column feedback ✅
+- **M3–M6:** Turns, decks, Goob effects, AI — see `CLAUDE.md` §7.
 
 ## License
 
