@@ -19,14 +19,7 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 
 **Cursor:** Open `four-in-a-rogue.code-workspace` (repo + GameDev vault).
 
-**Claude Code + Obsidian MCP:** Same Local REST API key as Cursor. One-time setup:
-
-```powershell
-cd $HOME\four-in-a-rogue
-.\scripts\setup-claude-obsidian-mcp.ps1
-```
-
-Details: `docs/CLAUDE_CODE_MCP.md`. Keep **Obsidian open** on GameDev when using MCP.
+**Claude Code + Obsidian MCP:** Project `.mcp.json` in repo root (gitignored; matches Cursor). Run `claude` from repo root; approve **obsidian** MCP once. Keep **Obsidian open** on GameDev. Setup/troubleshooting: `docs/CLAUDE_CODE_MCP.md`. Session handoff: `docs/CLAUDE_CODE_HANDOFF.md`.
 
 **Seed vault once:** copy everything from `docs/game-dev-vault-seed/` into your `GameDev` folder.
 
@@ -226,4 +219,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-01 · Companion: `docs/CLAUDE_CODE_HANDOFF.md` (pointer only)*
+*Last updated: 2026-11-02 · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
