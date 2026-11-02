@@ -1,5 +1,6 @@
 # One-time Obsidian MCP setup for Claude Code (same key as Cursor).
 # Usage: .\scripts\setup-claude-obsidian-mcp.ps1
+# Run from repo root: ~\four-in-a-rogue
 
 $ErrorActionPreference = "Stop"
 
@@ -13,12 +14,27 @@ if (-not $baseUrl) {
     $baseUrl = "http://127.0.0.1:27123"
 }
 
-Write-Host "Adding obsidian MCP to Claude Code (base URL: $baseUrl)..."
-claude mcp add obsidian `
-    -e "OBSIDIAN_API_KEY=$key" `
-    -e "OBSIDIAN_BASE_URL=$baseUrl" `
-    -- npx -y obsidian-mcp-server
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$mcpPath = Join-Path $repoRoot ".mcp.json"
 
+Write-Host "Writing project .mcp.json (gitignored) at $mcpPath ..."
+
+@{
+    mcpServers = @{
+        obsidian = @{
+            command = "npx"
+            args    = @("-y", "obsidian-mcp-server")
+            env     = @{
+                OBSIDIAN_API_KEY  = $key
+                OBSIDIAN_BASE_URL = $baseUrl
+            }
+        }
+    }
+} | ConvertTo-Json -Depth 6 | Set-Content -Path $mcpPath -Encoding UTF8
+
+Write-Host "Done. Start Claude Code from this repo so it loads .mcp.json:"
+Write-Host "  cd $repoRoot"
+Write-Host "  claude"
 Write-Host ""
-Write-Host "Done. Run: claude mcp list"
-Write-Host "Then restart Claude Code and test from repo root."
+Write-Host "Optional CLI registration (PowerShell — use --% so -y goes to npx):"
+Write-Host '  claude mcp add --scope user obsidian -e OBSIDIAN_API_KEY=... -e OBSIDIAN_BASE_URL=http://127.0.0.1:27123 --% npx -y obsidian-mcp-server'

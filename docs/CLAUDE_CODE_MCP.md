@@ -2,16 +2,23 @@
 
 Use the **same Local REST API key** as Cursor. Obsidian must be open on the **GameDev** vault while using MCP.
 
-## Option A — CLI (recommended, one time)
+## Option A — Project `.mcp.json` (recommended on Windows)
 
-From PowerShell (replace the key with yours from Obsidian → Local REST API):
+From repo root (script writes gitignored `.mcp.json`):
 
 ```powershell
 cd $HOME\four-in-a-rogue
-claude mcp add obsidian `
-  -e OBSIDIAN_API_KEY=your-key-here `
-  -e OBSIDIAN_BASE_URL=http://127.0.0.1:27123 `
-  -- npx -y obsidian-mcp-server
+.\scripts\setup-claude-obsidian-mcp.ps1
+cd $HOME\four-in-a-rogue
+claude
+```
+
+## Option B — CLI one line (PowerShell)
+
+Use **`--%`** so `-y` is passed to `npx`, not `claude`:
+
+```powershell
+claude mcp add --scope user obsidian -e OBSIDIAN_API_KEY=your-key-here -e OBSIDIAN_BASE_URL=http://127.0.0.1:27123 --% npx -y obsidian-mcp-server
 ```
 
 Verify:
