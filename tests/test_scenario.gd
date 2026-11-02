@@ -283,10 +283,12 @@ func _test_free_during_opponent_delay() -> void:
 	var scenario := await _make(0.2)
 	_view(scenario).column_clicked.emit(0, MOUSE_BUTTON_LEFT)
 	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "opponent move pending")
+	var loop: TurnLoop = scenario._loop # RefCounted: outlives the scene
 	scenario.queue_free()
 	await create_timer(0.3).timeout
 	_check(not is_instance_valid(scenario), "scenario freed during opponent delay")
-	_check(true, "reached end after pending opponent move outlived scene")
+	_check(loop.phase == TurnLoop.Phase.OPPONENT_TURN, "pending opponent move never fired (phase)")
+	_check(_count(loop.board, O) == 0, "pending opponent move never fired (no O on board)")
 
 
 func _push_motion(pos: Vector2) -> void:

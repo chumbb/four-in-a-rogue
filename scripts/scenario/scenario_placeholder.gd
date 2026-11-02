@@ -101,7 +101,10 @@ func _run_opponent_turn() -> void:
 
 
 func _play_opponent_move() -> void:
-	_loop.play(OpponentAI.choose_column(_loop.board, _rng))
+	var column := OpponentAI.choose_column(_loop.board, _rng)
+	if _loop.play(column) == -1:
+		push_error("Scenario: opponent chose illegal column %d" % column)
+		return
 	_sfx_drop.play()
 	_board_view.sync_from_board(_loop.board)
 	_after_play()
