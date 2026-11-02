@@ -55,7 +55,7 @@ If a design rule is missing, ask Sean — do not guess.
 | M1 Shell | Done | Menu → Strange Man → coin flip → scenario placeholder |
 | M2 Board core | Done (merged to `main`) | `BoardState` drop/win/outcome, mouse column picking, full-column UX, view sync, headless tests |
 | Upright 3D board | Branch `upright-board` — awaiting Sean's playtest | Real-game upright board; physics-ready frame (layer `board_frame`) |
-| **M3 Turn loop** | **Next** | Alternate sides after coin flip; win/lose overlay → Title; draw replay flag path |
+| **M3 Turn loop** | **Implemented — awaiting Sean's playtest** (branch `m3-turn-loop`) | Alternate sides after coin flip; win/lose overlay → Title; draw replay via `GameFlow.replay_after_draw()` |
 | M4–M6 | Queued | See `CLAUDE.md` §Milestones |
 
 ### M3 acceptance (short)

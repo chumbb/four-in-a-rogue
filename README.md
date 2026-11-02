@@ -1,6 +1,6 @@
 # Four in a Rogue
 
-Deck-driven **Connect 4** roguelike (Godot 4, PC-first). Currently at **M2 (board core)**: scene flow, starter Goob data, and a playable upright 7×6 3D board (drops, four-in-a-row, full-column feedback) driven by a test harness — no turns, decks or effects yet.
+Deck-driven **Connect 4** roguelike (Godot 4, PC-first). Currently at **M3 (turn loop)**, awaiting playtest: scene flow, starter Goob data, and a playable upright 7×6 3D board with alternating turns against a win/block/random opponent — no decks or effects yet.
 
 Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`, `four-in-a-rogue-design.md`).
 
@@ -14,7 +14,7 @@ Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`,
 1. Install [Godot 4.6.3](https://godotengine.org/download).
 2. Clone this repo and open the folder containing `project.godot`.
 3. In the Project Manager, **Import** → select `project.godot` (or double-click it).
-4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario**. A left click on the title is Press Start. Choosing on the coin flip locks it and the scenario loads after 1.5 s. In the scenario, left click drops blue (player) and red (opponent AI) answers after 0.6 s; the end overlay shows Win / Lose / Draw with **Back to title** or **Replay** (draw, goes to the coin flip).
+4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario**. A left click on the title is Press Start. Pressing **Flip** locks the choice (Heads and Tails can be changed until then) and the scenario loads after 1.5 s. In the scenario, left click drops blue (player) and red (opponent AI) answers after 0.6 s; the end overlay shows Win / Lose / Draw with **Back to title** or **Replay** (draw, goes to the coin flip).
 
 ## Project layout
 
