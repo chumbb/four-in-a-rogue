@@ -26,6 +26,7 @@ func _initialize() -> void:
 	_test_run_of_five()
 	_test_destroy_and_set()
 	_test_board_full()
+	_test_outcomes()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -177,3 +178,21 @@ func _test_board_full() -> void:
 		for r in BoardState.ROWS:
 			b.drop(c, P if (c + r) % 2 == 0 else O)
 	_check(b.is_board_full(), "board full after 42 drops")
+
+
+func _test_outcomes() -> void:
+	const Outcome := BoardState.Outcome
+	var b := BoardState.new()
+	_check(b.get_outcome() == Outcome.NONE, "empty board outcome NONE")
+	for c in 4:
+		b.drop(c, P)
+	_check(b.get_outcome() == Outcome.PLAYER_WIN, "player four → PLAYER_WIN")
+	var o := BoardState.new()
+	for i in 4:
+		o.drop(6, O)
+	_check(o.get_outcome() == Outcome.OPPONENT_WIN, "opponent four → OPPONENT_WIN")
+	# Both sides have four (as an effect could cause) → draw, no winner.
+	for i in 4:
+		b.drop(6, O)
+	_check(b.get_outcome() == Outcome.DRAW, "both fours → DRAW")
+	_check(b.find_winner() == E, "find_winner names nobody on mutual four")

@@ -116,13 +116,36 @@ func destroy_cell(column: int, row: int) -> bool:
 
 # --- Win detection ---------------------------------------------------------
 
-## Returns the owner with four in a row, or EMPTY if none.
-## If both sides have a line (possible only after M5 effects), PLAYER is
-## returned first; §4.2 does not define that case — see find_all_winning_lines().
+enum Outcome {
+	NONE, ## nobody has four
+	PLAYER_WIN,
+	OPPONENT_WIN,
+	DRAW, ## both sides have four at once (possible after M5 effects) — per Sean
+}
+
+
+## Result of the win check. Use this rather than find_winner() to end a game,
+## so a mutual four is treated as a draw.
+func get_outcome() -> Outcome:
+	var player := not find_winning_line(CellOwner.PLAYER).is_empty()
+	var opponent := not find_winning_line(CellOwner.OPPONENT).is_empty()
+	if player and opponent:
+		return Outcome.DRAW
+	if player:
+		return Outcome.PLAYER_WIN
+	if opponent:
+		return Outcome.OPPONENT_WIN
+	return Outcome.NONE
+
+
+## The side with four in a row, or EMPTY if nobody — or both sides — have one
+## (both = draw; see get_outcome()).
 func find_winner() -> CellOwner:
-	for owner in [CellOwner.PLAYER, CellOwner.OPPONENT]:
-		if not find_winning_line(owner).is_empty():
-			return owner
+	match get_outcome():
+		Outcome.PLAYER_WIN:
+			return CellOwner.PLAYER
+		Outcome.OPPONENT_WIN:
+			return CellOwner.OPPONENT
 	return CellOwner.EMPTY
 
 

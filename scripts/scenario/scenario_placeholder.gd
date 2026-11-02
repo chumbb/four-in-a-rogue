@@ -91,14 +91,20 @@ func _place_toast() -> void:
 
 
 func _check_for_winner() -> void:
-	var winner := _board.find_winner()
-	if winner == BoardState.CellOwner.EMPTY:
-		if _board.is_board_full():
-			_end_test_game("Board full — no four in a row.")
-		return
-	_board_view.highlight_cells(_board.find_winning_line(winner))
-	var who := "Red (player)" if winner == BoardState.CellOwner.PLAYER else "Blue (opponent)"
-	_end_test_game("%s connects four!" % who)
+	match _board.get_outcome():
+		BoardState.Outcome.PLAYER_WIN:
+			_board_view.highlight_cells(_board.find_winning_line(BoardState.CellOwner.PLAYER))
+			_end_test_game("Red (player) connects four!")
+		BoardState.Outcome.OPPONENT_WIN:
+			_board_view.highlight_cells(_board.find_winning_line(BoardState.CellOwner.OPPONENT))
+			_end_test_game("Blue (opponent) connects four!")
+		BoardState.Outcome.DRAW:
+			_board_view.highlight_cells(_board.find_winning_line(BoardState.CellOwner.PLAYER))
+			_board_view.highlight_cells(_board.find_winning_line(BoardState.CellOwner.OPPONENT))
+			_end_test_game("Both sides connect four — draw.")
+		_:
+			if _board.is_board_full():
+				_end_test_game("Board full — no four in a row.")
 
 
 func _end_test_game(text: String) -> void:

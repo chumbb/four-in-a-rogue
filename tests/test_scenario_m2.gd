@@ -77,6 +77,17 @@ func _run() -> void:
 	scenario._reset_board()
 	_check(not scenario._game_over and view.input_enabled, "reset re-enables play")
 
+	# Mutual four (as an M5 effect could cause) → draw, both lines highlighted.
+	for r in 4:
+		board.set_owner(0, r, BoardState.CellOwner.PLAYER)
+		board.set_owner(6, r, BoardState.CellOwner.OPPONENT)
+	view.sync_from_board(board)
+	scenario._check_for_winner()
+	_check(scenario._game_over, "mutual four ends game")
+	_check("draw" in scenario._result_label.text, "mutual four reported as draw")
+	_check(view._tokens[Vector2i(0, 3)].scale.y > 1.5 and view._tokens[Vector2i(6, 3)].scale.y > 1.5, "both lines highlighted")
+	scenario._reset_board()
+
 	# Invalid column is a caller bug: refused, no "Column full" feedback.
 	scenario._toast.modulate.a = 0.0
 	_check(scenario.try_drop(9, BoardState.CellOwner.PLAYER) == -1, "invalid column refused")
