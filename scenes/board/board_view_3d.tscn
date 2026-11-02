@@ -1,16 +1,25 @@
-[gd_scene load_steps=2 format=3 uid="uid://fourinarogue_board3d"]
+[gd_scene load_steps=3 format=3 uid="uid://fourinarogue_board3d"]
 
 [ext_resource type="Script" path="res://scripts/board/board_view_3d.gd" id="1_bv"]
+
+[sub_resource type="Environment" id="Environment_board"]
+background_mode = 1
+background_color = Color(0.06, 0.07, 0.1, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.75, 0.8, 1, 1)
+ambient_light_energy = 0.6
 
 [node name="BoardView3D" type="Node3D"]
 script = ExtResource("1_bv")
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_board")
+
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 4.5, 9, 7.794)
-projection = 1
-size = 12.0
+transform = Transform3D(0.952659, -0.051622, 0.299626, 0, 0.985481, 0.169788, -0.30404, -0.16175, 0.938827, 4.943824, 5.2515, 15.490649)
+fov = 30.0
 current = true
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 2, 6, 2)
+transform = Transform3D(0.919145, -0.243778, 0.309426, 0, 0.785507, 0.618853, -0.393919, -0.568815, 0.721995, 3, 8, 7)
 shadow_enabled = true

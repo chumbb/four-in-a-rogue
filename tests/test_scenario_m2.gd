@@ -76,7 +76,7 @@ func _run() -> void:
 	_check(board.is_empty(5, 0), "no drops after win (click)")
 	_check(scenario.try_drop(5, BoardState.CellOwner.OPPONENT) == -1, "try_drop refused after win")
 	_check(board.is_empty(5, 0), "no drops after win (try_drop)")
-	_check(view._tokens[Vector2i(0, 0)].scale.y > 1.5, "winning token highlighted")
+	_check(_glows(view, Vector2i(0, 0)), "winning token highlighted")
 
 	scenario._reset_board()
 	_check(not scenario._game_over and view.input_enabled, "reset re-enables play")
@@ -89,7 +89,7 @@ func _run() -> void:
 	scenario._check_for_winner()
 	_check(scenario._game_over, "mutual four ends game")
 	_check("draw" in scenario._result_label.text, "mutual four reported as draw")
-	_check(view._tokens[Vector2i(0, 3)].scale.y > 1.5 and view._tokens[Vector2i(6, 3)].scale.y > 1.5, "both lines highlighted")
+	_check(_glows(view, Vector2i(0, 3)) and _glows(view, Vector2i(6, 3)), "both lines highlighted")
 	scenario._reset_board()
 
 	# Invalid column is a caller bug: refused, no "Column full" feedback.
@@ -120,7 +120,7 @@ func _test_real_input(scenario: Control, view: Node3D, board: BoardState) -> voi
 	_push_motion(to_root.call(2))
 	await process_frame
 	_check(view._hovered_column == 2, "real motion hovers column 2 (got %d)" % view._hovered_column)
-	_check(view._hover_bar.visible, "hover bar visible")
+	_check(view._hover_disc.visible, "hover disc visible")
 
 	_push_click(to_root.call(2), MOUSE_BUTTON_LEFT)
 	_push_click(to_root.call(2), MOUSE_BUTTON_RIGHT)
@@ -141,7 +141,7 @@ func _test_real_input(scenario: Control, view: Node3D, board: BoardState) -> voi
 	_push_motion(Vector2(1400, 500))
 	await process_frame
 	_check(view._hovered_column == -1, "hover cleared after leaving board (got %d)" % view._hovered_column)
-	_check(not view._hover_bar.visible, "hover bar hidden after leaving board")
+	_check(not view._hover_disc.visible, "hover disc hidden after leaving board")
 
 
 func _push_motion(pos: Vector2) -> void:
@@ -159,3 +159,8 @@ func _push_click(pos: Vector2, button: MouseButton) -> void:
 		ev.button_index = button
 		ev.pressed = pressed
 		root.push_input(ev)
+
+
+func _glows(view: Node3D, cell: Vector2i) -> bool:
+	var mat := view._tokens[cell].material_override as StandardMaterial3D
+	return mat.emission_enabled

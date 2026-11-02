@@ -86,7 +86,7 @@ Win if possible → block player’s immediate 4 → else reasonable heuristic (
 ### Tech
 
 - **1920×1080**, mouse only, red vs blue: **enemy red, player blue**.
-- Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_3d.tscn` (isometric 3D, 2D sprites later).
+- Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_3d.tscn` (upright 3D board like the real game; frame is solid on physics layer `board_frame` so physics Goobs can fall into columns).
 - Scenes via **`GameFlow`** autoload only (`scripts/core/game_flow.gd`).
 - Goobs: `GoobDefinition` + `.tres`; column rays use layer `board_columns`.
 

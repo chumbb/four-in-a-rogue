@@ -40,6 +40,7 @@ ui_cancel={
 [layer_names]
 
 3d_physics/layer_1="board_columns"
+3d_physics/layer_2="board_frame"
 
 [rendering]
 

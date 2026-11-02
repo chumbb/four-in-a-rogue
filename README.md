@@ -1,6 +1,6 @@
 # Four in a Rogue
 
-Deck-driven **Connect 4** roguelike (Godot 4, PC-first). Currently at **M2 (board core)**: scene flow, starter Goob data, and a playable 7×6 isometric board (drops, four-in-a-row, full-column feedback) driven by a test harness — no turns, decks or effects yet.
+Deck-driven **Connect 4** roguelike (Godot 4, PC-first). Currently at **M2 (board core)**: scene flow, starter Goob data, and a playable upright 7×6 3D board (drops, four-in-a-row, full-column feedback) driven by a test harness — no turns, decks or effects yet.
 
 Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`, `four-in-a-rogue-design.md`).
 
