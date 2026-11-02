@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "Godot (four-in-a-rogue)",
+      "path": "."
+    },
+    {
+      "name": "Design (GameDev vault)",
+      "path": "C:/Users/Sean/Documents/GameDev"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.godot": true
+    }
+  }
+}

@@ -6,19 +6,38 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 
 ---
 
+## Design source of truth (global GameDev Obsidian vault)
+
+| What | Where (Sean’s machine) |
+|------|-------------------------|
+| **Vault root (all games)** | `C:\Users\Sean\Documents\GameDev\` |
+| **v0.1 locked rules (canonical)** | `...\GameDev\Projects\Four-in-a-Rogue\Design\vertical-slice-v0.1.md` |
+| **Full-game GDD** | `...\GameDev\Projects\Four-in-a-Rogue\Design\GDD.md` |
+| **Vault AI rules** | `...\GameDev\CLAUDE.md` |
+
+**Conflict rule:** If this file disagrees with the vault, **the vault wins**. After changing design in Obsidian, update §Locked rules here if needed.
+
+**Cursor:** Open `four-in-a-rogue.code-workspace` (repo + GameDev vault).
+
+**Claude Code + Obsidian MCP:** Project `.mcp.json` in repo root (gitignored; matches Cursor). Run `claude` from repo root; approve **obsidian** MCP once. Keep **Obsidian open** on GameDev. Setup/troubleshooting: `docs/CLAUDE_CODE_MCP.md`. Session handoff: `docs/CLAUDE_CODE_HANDOFF.md`.
+
+**Seed vault once:** copy everything from `docs/game-dev-vault-seed/` into your `GameDev` folder.
+
+---
+
 ## Start here (copy into Claude Code)
 
 ```text
-Repo: four-in-a-rogue. Read CLAUDE.md fully.
+Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently M2). Rules in §Locked rules and §Milestones only.
+Implement the next incomplete milestone (currently M3). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M1** shell + scene flow | **M2** board core (drops, win detect, column UX) |
-| Open `project.godot` → **F5** | Expected today: menu → Strange Man → coin flip → empty grid |
+| **M2** board core ✅ (merged to `main`) | **M3** turn loop |
+| Open `project.godot` → **F5** | Expected today: menu → Strange Man → coin flip → scenario with M2 test harness (left click = blue/player, right click = red/enemy) |
 
 ---
 
@@ -35,7 +54,7 @@ Small diff, match existing GDScript style, no new scope. When done: what to pres
 
 ## Locked rules (v0.1 — do not change)
 
-Full acceptance list: **§Ship checklist** (A1–A8). Details below are authoritative for coding.
+Full acceptance list: **§Ship checklist** (A1–A8) and vault `vertical-slice-v0.1.md`. Summary below for fast coding sessions.
 
 ### Flow
 
@@ -121,15 +140,15 @@ Tick in commit messages. **Do not start M(n+1) until M(n) is playable.**
 
 Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `BoardState` stub.
 
-### M2 — Board core ← **you are here**
+### M2 — Board core ✅
 
-- [ ] `BoardState`: `drop(col, owner) -> row or -1`, `column_full`, `find_winner()`
-- [ ] Mouse column pick (raycast or buttons); full-column feedback
-- [ ] View syncs tokens on grid (quads/Sprite3D OK)
+- [x] `BoardState`: `drop(col, owner) -> row or -1`, `column_full`, `find_winner()`
+- [x] Mouse column pick (raycast or buttons); full-column feedback
+- [x] View syncs tokens on grid (quads/Sprite3D OK)
 
 **Test:** F5 → reach scenario → drops stack correctly; full column shakes/toast; four in a row detectable (temp both sides OK).
 
-### M3 — Turn loop
+### M3 — Turn loop ← **you are here**
 
 - [ ] Alternate sides after coin flip; end on win/lose; overlay → Title via `GameFlow`
 - [ ] Draw replay flag path
@@ -174,7 +193,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 Multi-scenario runs, shop, encounters, money, meta, saves, networking, mobile, Steam, non–7×6 boards, **new Goob types**, balance changes beyond starter four.
 
-Full-game vision (9+boss, shop, unlocks) lives in Sean’s design doc — **not v0.1 tasks**.
+Full-game vision: GameDev vault `Design/GDD.md` — **not v0.1 tasks**.
 
 ---
 
@@ -200,4 +219,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-01 · Companion: `docs/CLAUDE_CODE_HANDOFF.md` (pointer only)*
+*Last updated: 2026-11-02 · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*

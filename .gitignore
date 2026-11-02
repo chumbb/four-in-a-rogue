@@ -23,3 +23,6 @@ mono_crash.*.json
 *.swo
 .vscode/
 .idea/
+
+# Local MCP secrets (use .mcp.json.example)
+.mcp.json
