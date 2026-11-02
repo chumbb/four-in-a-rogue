@@ -6,12 +6,27 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 
 ---
 
+## Design source of truth (Obsidian vault)
+
+| What | Where |
+|------|--------|
+| **All game design docs** | `design-vault/` (open this folder as your **Obsidian vault**) |
+| **v0.1 locked rules (canonical)** | `design-vault/Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md` |
+| **Full-game GDD** | `design-vault/Projects/Four-in-a-Rogue/Design/GDD.md` |
+| **Vault AI rules** | `design-vault/CLAUDE.md` |
+
+**Conflict rule:** If this file disagrees with the vault, **the vault wins**. After changing design in Obsidian, update §Locked rules here if needed.
+
+**Cursor & Claude Code:** Run from **repo root**; read/write `design-vault/**/*.md` directly (no plugin required). Optional Obsidian MCP: `.mcp.json.example`.
+
+---
+
 ## Start here (copy into Claude Code)
 
 ```text
-Repo: four-in-a-rogue. Read CLAUDE.md fully.
+Repo: four-in-a-rogue. Read CLAUDE.md, then design-vault/Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md for rules.
 
-Implement the next incomplete milestone (currently M2). Rules in §Locked rules and §Milestones only.
+Implement the next incomplete milestone (currently M2). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
@@ -35,7 +50,7 @@ Small diff, match existing GDScript style, no new scope. When done: what to pres
 
 ## Locked rules (v0.1 — do not change)
 
-Full acceptance list: **§Ship checklist** (A1–A8). Details below are authoritative for coding.
+Full acceptance list: **§Ship checklist** (A1–A8) and vault `vertical-slice-v0.1.md`. Summary below for fast coding sessions.
 
 ### Flow
 
@@ -174,7 +189,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 Multi-scenario runs, shop, encounters, money, meta, saves, networking, mobile, Steam, non–7×6 boards, **new Goob types**, balance changes beyond starter four.
 
-Full-game vision (9+boss, shop, unlocks) lives in Sean’s design doc — **not v0.1 tasks**.
+Full-game vision: `design-vault/Projects/Four-in-a-Rogue/Design/GDD.md` — **not v0.1 tasks**.
 
 ---
 

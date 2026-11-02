@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "Godot (code)",
+      "path": "."
+    },
+    {
+      "name": "Design (Obsidian vault)",
+      "path": "design-vault"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.godot": true
+    }
+  }
+}
