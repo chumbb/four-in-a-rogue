@@ -54,3 +54,7 @@ Store AI session archives in `Projects/<Game>/Session-Logs/` (e.g. from `/compre
 ## Obsidian MCP
 
 Sean uses Local REST API + `obsidian-mcp-server` in Cursor and Claude Code. Setup: Godot repo `docs/CLAUDE_CODE_MCP.md`. Keep Obsidian open on this vault when using MCP tools.
+
+## Reaching this vault from a Claude app session
+
+Claude sessions in the Claude app (not the local `claude` CLI) don't load the repo's `.mcp.json`. They read and edit these files directly through folder access to `C:\Users\Sean\Documents\GameDev`.
