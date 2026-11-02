@@ -43,7 +43,7 @@ Small diff, match existing GDScript style, no new scope. When done: what to pres
 | Now | Next |
 |-----|------|
 | **M2** board core ✅ + **upright 3D board** ✅ (both on `main`, playtested 2026-11-02) | **M3** turn loop — plan: `docs/plans/m3-turn-loop.md` |
-| Open `project.godot` → **F5** | Expected today: menu → Strange Man → coin flip → scenario with M2 test harness on the upright board (left click = blue/player, right click = red/enemy) |
+| Open `project.godot` → **F5** | Expected today: click → Strange Man → flip → turn loop vs opponent (left click drops blue; red answers after 0.6 s; Win / Lose / Draw overlay) |
 
 ---
 
@@ -68,7 +68,7 @@ Full acceptance list: **§Ship checklist** (A1–A8) and vault `vertical-slice-v
 - Boot → Title → **Strange Man** (dialogue below) → **Coin flip** (player picks heads/tails) → Scenario.
 - **Clicking the start menu counts as Press Start** (mouse only). Strange Man plays **after every Press Start** (portrait: old man in Goob-land clothes holding one Goob). No separate tutorial.
 - Coin winner moves first (`GameFlow.player_moves_first`). **Scenario begins as soon as the flip is decided** (no extra start button).
-- Win or lose → scoring sequence → **Title**. **Draw** (no four, or both sides four) → no scoring sequence, skip Strange Man (`GameFlow.skip_strange_man_on_next_run = true`), coin flip again, reshuffle decks, hand size 3, empty board.
+- Win or lose → scoring sequence → **Title**. **Draw** (no four, or both sides four) → no scoring sequence, skip Strange Man (`GameFlow.replay_after_draw()` goes straight to the coin flip), coin flip again, reshuffle decks, hand size 3, empty board.
 
 **Strange Man (exact):**
 
@@ -166,8 +166,8 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 ### M3 — Turn loop ← **you are here**
 
-- [ ] Alternate sides after coin flip; end on win/lose; overlay → Title via `GameFlow`
-- [ ] Draw replay flag path
+- [x] Alternate sides after coin flip; end on win/lose; overlay → Title via `GameFlow`
+- [x] Draw replay: `GameFlow.replay_after_draw()` → coin flip (no Strange Man)
 
 **Test:** Full win/lose returns to title; draw path skips Strange Man on retry.
 
@@ -228,7 +228,7 @@ Everything else: implement from this file + existing scripts.
 | Milestone | F5 flow | Pass if |
 |-----------|---------|---------|
 | M2 | Title → scenario, click columns | Gravity, full column error, 4-in-a-row fires |
-| M3 | Play until win/lose/draw | Returns to title; draw retry skips Strange Man |
+| M3 | Play until win/lose/draw | Returns to title; draw Replay goes to coin flip, skipping Strange Man |
 | M4 | Several turns | Draw/play limits; empty deck |
 | M5 | Play each special Goob | Effects match table; score on win line |
 | M6 | Let AI play | Blocks/wins when obvious; no softlock |
