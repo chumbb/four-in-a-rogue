@@ -1,6 +1,6 @@
 # Four in a Rogue
 
-Deck-driven **Connect 4** roguelike (Godot 4, PC-first). This repository is the **M1 project shell**: scene flow, folder layout, starter Goob data, and an isometric 3D board placeholder — not full gameplay yet.
+Deck-driven **Connect 4** roguelike (Godot 4, PC-first). Currently at **M2 (board core)**: scene flow, starter Goob data, and a playable 7×6 isometric board (drops, four-in-a-row, full-column feedback) driven by a test harness — no turns, decks or effects yet.
 
 Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`, `four-in-a-rogue-design.md`).
 
@@ -14,7 +14,7 @@ Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`,
 1. Install [Godot 4.3 or newer](https://godotengine.org/download).
 2. Clone this repo and open the folder containing `project.godot`.
 3. In the Project Manager, **Import** → select `project.godot` (or double-click it).
-4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario** with empty 7×6 logic placeholder and isometric board view.
+4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario**. M2 test harness: left click drops blue (player), right click drops red (opponent), **Reset Board** clears.
 
 ## Project layout
 
@@ -32,6 +32,17 @@ resources/goobs/     Vanilla, Convincing, Fat, Popular + starter_deck.json
 assets/              Art/audio placeholders
 ```
 
+## Tests
+
+Headless, no editor needed:
+
+```bash
+godot --headless -s res://tests/test_board_state.gd   # BoardState logic
+godot --headless -s res://tests/test_scenario_m2.gd    # scenario scene: picking, drops, full column, win
+```
+
+Each exits 0 on pass, 1 on failure.
+
 ## Starter Goobs (v0.1 data)
 
 | Goob | Multiplier | Effect (on play) |
@@ -46,7 +57,8 @@ Both sides use the same **21-card** starter deck (18 vanilla + 3 specials); shuf
 ## Milestones
 
 - **M1 (this repo):** Shell + wired flow ✅
-- **M2–M6:** Board core, turns, decks, Goob effects, AI — see vertical slice doc.
+- **M2:** Board core — drops, gravity, four-in-a-row, mouse column picking, full-column feedback ✅
+- **M3–M6:** Turns, decks, Goob effects, AI — see `CLAUDE.md` §7.
 
 ## License
 
