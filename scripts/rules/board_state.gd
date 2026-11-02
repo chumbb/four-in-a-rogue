@@ -39,6 +39,14 @@ func reset() -> void:
 		_cells.append(row)
 
 
+## Deep copy of the grid. Mutating the copy never changes the original.
+func copy() -> BoardState:
+	var other := BoardState.new()
+	for row in ROWS:
+		other._cells[row] = (_cells[row] as Array).duplicate()
+	return other
+
+
 # --- Queries ---------------------------------------------------------------
 
 func is_empty(column: int, row: int) -> bool:
