@@ -64,6 +64,10 @@ The experience is framed by an absurdist land of Goobs, with *Balatro*-leaning a
 - The atmosphere draws heavily from *Balatro*.
 - The color palette is brighter, drawing from *Fields of Mistria* and *Hearthstone*.
 - The soundtrack uses chiptunes.
+- The board is an upright 3D Connect 4 board in 3D space, like the real game (Sean, 2026-11-01).
+- Goobs are visually interesting, with real physics, 3D effects and animations when played; inspiration *Hearthstone* and *Marvel Snap* (Sean, 2026-11-01).
+- The player's hand of Goobs is visible on screen, represented like *Hearthstone* or *Slay the Spire* (Sean, 2026-11-01).
+- The opponent is red and the player is blue (Sean, 2026-11-01).
 
 ### Platforms
 

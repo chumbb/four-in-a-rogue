@@ -59,7 +59,7 @@ Full acceptance list: **§Ship checklist** (A1–A8) and vault `vertical-slice-v
 ### Flow
 
 - Boot → Title → **Strange Man** (dialogue below) → **Coin flip** (player picks heads/tails) → Scenario.
-- Coin winner moves first (`GameFlow.player_moves_first`).
+- Coin winner moves first (`GameFlow.player_moves_first`). **Scenario begins as soon as the flip is decided** (no extra start button).
 - Win or lose → **Title**. **Draw** → skip Strange Man (`GameFlow.skip_strange_man_on_next_run = true`), coin flip again, reshuffle decks, hand size 3, empty board.
 
 **Strange Man (exact):**
@@ -79,6 +79,8 @@ Full acceptance list: **§Ship checklist** (A1–A8) and vault `vertical-slice-v
 | Empty deck | No draws; may still play from hand |
 | Stalemate | Both cannot draw and cannot play, no win → **draw** → replay per flow |
 | Resolution | **Land → effect → win check last** |
+| Both sides four | Both sides have four in a row at the win check → **draw** |
+| Destroyed Goob | Goobs above it **fall** (no gaps; `BoardState.destroy_cell`) |
 
 ### Starter deck (each side)
 
@@ -88,7 +90,7 @@ Full acceptance list: **§Ship checklist** (A1–A8) and vault `vertical-slice-v
 |------|------|-----------------------------------------------|
 | Vanilla | 1.0 | — |
 | Convincing | 0.5 | Flip random **adjacent opposing** Goob to yours |
-| Fat | 0.5 | Destroy random **adjacent** Goob |
+| Fat | 0.5 | Destroy random **adjacent** Goob; Goobs above it fall |
 | Popular | 0.5 | Extra **Vanilla** in random column (gravity) |
 
 **Score on win:** sum multipliers of Goobs in the **winning line of four** (UI only in v0.1).
@@ -105,7 +107,8 @@ Win if possible → block player’s immediate 4 → else reasonable heuristic (
 ### Tech
 
 - **1920×1080**, mouse only, red vs blue: **enemy red, player blue**.
-- Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_3d.tscn` (isometric 3D, 2D sprites later).
+- Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_3d.tscn` (upright 3D board like the real game; frame is solid on physics layer `board_frame` so physics Goobs can fall into columns).
+- Presentation direction: Goobs look visually interesting, with **real physics, 3D effects and play animations** (Hearthstone / Marvel Snap); the **hand is visible** like Hearthstone / Slay the Spire.
 - Scenes via **`GameFlow`** autoload only (`scripts/core/game_flow.gd`).
 - Goobs: `GoobDefinition` + `.tres`; column rays use layer `board_columns`.
 

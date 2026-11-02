@@ -64,11 +64,14 @@ If a design rule is missing, ask Sean — do not guess.
 - Draw replay flag path (`GameFlow.skip_strange_man_on_next_run`)
 - **Test:** full win/lose returns to title; draw retry skips Strange Man
 
-### Decided by Sean (not in the slice doc yet)
+### Decided by Sean (2026-11-01, Claude session)
 
 - Destroyed Goob: pieces above fall (`BoardState.destroy_cell`)
 - Both sides connect four on the same play: draw (`BoardState.Outcome.DRAW`)
 - Enemy red, player blue
+- Scenario starts as soon as the coin flip is decided (M3)
+- Upright 3D board; Goobs with physics, 3D effects and play animations; hand shown like Hearthstone / Slay the Spire
+- All of the above are recorded in the vault `vertical-slice-v0.1.md` (2026-11-01 history rows)
 
 ---
 

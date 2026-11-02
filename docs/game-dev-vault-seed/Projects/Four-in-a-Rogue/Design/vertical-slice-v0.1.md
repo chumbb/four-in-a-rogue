@@ -1,5 +1,5 @@
 
-Status: v0.1 rules locked for implementation (see §4–§5). Scope: **one playable scenario**, standard **7×6** board, isometric 3D + 2D sprites.
+Status: v0.1 rules locked for implementation (see §4–§5). Scope: **one playable scenario**, standard **7×6** board, **upright 3D board** (like the real game) in Godot **4.6.3**.
 
 Reference: [four-in-a-rogue-design.md](./four-in-a-rogue-design.md)
 
@@ -34,8 +34,8 @@ Multi-scenario runs, shop, encounters, money persistence across scenarios, meta 
 
 | Topic | Recommendation | Notes |
 |-------|----------------|-------|
-| **Engine version** | **Godot 4.x stable** (latest 4.3+ or current LTS at project start). | PC-first; avoid 3.x for long-term 4.x feature set. Pin exact version in repo once chosen. |
-| **2D vs 3D** | **Isometric 3D presentation** with **2D sprite assets**. | Board and Goobs read as a 3D/isometric playfield; art is 2D sprites (e.g. `Sprite3D` / textured quads on a 3D grid), not full 3D models. UI can stay Control-based 2D overlay. Logic remains grid-based 7×6. |
+| **Engine version** | **Godot 4.6.3** (pinned). | Sean, 2026-11-01: develop and test on 4.6.3 only. `project.godot` declares 4.6. |
+| **2D vs 3D** | **Upright 3D board** in 3D space, like a real Connect 4 board. | Sean, 2026-11-01 (supersedes the earlier isometric + 2D-sprites-only direction). Goobs get physics, 3D effects and play animations (see Presentation below). UI (hand, HUD) is a Control-based 2D overlay. Logic remains grid-based 7×6. |
 | **Rendering** | Forward+ or Compatibility per target GPU; default PC Forward+. | Accessibility toggles (reduce flash/shake) can stub in v0.1. |
 | **Input** | **Mouse only** for v0.1. | Keyboard/controller deferred. |
 
@@ -64,12 +64,16 @@ assets/                # Sprites, SFX stubs
 
 Use **scenes for composition**, **Resources or typed data** for Goob definitions so full-game content can grow without rewriting board logic.
 
-### Isometric presentation (Sean confirmed)
+### Presentation (Sean, 2026-11-01)
 
-- **Look:** board and pieces appear in **isometric 3D** (depth, tilt, drop animations along columns).
-- **Assets:** **2D sprites** only for Goobs, board frame, VFX—no mesh-based character/board models required for v0.1.
-- **Godot approach (recommended):** `Node3D` root for the playfield; grid cell positions mapped to isometric world coordinates; each Goob is a `Sprite3D` (or `MeshInstance3D` with a quad + sprite texture). **Column picking** via raycast from camera to column colliders. **HUD** (hand, coin flip, win/lose) on a separate `CanvasLayer`.
-- **Logic vs render:** keep **7×6 integer grid state** in code; render layer converts grid ↔ isometric positions so Connect 4 rules stay simple.
+Supersedes the earlier "isometric 3D + 2D sprites only" direction.
+
+- **Board:** **upright 3D board**, like the real game, existing in 3D space (front panel with holes, columns, floor, stand). The frame is solid for physics so Goobs can fall down the columns.
+- **Goobs:** visually interesting, with **real physics and 3D effects when played**, and **animations of being played** (we see the Goob travel down the column). Inspiration: *Hearthstone*, *Marvel Snap*.
+- **Hand:** the player **draws a hand of Goobs** and **sees the Goobs in hand**, represented like *Hearthstone* or *Slay the Spire*.
+- **Sides:** **enemy red, player blue** (red is the bad guy). Pattern/shape redundancy still planned per GDD accessibility.
+- **Column picking** via raycast from camera to column colliders. **HUD** (hand, coin flip, win/lose) on a separate `CanvasLayer`.
+- **Logic vs render:** keep **7×6 integer grid state** in code as the source of truth; the 3D view follows it.
 
 ---
 
@@ -82,8 +86,9 @@ Aligned with GDD (“standard Connect 4 rules remain the foundation”) and slic
 | Columns | **7** |
 | Rows | **6** |
 | Cell states | Empty; occupied by **player** chip; occupied by **opponent** chip (ownership must not rely on color alone in final art—GDD accessibility). |
-| Placement | Player chooses a column; chip falls to the **lowest unoccupied row** in that column. **Full column UX:** Sean to choose (see §5 follow-ups). |
-| Connect win | **Four in a row** ends scenario; **win check always last** after placement and all effects resolve. |
+| Placement | Player chooses a column; chip falls to the **lowest unoccupied row** in that column. **Full column UX:** shake + error sound + toast (see §4 Invalid placement feedback). |
+| Connect win | **Four in a row** ends scenario; **win check always last** after placement and all effects resolve. If **both sides** have four in a row at the win check, the result is a **draw** (Sean, 2026-11-01). |
+| Destroyed Goob | When a Goob is destroyed, the Goobs **above it fall** (gravity) — no gaps in a column (Sean, 2026-11-01). |
 | Board state | **Empty 7×6** at scenario start. |
 
 ---
@@ -98,10 +103,11 @@ Aligned with GDD (“standard Connect 4 rules remain the foundation”) and slic
 
 ### Turn and win/lose
 
-- **First player:** **Coin flip** with animation; **player chooses heads or tails** before flip. **Player wins flip → player moves first.**
+- **First player:** **Coin flip** with animation; **player chooses heads or tails** before flip. **Player wins flip → player moves first.** **As soon as the flip is decided, the scenario begins** — no extra "start scenario" step (Sean, 2026-11-01).
 - **Turn flow:** Strict alternation. Each turn: **draw 1 Goob** (if draw pile not empty), then **play exactly 1 Goob** (unless a special allows otherwise). **No skipping.**
 - **Hand:** **Max 10** Goobs. **Starting hand: 3** Goobs after shuffle (before first turn).
 - **Player wins / loses:** **Four in a row only** (either side). No turn-limit loss in v0.1.
+- **Both sides four in a row** at the same win check (possible after effects): **draw** (Sean, 2026-11-01).
 - **Draw (stalemate):** If the round ends with **no win** and neither side can continue (both **hands and draw piles empty**, no legal placement path — exact detection in implementation), the scenario ends **immediately as a draw**. **Replay same scenario:** board reset to empty, newly shuffled decks, **new starting hand (3)**. **Do not** repeat Strange Man — go straight to **coin flip** (re-flipped).
 - **Resolution order:** Goob **lands** → **special effect** resolves → **win check** (always last).
 
@@ -125,7 +131,7 @@ Aligned with GDD (“standard Connect 4 rules remain the foundation”) and slic
 |------|------------|----------------|
 | Vanilla Goob | 1× | None (column drop only) |
 | Convincing Goob | 0.5× | **Flip** — random adjacent opposing Goob → yours (8-way, from landed cell) |
-| Fat Goob | 0.5× | **Destroy** — random adjacent Goob destroyed (8-way, from landed cell) |
+| Fat Goob | 0.5× | **Destroy** — random adjacent Goob destroyed (8-way, from landed cell); Goobs above it fall |
 | Popular Goob | 0.5× | **Extra drop** — random column, then gravity; spawns a **Vanilla Goob** (your side) |
 - Opponent deck is **randomized shuffle** each scenario; encounters **not seeded** (full game will vary; slice uses same composition).
 
@@ -144,7 +150,8 @@ Aligned with GDD (“standard Connect 4 rules remain the foundation”) and slic
 
 ### Presentation
 
-- **Isometric 3D** board, **2D sprites**, **red vs blue** sides (add pattern redundancy later per GDD).
+- **Upright 3D** board; Goobs with physics, 3D effects and play animations; hand shown like *Hearthstone* / *Slay the Spire* (see §2 Presentation).
+- **Enemy red, player blue** (add pattern redundancy later per GDD).
 - **Input:** mouse only (v0.1).
 
 ### Economy
@@ -196,3 +203,5 @@ Dependencies: M2 before M3; M3 before M4; M4 before M5; M5 before meaningful AI 
 | 2026-11-01 | Sean answered TBD batch: multipliers, hand max 10, deck rules, 8-way adjacency, effect order, AI, flow, Goob names, red/blue; §5 follow-ups remain. |
 | 2026-11-01 | F1–F8 locked: invalid placement D + variable toasts; start hand 3; starter table; draw → replay; win score UI. |
 | 2026-11-01 | Draw replay: skip Strange Man, re-flip coin; Popular extra = Vanilla; Goob block toast fixed copy. |
+| 2026-11-01 | Sean (Claude session): Godot 4.6.3 pinned; enemy red / player blue; destroyed Goob → Goobs above fall; both sides four in a row → draw; scenario starts as soon as the coin flip is decided; full-column UX recorded in §3. |
+| 2026-11-01 | Sean (Claude session): presentation is an **upright 3D board** (supersedes isometric + 2D sprites only); Goobs get physics, 3D effects and play animations (Hearthstone / Marvel Snap); hand shown like Hearthstone / Slay the Spire. M2 board core done. |

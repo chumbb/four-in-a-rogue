@@ -3,7 +3,7 @@ type: project
 project: Four-in-a-Rogue
 status: active
 repo: https://github.com/chumbb/four-in-a-rogue
-engine: Godot 4.3
+engine: Godot 4.6.3
 tags: [roguelike, connect-4]
 ---
 
