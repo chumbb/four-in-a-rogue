@@ -32,6 +32,10 @@ resources/goobs/     Vanilla, Convincing, Fat, Popular + starter_deck.json
 assets/              Art/audio placeholders
 ```
 
+## Git Sync (editor toolbar)
+
+`addons/git_sync` adds **Git: [branch ▾] [Sync] [↻]** to the editor toolbar (enabled in `project.godot`). **Sync** fetches, switches to the picked branch and fast-forward pulls, then rescans the project. Tracked local edits are stashed first (`git stash pop` to restore); it never merges, rebases or discards commits — if the branch has diverged it stops and says so. Needs `git` on PATH.
+
 ## Tests
 
 Headless, no editor needed:
@@ -39,6 +43,7 @@ Headless, no editor needed:
 ```bash
 godot --headless -s res://tests/test_board_state.gd   # BoardState logic
 godot --headless -s res://tests/test_scenario_m2.gd    # scenario scene: picking, drops, full column, win
+godot --headless -s res://tests/test_git_sync.gd       # Git Sync plugin logic (throwaway local repos)
 ```
 
 Each exits 0 on pass, 1 on failure.

@@ -1,7 +1,16 @@
 ; Engine configuration file.
-; Godot 4.6.3.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
@@ -22,6 +31,10 @@ window/size/viewport_height=1080
 window/size/mode=2
 window/stretch/mode="canvas_items"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/git_sync/plugin.cfg")
+
 [input]
 
 ui_accept={
@@ -41,7 +54,3 @@ ui_cancel={
 
 3d_physics/layer_1="board_columns"
 3d_physics/layer_2="board_frame"
-
-[rendering]
-
-renderer/rendering_method="forward_plus"
