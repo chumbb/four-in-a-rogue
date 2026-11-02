@@ -17,9 +17,18 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 
 **Conflict rule:** If this file disagrees with the vault, **the vault wins**. After changing design in Obsidian, update §Locked rules here if needed.
 
-**Cursor:** Open `four-in-a-rogue.code-workspace` (repo + GameDev vault). **Claude Code:** `cd` to repo for code, or to `GameDev` for design-only edits; use full paths to vault markdown from either cwd.
+**Cursor:** Open `four-in-a-rogue.code-workspace` (repo + GameDev vault).
 
-**Seed vault once:** copy everything from `docs/game-dev-vault-seed/` into your `GameDev` folder. Optional Obsidian MCP: `.mcp.json.example` (vault must be open in Obsidian).
+**Claude Code + Obsidian MCP:** Same Local REST API key as Cursor. One-time setup:
+
+```powershell
+cd $HOME\four-in-a-rogue
+.\scripts\setup-claude-obsidian-mcp.ps1
+```
+
+Details: `docs/CLAUDE_CODE_MCP.md`. Keep **Obsidian open** on GameDev when using MCP.
+
+**Seed vault once:** copy everything from `docs/game-dev-vault-seed/` into your `GameDev` folder.
 
 ---
 
