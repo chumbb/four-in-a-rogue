@@ -27,6 +27,7 @@ func _initialize() -> void:
 	_sh(_root, ["init", "-q", "--bare", "-b", "main", origin])
 	_sh(_root, ["clone", "-q", origin, author])
 	_write(author, "a.txt", "one")
+	_write(author, "eol.txt", "line1\nline2\n")
 	_commit(author, "first")
 	_sh(author, ["push", "-q", "origin", "main"])
 	_sh(author, ["checkout", "-q", "-b", "feature"])
@@ -36,6 +37,7 @@ func _initialize() -> void:
 	_sh(author, ["checkout", "-q", "main"])
 	_sh(_root, ["clone", "-q", origin, mine])
 
+	_test_line_endings_only_not_stashed(mine)
 	_test_lists_branches(mine)
 	_test_switch_to_remote_branch(mine)
 	_test_dirty_tree_is_stashed(mine)
@@ -46,9 +48,24 @@ func _initialize() -> void:
 
 	_rm_rf(_root)
 	_check(not DirAccess.dir_exists_absolute(_root), "temp repos cleaned up")
-	_check(_checks >= 19, "expected checks ran (%d)" % _checks)
+	_check(_checks >= 23, "expected checks ran (%d)" % _checks)
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
+
+
+## Windows: autocrlf checks files out with CRLF, Godot re-saves them with LF.
+## git status calls that modified, but the content is identical — must not stash.
+func _test_line_endings_only_not_stashed(mine: String) -> void:
+	_sh(mine, ["config", "core.autocrlf", "true"])
+	DirAccess.remove_absolute(mine.path_join("eol.txt"))
+	_sh(mine, ["checkout", "--", "eol.txt"])
+	_check(_read(mine, "eol.txt") == "line1\r\nline2\r\n", "eol.txt checked out with CRLF")
+	_write(mine, "eol.txt", "line1\nline2\n") # Godot-style LF re-save, same content
+	_check(_sh(mine, ["status", "--porcelain", "--untracked-files=no"]) != "", "git status reports it modified (the trap)")
+	var r: Dictionary = Runner.sync(mine, "main")
+	_check(r.ok, "sync with line-ending-only change succeeds: %s" % "\n".join(r.log))
+	_check(r.stashed == "", "line-ending-only change is not stashed")
+	_sh(mine, ["config", "--unset", "core.autocrlf"])
 
 
 func _test_lists_branches(mine: String) -> void:
