@@ -53,6 +53,10 @@ func _run() -> void:
 	_check(scenario._toast.modulate.a > 0.9, "toast visible after overfill")
 	_check(scenario._toast._label.text == Toast.MSG_COLUMN_FULL, "toast says Column full")
 	_check(scenario._sfx_error.playing, "error sound playing")
+	await process_frame
+	await process_frame
+	_check(absf(view._pivot.position.x) > 0.001, "board shakes after overfill")
+	_check(cam.get_parent() == view, "camera not under shaking pivot")
 
 	# Win: red across row 0 of columns 0,1,2 + 4 is NOT four (col 3 bottom is red, so 0..3 is).
 	scenario._reset_board()
