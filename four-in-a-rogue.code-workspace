@@ -1,12 +1,12 @@
 {
   "folders": [
     {
-      "name": "Godot (code)",
+      "name": "Godot (four-in-a-rogue)",
       "path": "."
     },
     {
-      "name": "Design (Obsidian vault)",
-      "path": "design-vault"
+      "name": "Design (GameDev vault)",
+      "path": "C:/Users/Sean/Documents/Obsidian/GameDev"
     }
   ],
   "settings": {

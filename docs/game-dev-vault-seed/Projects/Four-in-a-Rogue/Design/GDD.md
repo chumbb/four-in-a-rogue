@@ -1,3 +1,9 @@
+---
+type: gdd
+project: Four-in-a-Rogue
+status: active
+date: 2026-11-01
+---
 
 Status: High-level GDD approved pending final document review.
 

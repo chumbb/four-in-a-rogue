@@ -6,25 +6,27 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 
 ---
 
-## Design source of truth (Obsidian vault)
+## Design source of truth (global GameDev Obsidian vault)
 
-| What | Where |
-|------|--------|
-| **All game design docs** | `design-vault/` (open this folder as your **Obsidian vault**) |
-| **v0.1 locked rules (canonical)** | `design-vault/Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md` |
-| **Full-game GDD** | `design-vault/Projects/Four-in-a-Rogue/Design/GDD.md` |
-| **Vault AI rules** | `design-vault/CLAUDE.md` |
+| What | Where (Sean’s machine) |
+|------|-------------------------|
+| **Vault root (all games)** | `C:\Users\Sean\Documents\Obsidian\GameDev\` |
+| **v0.1 locked rules (canonical)** | `...\GameDev\Projects\Four-in-a-Rogue\Design\vertical-slice-v0.1.md` |
+| **Full-game GDD** | `...\GameDev\Projects\Four-in-a-Rogue\Design\GDD.md` |
+| **Vault AI rules** | `...\GameDev\CLAUDE.md` |
 
 **Conflict rule:** If this file disagrees with the vault, **the vault wins**. After changing design in Obsidian, update §Locked rules here if needed.
 
-**Cursor & Claude Code:** Run from **repo root**; read/write `design-vault/**/*.md` directly (no plugin required). Optional Obsidian MCP: `.mcp.json.example`.
+**Cursor:** Open `four-in-a-rogue.code-workspace` (repo + GameDev vault). **Claude Code:** `cd` to repo for code, or to `GameDev` for design-only edits; use full paths to vault markdown from either cwd.
+
+**Seed vault once:** copy everything from `docs/game-dev-vault-seed/` into your `GameDev` folder. Optional Obsidian MCP: `.mcp.json.example` (vault must be open in Obsidian).
 
 ---
 
 ## Start here (copy into Claude Code)
 
 ```text
-Repo: four-in-a-rogue. Read CLAUDE.md, then design-vault/Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md for rules.
+Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
 Implement the next incomplete milestone (currently M2). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
@@ -189,7 +191,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 Multi-scenario runs, shop, encounters, money, meta, saves, networking, mobile, Steam, non–7×6 boards, **new Goob types**, balance changes beyond starter four.
 
-Full-game vision: `design-vault/Projects/Four-in-a-Rogue/Design/GDD.md` — **not v0.1 tasks**.
+Full-game vision: GameDev vault `Design/GDD.md` — **not v0.1 tasks**.
 
 ---
 
