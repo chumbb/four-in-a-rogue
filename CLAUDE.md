@@ -42,8 +42,8 @@ Small diff, match existing GDScript style, no new scope. When done: what to pres
 
 | Now | Next |
 |-----|------|
-| **M2** board core ✅ (merged to `main`) | **M3** turn loop |
-| Open `project.godot` → **F5** | Expected today: menu → Strange Man → coin flip → scenario with M2 test harness (left click = blue/player, right click = red/enemy) |
+| **M2** board core ✅ + **upright 3D board** ✅ (both on `main`, playtested 2026-11-02) | **M3** turn loop — plan: `docs/plans/m3-turn-loop.md` |
+| Open `project.godot` → **F5** | Expected today: menu → Strange Man → coin flip → scenario with M2 test harness on the upright board (left click = blue/player, right click = red/enemy) |
 
 ---
 
@@ -66,8 +66,9 @@ Full acceptance list: **§Ship checklist** (A1–A8) and vault `vertical-slice-v
 ### Flow
 
 - Boot → Title → **Strange Man** (dialogue below) → **Coin flip** (player picks heads/tails) → Scenario.
+- **Clicking the start menu counts as Press Start** (mouse only). Strange Man plays **after every Press Start** (portrait: old man in Goob-land clothes holding one Goob). No separate tutorial.
 - Coin winner moves first (`GameFlow.player_moves_first`). **Scenario begins as soon as the flip is decided** (no extra start button).
-- Win or lose → **Title**. **Draw** → skip Strange Man (`GameFlow.skip_strange_man_on_next_run = true`), coin flip again, reshuffle decks, hand size 3, empty board.
+- Win or lose → scoring sequence → **Title**. **Draw** (no four, or both sides four) → no scoring sequence, skip Strange Man (`GameFlow.skip_strange_man_on_next_run = true`), coin flip again, reshuffle decks, hand size 3, empty board.
 
 **Strange Man (exact):**
 
@@ -81,26 +82,30 @@ Full acceptance list: **§Ship checklist** (A1–A8) and vault `vertical-slice-v
 | Drop | Column → lowest empty cell |
 | Win | 4 in a row (H/V/diag), either side |
 | Turn | Draw 1 (if deck not empty), play **exactly 1** Goob; no skip |
-| Hand | Start 3 after shuffle; max 10 |
-| Deck | 21 cards each side, identical; shuffle once; **no reshuffle** |
+| Hand | Start 3 after shuffle; max 10. A draw that would make an 11th is **skipped**; those Goobs stay on top of the deck |
+| Deck | 21 Goobs each side, identical; shuffle once; **no reshuffle** |
 | Empty deck | No draws; may still play from hand |
+| Out of Goobs | A side with no Goobs (hand + deck) takes no more turns; the other side plays on until the board is full. A four during those turns still ends the scenario |
 | Stalemate | Both cannot draw and cannot play, no win → **draw** → replay per flow |
-| Resolution | **Land → effect → win check last** |
-| Both sides four | Both sides have four in a row at the win check → **draw** |
+| Resolution | **Land → effect → win check last** (Plentiful's draw 2 is its effect) |
+| Both sides four | Both sides have four in a row at the win check → **draw** (same replay, no tally) |
 | Destroyed Goob | Goobs above it **fall** (no gaps; `BoardState.destroy_cell`) |
 
 ### Starter deck (each side)
 
-18× Vanilla, 1× Convincing, 1× Fat, 1× Popular — see `resources/goobs/*.tres` + `starter_deck.json`.
+**17× Vanilla, 1× Convincing, 1× Fat, 1× Popular, 1× Plentiful** (21). Data in `resources/goobs/*.tres` + `starter_deck.json` still has 18 Vanilla and no Plentiful — fix in M4 (deck) / M5 (Plentiful effect).
 
-| Goob | Mult | Effect (8-way adjacency from **landed** cell) |
-|------|------|-----------------------------------------------|
-| Vanilla | 1.0 | — |
-| Convincing | 0.5 | Flip random **adjacent opposing** Goob to yours |
-| Fat | 0.5 | Destroy random **adjacent** Goob; Goobs above it fall |
-| Popular | 0.5 | Extra **Vanilla** in random column (gravity) |
+| Goob | Mult | Effect (8-way adjacency from **landed** cell) | Card text (exact) |
+|------|------|-----------------------------------------------|-------------------|
+| Vanilla | 1.0 | — | (none) |
+| Convincing | 0.5 | Flip random **adjacent opposing** Goob to yours | “Flip a random adjacent enemy Goob to your side.” |
+| Fat | 0.5 | Destroy random **adjacent** Goob; Goobs above it fall | “Destroy a random adjacent Goob.” |
+| Popular | 0.5 | Extra **Vanilla** (your side) in random column (gravity) | “Drop a Vanilla Goob into a random column.” |
+| Plentiful | 0.5 | Draw 2 after it lands, before win check (fewer if deck short), on top of the turn draw | “Draw 2 Goobs.” |
 
-**Score on win:** sum multipliers of Goobs in the **winning line of four** (UI only in v0.1).
+Card text = immediate effect only. Random targets: game picks the target first, then that Goob's impact animation plays on it.
+
+**Multipliers are hidden during play.** **Scoring sequence** (one side has four): reveal that line Goob by Goob — lowest column to highest, bottom to top within a column — each shows its multiplier; show the sum; then declare win (player four) or lose (opponent four). Draws skip it.
 
 ### Invalid column UX
 
@@ -109,7 +114,8 @@ Full acceptance list: **§Ship checklist** (A1–A8) and vault `vertical-slice-v
 
 ### AI (v0.1)
 
-Win if possible → block player’s immediate 4 → else reasonable heuristic (not random). Stub in `opponent_ai.gd` is not shipping quality.
+- **M3 (before decks):** opponent drops a plain red Goob, no effect: winning column, else column that blocks the player's immediate four, else **random legal column**.
+- **M6:** hand-aware, human-like: win if possible → block player’s immediate 4 → else reasonable heuristic (not random). Opponent's hand is face-down (one shared back); its Goob flips from that hand into the column.
 
 ### Tech
 
@@ -175,7 +181,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 ### M5 — Goob effects
 
 - [ ] Hand UI: pick Goob, then column; land → effect → win check
-- [ ] Flip / destroy / extra vanilla; win screen shows multiplier sum
+- [ ] Flip / destroy / extra vanilla / draw 2; scoring sequence on a one-sided four
 
 **Test:** Each special once in a session; order land → effect → win.
 
@@ -192,7 +198,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 - [ ] A2 Scenario goals visible
 - [ ] A3 Deck/hand/draw rules
 - [ ] A4 Connect 4 + detection
-- [ ] A5 Win + multiplier score
+- [ ] A5 Win + scoring sequence
 - [ ] A6 Lose on opponent 4
 - [ ] A7 No softlocks after end
 - [ ] A8 Goob text readable in UI
@@ -229,4 +235,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-02 · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-02 (synced to vault slice after the Cursor grill) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
