@@ -60,6 +60,9 @@ func _build_ui() -> void:
 	_dialog = AcceptDialog.new()
 	_dialog.title = "Git Sync"
 	_dialog.min_size = Vector2i(640, 320)
+	# Not exclusive: the sync often finishes while Godot's own "files changed
+	# on disk" dialog is open, and two exclusive children of one window error.
+	_dialog.exclusive = false
 	EditorInterface.get_base_control().add_child(_dialog)
 
 
