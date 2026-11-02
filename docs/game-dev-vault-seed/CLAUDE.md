@@ -51,6 +51,18 @@ Store AI session archives in `Projects/<Game>/Session-Logs/` (e.g. from `/compre
 - Do not delete `Design/vertical-slice-v0.1.md` sections without Sean’s approval
 - Do not move locked rules into code comments only—vault stays authoritative
 
+## Record everything here (Sean, 2026-11-02)
+
+Every Claude and Cursor session stores its work in this vault — not only in chat or the repo:
+
+| What | Where |
+|------|-------|
+| Session summary (what was done, state, open items) | `Projects/<Game>/Session-Logs/YYYY-MM-DD <Tool> - <topic>.md` (`type: session`) |
+| Decisions Sean makes | Append a row to `Projects/<Game>/Decisions/Decision-Log.md`; if a rule changed, update `Design/vertical-slice-v0.1.md` / `GDD.md` too |
+| Research, findings, reports | `Projects/<Game>/Research/<title>.md` (`type: note`) |
+
+Link new notes from the project hub (e.g. [[Four-in-a-Rogue]]). Write during the session, not only at the end.
+
 ## Obsidian MCP
 
 Sean uses Local REST API + `obsidian-mcp-server` in Cursor and Claude Code. Setup: Godot repo `docs/CLAUDE_CODE_MCP.md`. Keep Obsidian open on this vault when using MCP tools.

@@ -1,0 +1,19 @@
+---
+description: Record Four in a Rogue sessions, decisions and research in Sean's Obsidian GameDev vault
+alwaysApply: true
+---
+
+# Obsidian vault is the shared memory (Sean, 2026-11-02)
+
+Design source of truth and shared record for Cursor and Claude: `C:\Users\Sean\Documents\GameDev` (Obsidian vault; Obsidian MCP via Local REST API, see `docs/CLAUDE_CODE_MCP.md`). If the repo disagrees with the vault on design, the vault wins.
+
+Before working: read `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md` and the latest notes in `Projects/Four-in-a-Rogue/Session-Logs/` and `Decisions/Decision-Log.md`.
+
+Always store your work in the vault, during the session (not only in chat or code):
+
+- **Session summary** (what was done, branch/state, open items): `Projects/Four-in-a-Rogue/Session-Logs/YYYY-MM-DD Cursor - <topic>.md`, frontmatter `type: session`.
+- **Decisions Sean makes**: append a row to `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`; if a rule changed, also update `Design/vertical-slice-v0.1.md` (or `GDD.md`) and repo `CLAUDE.md` §Locked rules.
+- **Research / findings / reports**: `Projects/Four-in-a-Rogue/Research/<title>.md`, frontmatter `type: note`.
+- Link new notes from `Projects/Four-in-a-Rogue/Four-in-a-Rogue.md`.
+
+Follow the vault's `CLAUDE.md` for frontmatter and conventions.
