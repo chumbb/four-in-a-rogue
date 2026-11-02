@@ -37,6 +37,9 @@ var input_enabled := true:
 		input_enabled = value
 		if not value:
 			_set_hover(-1)
+		elif is_inside_tree():
+			# Restore hover if the cursor is already over a column.
+			_set_hover(_pick_column(get_viewport().get_mouse_position()))
 
 
 func _ready() -> void:
@@ -113,15 +116,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_set_hover(_pick_column(event.position))
 	elif event is InputEventMouseButton and event.pressed:
+		# Only left/right are game input; let wheel/middle pass through.
+		if event.button_index != MOUSE_BUTTON_LEFT and event.button_index != MOUSE_BUTTON_RIGHT:
+			return
 		var column := _pick_column(event.position)
 		if column != -1:
 			column_clicked.emit(column, event.button_index)
 			get_viewport().set_input_as_handled()
 
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_MOUSE_EXIT:
-		_set_hover(-1)
+## Call when the mouse leaves the viewport container — the SubViewport stops
+## receiving motion events then, so the view can't detect the exit itself.
+func clear_hover() -> void:
+	_set_hover(-1)
 
 
 ## Raycast from the camera through the mouse to the column colliders.

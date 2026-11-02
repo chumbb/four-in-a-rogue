@@ -25,6 +25,7 @@ func _ready() -> void:
 	_first_player_label.text = "First player (coin flip): %s" % first
 	_build_feedback_nodes()
 	_board_view.column_clicked.connect(_on_column_clicked)
+	_board_container.mouse_exited.connect(_board_view.clear_hover)
 	_reset_board()
 
 
@@ -40,8 +41,6 @@ func _build_feedback_nodes() -> void:
 
 
 func _on_column_clicked(column: int, button_index: int) -> void:
-	if _game_over:
-		return
 	var owner: BoardState.CellOwner
 	match button_index:
 		MOUSE_BUTTON_LEFT:
@@ -54,8 +53,14 @@ func _on_column_clicked(column: int, button_index: int) -> void:
 
 
 ## Drop entry point. M3+ turn loop and the AI should call this too.
-## Returns the landed row, or -1 after giving invalid-placement feedback.
+## Returns the landed row, or -1 if the game is over, the column index is
+## invalid (a caller bug, not player error), or the column is full (feedback).
 func try_drop(column: int, owner: BoardState.CellOwner) -> int:
+	if _game_over:
+		return -1
+	if not _board.is_valid_column(column):
+		push_error("Scenario.try_drop: invalid column %d" % column)
+		return -1
 	if _board.column_full(column):
 		_reject_placement(Toast.MSG_COLUMN_FULL)
 		return -1

@@ -12,7 +12,7 @@
 |------|--------|
 | **GitHub repo** | https://github.com/chumbb/four-in-a-rogue |
 | **Engine** | Godot **4.3+**, Forward+, PC-first, **1920×1080**, **mouse only** (v0.1) |
-| **Current milestone** | **M1 done** → implement **M2 → M3 → M4 → M5 → M6** (see §8) |
+| **Current milestone** | **M2 done** → implement **M3 → M4 → M5 → M6** (see §7) |
 | **Scope now** | One playable **scenario** (not full 9+boss run yet) |
 
 ### Clone and run
@@ -23,7 +23,7 @@ cd four-in-a-rogue
 # Open project.godot in Godot 4.3+, press F5
 ```
 
-Expected flow today: **Boot → Title (Press Start) → Strange Man → Coin flip → Scenario placeholder** (empty grid display, no real gameplay).
+Expected flow today: **Boot → Title (Press Start) → Strange Man → Coin flip → Scenario** (M2 board test harness: LMB = red/player, RMB = blue/opponent, Reset Board; no turn loop yet).
 
 ### Companion docs (same design intent)
 

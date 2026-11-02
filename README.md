@@ -1,6 +1,6 @@
 # Four in a Rogue
 
-Deck-driven **Connect 4** roguelike (Godot 4, PC-first). This repository is the **M1 project shell**: scene flow, folder layout, starter Goob data, and an isometric 3D board placeholder — not full gameplay yet.
+Deck-driven **Connect 4** roguelike (Godot 4, PC-first). Currently at **M2 (board core)**: scene flow, starter Goob data, and a playable 7×6 isometric board (drops, four-in-a-row, full-column feedback) driven by a test harness — no turns, decks or effects yet.
 
 Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`, `four-in-a-rogue-design.md`).
 
@@ -14,7 +14,7 @@ Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`,
 1. Install [Godot 4.3 or newer](https://godotengine.org/download).
 2. Clone this repo and open the folder containing `project.godot`.
 3. In the Project Manager, **Import** → select `project.godot` (or double-click it).
-4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario** with empty 7×6 logic placeholder and isometric board view.
+4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario**. M2 test harness: left click drops red (player), right click drops blue (opponent), **Reset Board** clears.
 
 ## Project layout
 

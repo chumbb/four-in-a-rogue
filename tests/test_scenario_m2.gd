@@ -19,6 +19,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	root.size = Vector2i(1920, 1080) # headless root defaults to 64×64
 	var scenario: Control = load("res://scenes/scenario/scenario.tscn").instantiate()
 	root.add_child(scenario)
 	await physics_frame
@@ -64,13 +65,78 @@ func _run() -> void:
 	_check(not view.input_enabled, "view input disabled after win")
 	_check("Red" in scenario._result_label.text, "result names red")
 	view.column_clicked.emit(5, MOUSE_BUTTON_LEFT)
-	_check(board.is_empty(5, 0), "no drops after win")
+	_check(board.is_empty(5, 0), "no drops after win (click)")
+	_check(scenario.try_drop(5, BoardState.CellOwner.OPPONENT) == -1, "try_drop refused after win")
+	_check(board.is_empty(5, 0), "no drops after win (try_drop)")
 	_check(view._tokens[Vector2i(0, 0)].scale.y > 1.5, "winning token highlighted")
 
 	scenario._reset_board()
 	_check(not scenario._game_over and view.input_enabled, "reset re-enables play")
 
+	# Invalid column is a caller bug: refused, no "Column full" feedback.
+	scenario._toast.modulate.a = 0.0
+	_check(scenario.try_drop(9, BoardState.CellOwner.PLAYER) == -1, "invalid column refused")
+	_check(scenario._toast.modulate.a == 0.0, "invalid column shows no toast")
+
+	await _test_real_input(scenario, view, board)
+
 	scenario.queue_free()
 	await process_frame
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
+
+
+## Drives the real path: root viewport → SubViewportContainer → SubViewport →
+## BoardView3D._unhandled_input → raycast → column_clicked → try_drop.
+func _test_real_input(scenario: Control, view: Node3D, board: BoardState) -> void:
+	scenario._reset_board()
+	var container: SubViewportContainer = scenario.get_node("BoardViewportContainer")
+	var sub: SubViewport = container.get_node("SubViewport")
+	var cam: Camera3D = view.get_node("Camera3D")
+	var to_root := func(column: int) -> Vector2:
+		var p := cam.unproject_position(view.grid_to_world(column, 2))
+		var rect := container.get_global_rect()
+		return rect.position + p * rect.size / Vector2(sub.size)
+
+	_push_motion(to_root.call(2))
+	await process_frame
+	_check(view._hovered_column == 2, "real motion hovers column 2 (got %d)" % view._hovered_column)
+	_check(view._hover_bar.visible, "hover bar visible")
+
+	_push_click(to_root.call(2), MOUSE_BUTTON_LEFT)
+	_push_click(to_root.call(2), MOUSE_BUTTON_RIGHT)
+	await process_frame
+	_check(board.get_owner(2, 0) == BoardState.CellOwner.PLAYER, "real LMB drops player")
+	_check(board.get_owner(2, 1) == BoardState.CellOwner.OPPONENT, "real RMB drops opponent")
+
+	var clicks: Array = []
+	var record := func(c: int, b: int) -> void: clicks.append(b)
+	view.column_clicked.connect(record)
+	_push_click(to_root.call(2), MOUSE_BUTTON_WHEEL_UP)
+	_push_click(to_root.call(2), MOUSE_BUTTON_MIDDLE)
+	await process_frame
+	view.column_clicked.disconnect(record)
+	_check(clicks.is_empty(), "wheel/middle do not emit column_clicked (got %s)" % str(clicks))
+
+	# Leave the board for the sidebar → hover clears.
+	_push_motion(Vector2(1400, 500))
+	await process_frame
+	_check(view._hovered_column == -1, "hover cleared after leaving board (got %d)" % view._hovered_column)
+	_check(not view._hover_bar.visible, "hover bar hidden after leaving board")
+
+
+func _push_motion(pos: Vector2) -> void:
+	var ev := InputEventMouseMotion.new()
+	ev.position = pos
+	ev.global_position = pos
+	root.push_input(ev)
+
+
+func _push_click(pos: Vector2, button: MouseButton) -> void:
+	for pressed in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.position = pos
+		ev.global_position = pos
+		ev.button_index = button
+		ev.pressed = pressed
+		root.push_input(ev)
