@@ -1,228 +1,168 @@
-# Four in a Rogue — Claude Code handoff
+# Four in a Rogue — solo dev + Claude Code
 
-**Purpose:** Single document so [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (or any local coding agent) can implement the Godot game **without inventing design**. Owner: **Sean Bishop** (`chumbb` on GitHub).
+**Sean Bishop** · Godot **4.3+** · https://github.com/chumbb/four-in-a-rogue
 
-**Last updated:** 2026-11-01
+Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement **one milestone per session**, playtest in Godot, commit, stop. **Do not invent mechanics** — if a rule is missing, ask Sean.
 
 ---
 
-## 1. Start here
+## Start here (copy into Claude Code)
 
-| Item | Value |
-|------|--------|
-| **GitHub repo** | https://github.com/chumbb/four-in-a-rogue |
-| **Engine** | Godot **4.3+**, Forward+, PC-first, **1920×1080**, **mouse only** (v0.1) |
-| **Current milestone** | **M2 done** → implement **M3 → M4 → M5 → M6** (see §7) |
-| **Scope now** | One playable **scenario** (not full 9+boss run yet) |
+```text
+Repo: four-in-a-rogue. Read CLAUDE.md fully.
 
-### Clone and run
-
-```bash
-git clone https://github.com/chumbb/four-in-a-rogue.git
-cd four-in-a-rogue
-# Open project.godot in Godot 4.3+, press F5
+Implement the next incomplete milestone (currently M2). Rules in §Locked rules and §Milestones only.
+Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
-Expected flow today: **Boot → Title (Press Start) → Strange Man → Coin flip → Scenario** (M2 board test harness: LMB = red/player, RMB = blue/opponent, Reset Board; no turn loop yet).
-
-### Companion docs (same design intent)
-
-If you have access to Sean’s Cursor Project **Context** store, full GDD + slice spec live at:
-
-- `/cursor/stores/self/docs/four-in-a-rogue-design.md` — high-level vision, full-game direction
-- `/cursor/stores/self/docs/four-in-a-rogue-vertical-slice.md` — **authoritative v0.1 rules** and milestones
-
-This handoff duplicates everything needed to **code v0.1**; use those files for full-game scope later.
+| Now | Next |
+|-----|------|
+| **M1** shell + scene flow | **M2** board core (drops, win detect, column UX) |
+| Open `project.godot` → **F5** | Expected today: menu → Strange Man → coin flip → empty grid |
 
 ---
 
-## 2. Game pitch (do not change for v0.1)
+## How we work (solo)
 
-**Four in a Rogue** is a single-player **Connect 4 roguelike**. Players fight the game with **decks of Goobs** (chips with multipliers and special effects). Ordinary Connect 4 is solved; this game adds **randomness, combos, and deckbuilding** for variety and depth.
+1. **One milestone** (M2…M6) per session unless Sean says otherwise.
+2. **Playtest before the next milestone** — F5, mouse only, full flow for that milestone.
+3. **Small commits** — e.g. `M2: BoardState drop and win check`. No drive-by refactors.
+4. **Logic first** — `BoardState` / rules scripts before polish; 3D view follows grid state.
+5. **No design drift** — no shop, runs, new Goobs, or “nice to have” unless Sean asks.
+6. **Stuck on design?** Ask Sean (see §Ask Sean). Stuck on Godot? Fix with docs; don’t change rules.
 
-- **Tone:** Absurdist “land of Goobs”; atmosphere like *Balatro*; bright colors (*Fields of Mistria* / *Hearthstone*); chiptune (later).
-- **Full game (later):** 9 scenarios + boss per run, shop/encounters, meta unlocks — **not in v0.1**.
-- **Monetization (later):** One-time purchase; no FOMO — **ignore for coding slice**.
+---
 
-**Strange Man opening dialogue (exact):**
+## Locked rules (v0.1 — do not change)
+
+Full acceptance list: **§Ship checklist** (A1–A8). Details below are authoritative for coding.
+
+### Flow
+
+- Boot → Title → **Strange Man** (dialogue below) → **Coin flip** (player picks heads/tails) → Scenario.
+- Coin winner moves first (`GameFlow.player_moves_first`).
+- Win or lose → **Title**. **Draw** → skip Strange Man (`GameFlow.skip_strange_man_on_next_run = true`), coin flip again, reshuffle decks, hand size 3, empty board.
+
+**Strange Man (exact):**
 
 > Hey, you must not be from around here. This is a land of Goobs. If you want to progress, you'll need to get 4 goobs in a row before your opponent does. You'll collect more Goobs as you progress. Once you get all the Goobs, well, I think you know...
 
----
+### Board & turns
 
-## 3. Architecture principles (Godot)
+| Rule | Value |
+|------|--------|
+| Grid | 7×6, empty at start |
+| Drop | Column → lowest empty cell |
+| Win | 4 in a row (H/V/diag), either side |
+| Turn | Draw 1 (if deck not empty), play **exactly 1** Goob; no skip |
+| Hand | Start 3 after shuffle; max 10 |
+| Deck | 21 cards each side, identical; shuffle once; **no reshuffle** |
+| Empty deck | No draws; may still play from hand |
+| Stalemate | Both cannot draw and cannot play, no win → **draw** → replay per flow |
+| Resolution | **Land → effect → win check last** |
 
-1. **Logic vs render:** Keep a **7×6 integer grid** (`BoardState` or successor) as source of truth. Isometric 3D view **only displays** grid state.
-2. **Isometric 3D + 2D sprites:** Playfield in `Node3D` (`scenes/board/board_view_3d.tscn`); Goobs as `Sprite3D` or quads; HUD on `CanvasLayer`.
-3. **Column input:** Mouse raycast to column colliders (layer `board_columns` in `project.godot`).
-4. **Data-driven Goobs:** `GoobDefinition` Resource + `resources/goobs/*.tres` + `starter_deck.json`.
-5. **Scene flow:** `GameFlow` autoload (`scripts/core/game_flow.gd`) — do not duplicate scene transitions ad hoc.
+### Starter deck (each side)
 
----
+18× Vanilla, 1× Convincing, 1× Fat, 1× Popular — see `resources/goobs/*.tres` + `starter_deck.json`.
 
-## 4. v0.1 rules (LOCKED — implement exactly)
+| Goob | Mult | Effect (8-way adjacency from **landed** cell) |
+|------|------|-----------------------------------------------|
+| Vanilla | 1.0 | — |
+| Convincing | 0.5 | Flip random **adjacent opposing** Goob to yours |
+| Fat | 0.5 | Destroy random **adjacent** Goob |
+| Popular | 0.5 | Extra **Vanilla** in random column (gravity) |
 
-### 4.1 App flow
+**Score on win:** sum multipliers of Goobs in the **winning line of four** (UI only in v0.1).
 
-| Step | Behavior |
-|------|----------|
-| Launch | `boot.tscn` → `title.tscn` |
-| Press Start | → `strange_man.tscn` (dialogue above) → Continue |
-| Coin flip | Player picks **heads/tails**, flip animation (stub OK), **player wins flip → player moves first** |
-| Scenario | Play until win / lose / draw |
-| Win or lose | Return to **title** (main menu) |
-| Draw replay | **Skip Strange Man**; set `GameFlow.skip_strange_man_on_next_run = true` before title → **coin flip again**; reshuffle decks, new **starting hand 3**, empty board |
+### Invalid column UX
 
-### 4.2 Board
+- **Full column:** shake + error SFX + toast (e.g. “Column full”).
+- **Blocked** (future): same + **“A Goob stops you from playing here”**.
 
-- **7 columns × 6 rows**, **empty** at scenario start.
-- Drop: chosen column → **lowest empty row** (gravity).
-- **Win:** four in a row (H/V/diag), **either side**. No point threshold in v0.1.
-- **Lose:** opponent four in a row only.
-- **Resolution order:** piece **lands** → **special effect** → **win check last**.
+### AI (v0.1)
 
-### 4.3 Turn structure
+Win if possible → block player’s immediate 4 → else reasonable heuristic (not random). Stub in `opponent_ai.gd` is not shipping quality.
 
-- Strict **alternation** (after coin flip determines first player).
-- Each turn: **draw 1** from deck (if deck not empty), then **play exactly 1** Goob from hand (unless a future effect says otherwise).
-- **No skipping turns.**
-- **Starting hand:** 3 after shuffle at scenario start.
-- **Max hand size:** 10.
+### Tech
 
-### 4.4 Decks (player + opponent)
-
-- **Identical composition:** 18× Vanilla + 1× Convincing + 1× Fat + 1× Popular = **21 cards**.
-- **Shuffle once** at scenario start; **no reshuffle** when deck empty.
-- **Empty deck:** cannot draw; may still play from hand until hand empty.
-- **Draw stalemate:** both sides cannot draw and cannot play (define precisely: empty hands + empty decks, no win) → **draw** → replay per §4.1.
-
-### 4.5 Goobs (starter roster)
-
-| ID | Name | Mult | Effect (after landing, 8-way adjacency from **landed cell**) |
-|----|------|------|---------------------------------------------------------------|
-| vanilla | Vanilla Goob | 1.0 | None |
-| convincing | Convincing Goob | 0.5 | Flip **random adjacent opposing** Goob to yours |
-| fat | Fat Goob | 0.5 | **Destroy random adjacent** Goob |
-| popular | Popular Goob | 0.5 | **Extra Vanilla** in **random column**, then gravity |
-
-**Scoring (v0.1 UI):** Sum **multipliers** of Goobs in the **winning line of four**; show on win screen. Money/shop **skipped**.
-
-### 4.6 Invalid placement UX
-
-- **Full column:** shake + error sound + toast (e.g. “Column full”).
-- **Blocked cell** (future freeze Goobs): same shake + sound + toast: **“A Goob stops you from playing here”**.
-
-### 4.7 Opponent AI (v0.1)
-
-- **Win immediately** if possible.
-- **Block** player’s immediate four-in-a-row if any column prevents it.
-- Otherwise play **human-like** (use hand/deck — not pure random). Stub in `OpponentAI` is placeholder only.
-- Full game will add easy/med/hard/boss tiers — **not now**.
-
-### 4.8 Presentation
-
-- **Red vs blue** sides (add pattern/shape redundancy before shipping accessibility).
-- Mouse only.
+- **1920×1080**, mouse only, red vs blue.
+- Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_3d.tscn` (isometric 3D, 2D sprites later).
+- Scenes via **`GameFlow`** autoload only (`scripts/core/game_flow.gd`).
+- Goobs: `GoobDefinition` + `.tres`; column rays use layer `board_columns`.
 
 ---
 
-## 5. Repo map (M1 as of commit `d8ac834`)
+## Repo map
 
 ```
-project.godot              # Main scene: scenes/app/boot.tscn; autoload GameFlow
-scenes/app/
-  boot.tscn, title.tscn, strange_man.tscn
+project.godot                 # boot.tscn, autoload GameFlow
+scenes/app/                   # boot, title, strange_man
 scenes/ui/coin_flip.tscn
 scenes/scenario/scenario.tscn
 scenes/board/board_view_3d.tscn
-scripts/core/
-  game_flow.gd             # SceneKey enum, player_moves_first, skip_strange_man_on_next_run
-  boot.gd
-scripts/app/title.gd, strange_man.gd
-scripts/ui/coin_flip.gd    # Heads/tails + stub flip
-scripts/scenario/scenario_placeholder.gd
-scripts/rules/board_state.gd   # 7×6 grid stub — NO drops/win detect yet
-scripts/board/board_view_3d.gd # Visual grid quads only
-scripts/goobs/goob_definition.gd
-scripts/deck/starter_deck.gd
-scripts/ai/opponent_ai.gd  # Returns column 3 — replace in M6
-resources/goobs/
-  vanilla_goob.tres, convincing_goob.tres, fat_goob.tres, popular_goob.tres
-  starter_deck.json
+scripts/core/game_flow.gd
+scripts/rules/board_state.gd  # extend for M2+
+scripts/goobs/, scripts/deck/, scripts/ai/
+resources/goobs/*.tres, starter_deck.json
 ```
-
-### Key types already defined
 
 ```gdscript
-# GoobDefinition.EffectType
-NONE, FLIP_ADJACENT, DESTROY_ADJACENT, EXTRA_VANILLA_DROP
-
-# BoardState.CellOwner
-EMPTY, PLAYER, OPPONENT
+# BoardState.CellOwner — EMPTY, PLAYER, OPPONENT
+# GoobDefinition.EffectType — NONE, FLIP_ADJACENT, DESTROY_ADJACENT, EXTRA_VANILLA_DROP
 ```
 
 ---
 
-## 6. What M1 already does vs missing
+## Milestones
 
-| Done (M1) | Not done yet |
-|-----------|----------------|
-| Scene flow wired | Real column pick + drops |
-| Strange Man text | Connect-four detection |
-| Coin flip logic (random) | Turn loop with sides |
-| BoardState empty grid | Deck shuffle, hand UI, draw/play |
-| 3D grid placeholder | Special Goob effects |
-| Goob `.tres` + JSON | AI beyond stub |
-| | Win/lose/draw overlays + score |
-| | Coin flip animation |
-| | Sprite3D Goobs on board |
+Tick in commit messages. **Do not start M(n+1) until M(n) is playable.**
 
----
+### M1 — Project shell ✅
 
-## 7. Suggested implementation order (milestones)
+Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `BoardState` stub.
 
-Implement in order; each milestone should be playable/testable.
+### M2 — Board core ← **you are here**
 
-### M2 — Board core
+- [ ] `BoardState`: `drop(col, owner) -> row or -1`, `column_full`, `find_winner()`
+- [ ] Mouse column pick (raycast or buttons); full-column feedback
+- [ ] View syncs tokens on grid (quads/Sprite3D OK)
 
-- Extend `BoardState`: `drop(column, owner) -> row or -1`, `column_full`, `find_winner() -> owner or none`.
-- Raycast or column buttons → drop for **both** PLAYER and OPPONENT (temporary hotkeys OK for test).
-- Full-column feedback (shake + sound + toast).
-- Sync `board_view_3d` (or new script) to place/remove visual tokens.
+**Test:** F5 → reach scenario → drops stack correctly; full column shakes/toast; four in a row detectable (temp both sides OK).
 
 ### M3 — Turn loop
 
-- Track `active_side`, enforce alternation after coin flip.
-- End scenario on win/lose; overlay + return to title via `GameFlow.return_to_title()`.
-- Draw detection stub (can defer full stalemate until M4).
+- [ ] Alternate sides after coin flip; end on win/lose; overlay → Title via `GameFlow`
+- [ ] Draw replay flag path
 
-### M4 — Decks and hands
+**Test:** Full win/lose returns to title; draw path skips Strange Man on retry.
 
-- Build deck from `starter_deck.json`, shuffle, draw pile + hand arrays per side.
-- Start with 3 cards; draw 1 at turn start; play 1 per turn; max hand 10.
-- Empty deck rules; draw-replay reshuffle + `skip_strange_man_on_next_run`.
+### M4 — Decks & hands
+
+- [ ] Load/shuffle `starter_deck.json`; draw pile + hand per side
+- [ ] Turn draw/play rules; empty deck; draw stalemate → replay
+
+**Test:** Hands visible; deck counts behave; stalemate replays correctly.
 
 ### M5 — Goob effects
 
-- Hand UI: show Goob name + `effect_description`; click Goob then column to play.
-- On play: land → resolve effect → win check.
-- Implement flip / destroy / extra vanilla per §4.5.
-- Win screen: multiplier sum on winning four.
+- [ ] Hand UI: pick Goob, then column; land → effect → win check
+- [ ] Flip / destroy / extra vanilla; win screen shows multiplier sum
 
-### M6 — AI + polish
+**Test:** Each special once in a session; order land → effect → win.
 
-- Replace `OpponentAI.choose_column` with win/block/heuristic search (consider 1-ply win + block).
-- Drop animations, connect highlight, coin flip animation.
-- Smoke-test full acceptance criteria A1–A8 from vertical slice doc.
+### M6 — AI & polish
+
+- [ ] Real `OpponentAI`; drop/highlight animations; coin flip anim
+- [ ] Smoke **A1–A8**
 
 ---
 
-## 8. Acceptance checklist (v0.1 “done”)
+## Ship checklist (v0.1 done)
 
-- [ ] A1 Menu → scenario → menu
-- [ ] A2 Scenario shows goals (four in a row; score explanation)
+- [ ] A1 Menu ↔ scenario
+- [ ] A2 Scenario goals visible
 - [ ] A3 Deck/hand/draw rules
-- [ ] A4 Connect 4 placement + 4-in-a-row
+- [ ] A4 Connect 4 + detection
 - [ ] A5 Win + multiplier score
 - [ ] A6 Lose on opponent 4
 - [ ] A7 No softlocks after end
@@ -230,42 +170,34 @@ Implement in order; each milestone should be playable/testable.
 
 ---
 
-## 9. Explicitly OUT of scope (do not build unless Sean asks)
+## Out of scope (unless Sean asks)
 
-- Multi-scenario runs, shop, encounters, money, meta unlocks, achievements
-- Non–7×6 boards, campaign map
-- Mobile, Steam API, networking, saves
-- Full accessibility suite (design targets exist in GDD for later)
-- New Goob types or balance changes not in §4.5
+Multi-scenario runs, shop, encounters, money, meta, saves, networking, mobile, Steam, non–7×6 boards, **new Goob types**, balance changes beyond starter four.
+
+Full-game vision (9+boss, shop, unlocks) lives in Sean’s design doc — **not v0.1 tasks**.
 
 ---
 
-## 10. Claude Code kickoff prompt (paste)
+## Ask Sean (don’t guess)
 
-```text
-I'm building Four in a Rogue in Godot 4.3+ from https://github.com/chumbb/four-in-a-rogue
+- New Goob effects, multipliers, or deck sizes
+- Changes to draw/stalemate, AI personality, or UX copy beyond locked strings
+- Scope creep (“while we’re here…” features)
 
-Read CLAUDE.md or docs/four-in-a-rogue-claude-code-handoff.md if present; otherwise read README.md and implement milestone M2 (board core) per the handoff rules:
-
-- 7×6 Connect 4 logic in BoardState: drop, full column, four-in-a-row detection
-- Mouse column selection with full-column shake/sound/toast
-- Keep grid logic separate from isometric BoardView3D
-- Do not invent new game rules or scope beyond one scenario v0.1
-
-After M2, stop and summarize what to test in the editor (F5).
-```
-
-**Recommendation:** Copy this file into the repo as `docs/CLAUDE_CODE_HANDOFF.md` or `CLAUDE.md` on next commit so Claude Code sees it in-repo.
+Everything else: implement from this file + existing scripts.
 
 ---
 
-## 11. Full game pointer (context only — not v0.1 tasks)
+## Manual test cheat sheet
 
-When v0.1 is fun, expand using `four-in-a-rogue-design.md`:
+| Milestone | F5 flow | Pass if |
+|-----------|---------|---------|
+| M2 | Title → scenario, click columns | Gravity, full column error, 4-in-a-row fires |
+| M3 | Play until win/lose/draw | Returns to title; draw retry skips Strange Man |
+| M4 | Several turns | Draw/play limits; empty deck |
+| M5 | Play each special Goob | Effects match table; score on win line |
+| M6 | Let AI play | Blocks/wins when obvious; no softlock |
 
-- Run: 3 easy + 3 medium + 3 hard scenarios + boss (~30–60 min)
-- Between scenarios: shop OR random encounter
-- Meta: unlock Goobs, build starting decks, high scores, cosmetic achievements
-- PC first, then mobile; one-time purchase
+---
 
-Do **not** implement full-game systems until vertical slice passes.
+*Last updated: 2026-11-01 · Companion: `docs/CLAUDE_CODE_HANDOFF.md` (pointer only)*
