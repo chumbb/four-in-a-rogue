@@ -1,5 +1,5 @@
 ; Engine configuration file.
-; Godot 4.x — pin version in README when opening locally.
+; Godot 4.6.3.
 
 config_version=5
 
@@ -8,7 +8,7 @@ config_version=5
 config/name="Four in a Rogue"
 config/description="Deck-driven Connect 4 roguelike — vertical slice scaffold."
 run/main_scene="res://scenes/app/boot.tscn"
-config/features=PackedStringArray("4.3", "Forward Plus")
+config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]

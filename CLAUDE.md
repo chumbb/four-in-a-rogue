@@ -1,6 +1,6 @@
 # Four in a Rogue — solo dev + Claude Code
 
-**Sean Bishop** · Godot **4.3+** · https://github.com/chumbb/four-in-a-rogue
+**Sean Bishop** · Godot **4.6.3** (develop and test on this version only) · https://github.com/chumbb/four-in-a-rogue
 
 Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement **one milestone per session**, playtest in Godot, commit, stop. **Do not invent mechanics** — if a rule is missing, ask Sean.
 

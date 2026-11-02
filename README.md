@@ -6,12 +6,12 @@ Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`,
 
 ## Requirements
 
-- **Godot 4.3+** (Forward+ renderer). Pin your local editor version here once the team standardizes.
+- **Godot 4.6.3** (Forward+ renderer).
 - Windows / Linux / macOS for development; target is **1920×1080**, **mouse** input for v0.1.
 
 ## Open in Godot
 
-1. Install [Godot 4.3 or newer](https://godotengine.org/download).
+1. Install [Godot 4.6.3](https://godotengine.org/download).
 2. Clone this repo and open the folder containing `project.godot`.
 3. In the Project Manager, **Import** → select `project.godot` (or double-click it).
 4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario**. M2 test harness: left click drops blue (player), right click drops red (opponent), **Reset Board** clears.
