@@ -10,7 +10,7 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 
 | What | Where (Sean’s machine) |
 |------|-------------------------|
-| **Vault root (all games)** | `C:\Users\Sean\Documents\Obsidian\GameDev\` |
+| **Vault root (all games)** | `C:\Users\Sean\Documents\GameDev\` |
 | **v0.1 locked rules (canonical)** | `...\GameDev\Projects\Four-in-a-Rogue\Design\vertical-slice-v0.1.md` |
 | **Full-game GDD** | `...\GameDev\Projects\Four-in-a-Rogue\Design\GDD.md` |
 | **Vault AI rules** | `...\GameDev\CLAUDE.md` |

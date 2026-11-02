@@ -5,7 +5,7 @@
 Sean’s **source of truth** is one Obsidian vault for all games:
 
 ```text
-C:\Users\Sean\Documents\Obsidian\GameDev\
+C:\Users\Sean\Documents\GameDev\
 ├── CLAUDE.md
 ├── Projects/
 │   └── Four-in-a-Rogue/
