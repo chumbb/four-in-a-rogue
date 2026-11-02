@@ -23,6 +23,12 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 
 **Seed vault once:** copy everything from `docs/game-dev-vault-seed/` into your `GameDev` folder.
 
+**Record everything in the vault (Sean, 2026-11-02):** every Claude and Cursor session stores its work in the GameDev vault, during the session:
+- Session summary → `Projects/Four-in-a-Rogue/Session-Logs/YYYY-MM-DD <Claude|Cursor> - <topic>.md`
+- Decisions Sean makes → append to `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`; if a rule changed, update the vault spec and §Locked rules here
+- Research / findings → `Projects/Four-in-a-Rogue/Research/<title>.md`
+- Read the latest session log and decision log before starting. Local `claude` uses the Obsidian MCP; Claude app sessions use folder access to the vault; Cursor follows `.cursor/rules/obsidian-vault.mdc`.
+
 ---
 
 ## Start here (copy into Claude Code)
