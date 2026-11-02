@@ -50,3 +50,7 @@ Store AI session archives in `Projects/<Game>/Session-Logs/` (e.g. from `/compre
 
 - Do not delete `Design/vertical-slice-v0.1.md` sections without Sean’s approval
 - Do not move locked rules into code comments only—vault stays authoritative
+
+## Obsidian MCP
+
+Sean uses Local REST API + `obsidian-mcp-server` in Cursor and Claude Code. Setup: Godot repo `docs/CLAUDE_CODE_MCP.md`. Keep Obsidian open on this vault when using MCP tools.
