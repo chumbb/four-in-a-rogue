@@ -81,13 +81,16 @@ theme_override_font_sizes/font_size = 16
 autowrap_mode = 3
 text = "7×6 grid placeholder"
 
-[node name="ResetBoardButton" type="Button" parent="HUD/Sidebar"]
+[node name="EndButton" type="Button" parent="HUD/Sidebar"]
+unique_name_in_owner = true
+visible = false
 layout_mode = 2
-text = "Reset Board (M2 test)"
+theme_override_font_sizes/font_size = 24
+text = "Back to title"
 
 [node name="BackToMenuButton" type="Button" parent="HUD/Sidebar"]
 layout_mode = 2
 text = "Back to title (stub)"
 
 [connection signal="pressed" from="HUD/Sidebar/BackToMenuButton" to="." method="_on_back_to_menu_pressed"]
-[connection signal="pressed" from="HUD/Sidebar/ResetBoardButton" to="." method="_on_reset_board_pressed"]
+[connection signal="pressed" from="HUD/Sidebar/EndButton" to="." method="_on_end_pressed"]

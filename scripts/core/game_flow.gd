@@ -19,8 +19,6 @@ const SCENE_PATHS: Dictionary = {
 
 ## Set after coin flip stub; true = player moves first.
 var player_moves_first: bool = true
-## Draw replay skips Strange Man and goes straight to coin flip (v0.1 rules).
-var skip_strange_man_on_next_run: bool = false
 
 
 func go_to(key: SceneKey) -> void:
@@ -32,11 +30,12 @@ func go_to(key: SceneKey) -> void:
 
 
 func begin_play_flow_from_title() -> void:
-	if skip_strange_man_on_next_run:
-		skip_strange_man_on_next_run = false
-		go_to(SceneKey.COIN_FLIP)
-	else:
-		go_to(SceneKey.STRANGE_MAN)
+	go_to(SceneKey.STRANGE_MAN)
+
+
+## Draw replay skips Title and Strange Man: straight back to the coin flip.
+func replay_after_draw() -> void:
+	go_to(SceneKey.COIN_FLIP)
 
 
 func return_to_title() -> void:
