@@ -103,10 +103,15 @@ func set_owner(column: int, row: int, owner: CellOwner) -> bool:
 	return true
 
 
-## Empties a cell (M5: destroy). Does not apply gravity — §4.5 does not specify
-## collapse after a destroy, so none is done here.
-func clear_cell(column: int, row: int) -> bool:
-	return set_owner(column, row, CellOwner.EMPTY)
+## Destroys the Goob at (column, row) (M5: Fat Goob). Goobs above it fall one
+## row so the column has no gaps. Returns false if out of bounds or empty.
+func destroy_cell(column: int, row: int) -> bool:
+	if not in_bounds(column, row) or _cells[row][column] == CellOwner.EMPTY:
+		return false
+	for r in range(row, ROWS - 1):
+		_cells[r][column] = _cells[r + 1][column]
+	_cells[ROWS - 1][column] = CellOwner.EMPTY
+	return true
 
 
 # --- Win detection ---------------------------------------------------------
