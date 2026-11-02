@@ -1,6 +1,6 @@
 # Claude Code handoff — Four in a Rogue
 
-**Owner:** Sean Bishop · **Repo:** https://github.com/chumbb/four-in-a-rogue · **Engine:** Godot 4.3+
+**Owner:** Sean Bishop · **Repo:** https://github.com/chumbb/four-in-a-rogue · **Engine:** Godot 4.6.3 (only)
 
 Read **`CLAUDE.md`** at repo root too (Claude Code loads it automatically). **Design docs live in Obsidian**, not in this repo.
 
@@ -34,11 +34,11 @@ claude
 ## Kickoff prompt (paste each session)
 
 ```text
-You are coding Four in a Rogue (Godot 4.3+) in this repo.
+You are coding Four in a Rogue (Godot 4.6.3) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md (MCP or path on disk).
-3. Implement the next incomplete milestone (currently M2 — board core).
+3. Implement the next incomplete milestone (currently M3 — turn loop).
 4. One milestone only; small commits; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.
@@ -53,28 +53,35 @@ If a design rule is missing, ask Sean — do not guess.
 | Milestone | Status | Deliverable |
 |-----------|--------|-------------|
 | M1 Shell | Done | Menu → Strange Man → coin flip → scenario placeholder |
-| **M2 Board core** | **Next** | `BoardState` drop/win, column input, full-column UX, view sync |
-| M3–M6 | Queued | See `CLAUDE.md` §Milestones |
+| M2 Board core | Done (merged to `main`) | `BoardState` drop/win/outcome, mouse column picking, full-column UX, view sync, headless tests |
+| Upright 3D board | Branch `upright-board` — awaiting Sean's playtest | Real-game upright board; physics-ready frame (layer `board_frame`) |
+| **M3 Turn loop** | **Next** | Alternate sides after coin flip; win/lose overlay → Title; draw replay flag path |
+| M4–M6 | Queued | See `CLAUDE.md` §Milestones |
 
-### M2 acceptance (short)
+### M3 acceptance (short)
 
-- `BoardState.drop(col, owner)`, `column_full`, `find_winner()`
-- Mouse column pick; shake + SFX + toast on full column
-- Isometric view reflects grid (quads/Sprite3D OK)
-- **Test:** F5 → scenario → gravity works; 4-in-a-row detected
+- Alternate sides after the coin flip; end on win/lose; overlay → Title via `GameFlow`
+- Draw replay flag path (`GameFlow.skip_strange_man_on_next_run`)
+- **Test:** full win/lose returns to title; draw retry skips Strange Man
+
+### Decided by Sean (not in the slice doc yet)
+
+- Destroyed Goob: pieces above fall (`BoardState.destroy_cell`)
+- Both sides connect four on the same play: draw (`BoardState.Outcome.DRAW`)
+- Enemy red, player blue
 
 ---
 
 ## Repo layout (code)
 
 ```
-scripts/rules/board_state.gd   # extend for M2
+scripts/rules/board_state.gd   # grid truth (M2 done)
 scripts/core/game_flow.gd      # scene flow only
 scenes/board/board_view_3d.tscn
 resources/goobs/, starter_deck.json
 ```
 
-Presentation: isometric 3D board, 2D sprites later; **player blue, enemy red**; mouse only; 1920×1080.
+Presentation: flat iso board on `main`; upright 3D board on branch `upright-board`; **player blue, enemy red**; mouse only; 1920×1080.
 
 ---
 
@@ -111,7 +118,9 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 ## Git
 
 - Remote: `https://github.com/chumbb/four-in-a-rogue`
-- Commit messages: `M2: <short description>`
+- Commit messages: `M3: <short description>`
+- Editor toolbar **Git: [branch] [Sync]** (addon `git_sync`) switches branch + pulls from inside Godot
+- Headless tests: `godot --headless -s res://tests/<file>.gd` (all in `tests/`)
 - Do not commit `.mcp.json` or secrets
 
 ---

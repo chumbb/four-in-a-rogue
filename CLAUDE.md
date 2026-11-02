@@ -1,6 +1,6 @@
 # Four in a Rogue — solo dev + Claude Code
 
-**Sean Bishop** · Godot **4.3+** · https://github.com/chumbb/four-in-a-rogue
+**Sean Bishop** · Godot **4.6.3** (develop and test on this version only) · https://github.com/chumbb/four-in-a-rogue
 
 Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement **one milestone per session**, playtest in Godot, commit, stop. **Do not invent mechanics** — if a rule is missing, ask Sean.
 
@@ -30,14 +30,14 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently M2). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently M3). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M1** shell + scene flow | **M2** board core (drops, win detect, column UX) |
-| Open `project.godot` → **F5** | Expected today: menu → Strange Man → coin flip → empty grid |
+| **M2** board core ✅ (merged to `main`) | **M3** turn loop |
+| Open `project.godot` → **F5** | Expected today: menu → Strange Man → coin flip → scenario with M2 test harness (left click = blue/player, right click = red/enemy) |
 
 ---
 
@@ -140,15 +140,15 @@ Tick in commit messages. **Do not start M(n+1) until M(n) is playable.**
 
 Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `BoardState` stub.
 
-### M2 — Board core ← **you are here**
+### M2 — Board core ✅
 
-- [ ] `BoardState`: `drop(col, owner) -> row or -1`, `column_full`, `find_winner()`
-- [ ] Mouse column pick (raycast or buttons); full-column feedback
-- [ ] View syncs tokens on grid (quads/Sprite3D OK)
+- [x] `BoardState`: `drop(col, owner) -> row or -1`, `column_full`, `find_winner()`
+- [x] Mouse column pick (raycast or buttons); full-column feedback
+- [x] View syncs tokens on grid (quads/Sprite3D OK)
 
 **Test:** F5 → reach scenario → drops stack correctly; full column shakes/toast; four in a row detectable (temp both sides OK).
 
-### M3 — Turn loop
+### M3 — Turn loop ← **you are here**
 
 - [ ] Alternate sides after coin flip; end on win/lose; overlay → Title via `GameFlow`
 - [ ] Draw replay flag path
