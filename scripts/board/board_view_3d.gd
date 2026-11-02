@@ -60,16 +60,16 @@ func sync_from_board(board: BoardState) -> void:
 	for row in ROWS:
 		for column in COLUMNS:
 			var cell := Vector2i(column, row)
-			var owner := board.get_owner(column, row)
+			var side := board.get_owner(column, row)
 			var had: BoardState.CellOwner = _token_owner.get(cell, BoardState.CellOwner.EMPTY)
-			if owner == had:
+			if side == had:
 				continue
 			if _tokens.has(cell):
 				_tokens[cell].queue_free()
 				_tokens.erase(cell)
 				_token_owner.erase(cell)
-			if owner != BoardState.CellOwner.EMPTY:
-				_spawn_token(cell, owner)
+			if side != BoardState.CellOwner.EMPTY:
+				_spawn_token(cell, side)
 	clear_highlight()
 
 
@@ -216,18 +216,18 @@ func _build_hover_bar() -> void:
 	_pivot.add_child(_hover_bar)
 
 
-func _spawn_token(cell: Vector2i, owner: BoardState.CellOwner) -> void:
+func _spawn_token(cell: Vector2i, side: BoardState.CellOwner) -> void:
 	var token := MeshInstance3D.new()
 	token.mesh = _token_mesh
-	token.material_override = _material_for(owner)
+	token.material_override = _material_for(side)
 	token.position = grid_to_world(cell.x, cell.y) + Vector3(0.0, 0.11, 0.0)
 	_pivot.add_child(token)
 	_tokens[cell] = token
-	_token_owner[cell] = owner
+	_token_owner[cell] = side
 
 
-func _material_for(owner: BoardState.CellOwner) -> StandardMaterial3D:
-	return _player_mat if owner == BoardState.CellOwner.PLAYER else _opponent_mat
+func _material_for(side: BoardState.CellOwner) -> StandardMaterial3D:
+	return _player_mat if side == BoardState.CellOwner.PLAYER else _opponent_mat
 
 
 # --- Coordinates -----------------------------------------------------------

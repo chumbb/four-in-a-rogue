@@ -41,21 +41,21 @@ func _build_feedback_nodes() -> void:
 
 
 func _on_column_clicked(column: int, button_index: int) -> void:
-	var owner: BoardState.CellOwner
+	var side: BoardState.CellOwner
 	match button_index:
 		MOUSE_BUTTON_LEFT:
-			owner = BoardState.CellOwner.PLAYER
+			side = BoardState.CellOwner.PLAYER
 		MOUSE_BUTTON_RIGHT:
-			owner = BoardState.CellOwner.OPPONENT
+			side = BoardState.CellOwner.OPPONENT
 		_:
 			return
-	try_drop(column, owner)
+	try_drop(column, side)
 
 
 ## Drop entry point. M3+ turn loop and the AI should call this too.
 ## Returns the landed row, or -1 if the game is over, the column index is
 ## invalid (a caller bug, not player error), or the column is full (feedback).
-func try_drop(column: int, owner: BoardState.CellOwner) -> int:
+func try_drop(column: int, side: BoardState.CellOwner) -> int:
 	if _game_over:
 		return -1
 	if not _board.is_valid_column(column):
@@ -64,7 +64,7 @@ func try_drop(column: int, owner: BoardState.CellOwner) -> int:
 	if _board.column_full(column):
 		_reject_placement(Toast.MSG_COLUMN_FULL)
 		return -1
-	var row := _board.drop(column, owner)
+	var row := _board.drop(column, side)
 	_sfx_drop.play()
 	# §4.2 order: land → special effect (M5) → win check last.
 	_board_view.sync_from_board(_board)
