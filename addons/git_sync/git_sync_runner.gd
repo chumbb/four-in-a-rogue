@@ -20,12 +20,15 @@ static func sync(repo: String, branch: String) -> Dictionary:
 		log.append("Not a git repository: %s" % repo)
 		return result
 
-	var dirty := git(repo, ["status", "--porcelain", "--untracked-files=no"])
-	if dirty.code != 0:
+	# Compare content, not file stats: on Windows `git status` flags files
+	# Godot re-saved with LF over a CRLF checkout even though nothing changed.
+	# Exit code only (0 clean, 1 changed): git also prints CRLF warnings to
+	# stderr, which must not count as changes.
+	var dirty := git(repo, ["diff", "--quiet", "HEAD"])
+	if dirty.code > 1:
 		log.append(dirty.text)
 		return result
-	var dirty_text: String = dirty.text
-	if not dirty_text.is_empty():
+	if dirty.code == 1:
 		var label := "git-sync auto-stash %s" % Time.get_datetime_string_from_system(false, true)
 		# Identity flags only matter if the user has none configured.
 		if not _step(repo, ["-c", "user.name=git-sync", "-c", "user.email=git-sync@localhost",
