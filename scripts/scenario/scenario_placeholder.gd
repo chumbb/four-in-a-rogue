@@ -2,8 +2,8 @@ extends Control
 ## Scenario controller — M2 board-core test harness.
 ##
 ## M2 has no turn loop yet (that's M3), so both sides are driven by hand:
-##   Left click a column  → drop PLAYER (red)
-##   Right click a column → drop OPPONENT (blue)
+##   Left click a column  → drop PLAYER (blue)
+##   Right click a column → drop OPPONENT (red)
 ##   Reset Board button   → clear the grid
 ## A four-in-a-row stops input until reset.
 
@@ -94,10 +94,10 @@ func _check_for_winner() -> void:
 	match _board.get_outcome():
 		BoardState.Outcome.PLAYER_WIN:
 			_board_view.highlight_cells(_board.find_winning_line(BoardState.CellOwner.PLAYER))
-			_end_test_game("Red (player) connects four!")
+			_end_test_game("Blue (player) connects four!")
 		BoardState.Outcome.OPPONENT_WIN:
 			_board_view.highlight_cells(_board.find_winning_line(BoardState.CellOwner.OPPONENT))
-			_end_test_game("Blue (opponent) connects four!")
+			_end_test_game("Red (opponent) connects four!")
 		BoardState.Outcome.DRAW:
 			_board_view.highlight_cells(_board.find_winning_line(BoardState.CellOwner.PLAYER))
 			_board_view.highlight_cells(_board.find_winning_line(BoardState.CellOwner.OPPONENT))
@@ -124,7 +124,7 @@ func _reset_board() -> void:
 
 func _refresh_grid_display() -> void:
 	_grid_label.text = (
-		"M2 test: Left click = red (player), Right click = blue (opponent).\n\n%s"
+		"M2 test: Left click = blue (player), Right click = red (opponent).\n\n%s"
 		% _board.to_debug_string()
 	)
 

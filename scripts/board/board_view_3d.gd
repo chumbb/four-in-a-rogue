@@ -16,8 +16,8 @@ const COLUMN_PICK_LAYER := 1 ## project.godot 3d_physics/layer_1 = "board_column
 
 const COLOR_CELL := Color(0.15, 0.2, 0.35)
 const COLOR_HOVER := Color(1.0, 1.0, 1.0, 0.18)
-const COLOR_PLAYER := Color(0.9, 0.18, 0.2) ## red (§4.8)
-const COLOR_OPPONENT := Color(0.2, 0.42, 0.95) ## blue (§4.8)
+const COLOR_PLAYER := Color(0.2, 0.42, 0.95) ## blue — player
+const COLOR_OPPONENT := Color(0.9, 0.18, 0.2) ## red — enemy (red is the bad guy)
 
 @onready var _camera: Camera3D = $Camera3D
 

@@ -42,6 +42,10 @@ func _run() -> void:
 	_check(board.get_owner(3, 0) == BoardState.CellOwner.PLAYER, "LMB drops player")
 	_check(board.get_owner(3, 1) == BoardState.CellOwner.OPPONENT, "RMB drops opponent")
 	_check(view._tokens.size() == 2, "view shows 2 tokens")
+	var p_col: Color = view._tokens[Vector2i(3, 0)].material_override.albedo_color
+	var o_col: Color = view._tokens[Vector2i(3, 1)].material_override.albedo_color
+	_check(p_col.b > p_col.r, "player token is blue (got %s)" % p_col)
+	_check(o_col.r > o_col.b, "opponent token is red (got %s)" % o_col)
 
 	# Fill column 3 then overfill → rejected, toast visible, board unchanged.
 	for i in 4:
@@ -58,7 +62,7 @@ func _run() -> void:
 	_check(absf(view._pivot.position.x) > 0.001, "board shakes after overfill")
 	_check(cam.get_parent() == view, "camera not under shaking pivot")
 
-	# Win: red across row 0 of columns 0,1,2 + 4 is NOT four (col 3 bottom is red, so 0..3 is).
+	# Win: player across row 0, columns 0..3.
 	scenario._reset_board()
 	_check(view._tokens.is_empty(), "reset clears tokens")
 	for c in [0, 1, 2]:
@@ -67,7 +71,7 @@ func _run() -> void:
 	view.column_clicked.emit(3, MOUSE_BUTTON_LEFT)
 	_check(scenario._game_over, "four ends test game")
 	_check(not view.input_enabled, "view input disabled after win")
-	_check("Red" in scenario._result_label.text, "result names red")
+	_check("Blue (player)" in scenario._result_label.text, "result names blue player")
 	view.column_clicked.emit(5, MOUSE_BUTTON_LEFT)
 	_check(board.is_empty(5, 0), "no drops after win (click)")
 	_check(scenario.try_drop(5, BoardState.CellOwner.OPPONENT) == -1, "try_drop refused after win")
