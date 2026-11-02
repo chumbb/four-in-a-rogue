@@ -52,6 +52,7 @@ Small diff, match existing GDScript style, no new scope. When done: what to pres
 1. **One milestone** (M2…M6) per session unless Sean says otherwise.
 2. **Playtest before the next milestone** — F5, mouse only, full flow for that milestone.
 3. **Small commits** — e.g. `M2: BoardState drop and win check`. No drive-by refactors.
+   **Push every commit/merge right away** — never leave local-only commits; Git Sync in Godot only fast-forwards (Sean, 2026-11-02).
 4. **Logic first** — `BoardState` / rules scripts before polish; 3D view follows grid state.
 5. **No design drift** — no shop, runs, new Goobs, or “nice to have” unless Sean asks.
 6. **Stuck on design?** Ask Sean (see §Ask Sean). Stuck on Godot? Fix with docs; don’t change rules.

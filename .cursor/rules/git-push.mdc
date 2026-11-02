@@ -1,0 +1,10 @@
+---
+description: Always push commits and merges so Sean's Godot Git Sync can fast-forward
+alwaysApply: true
+---
+
+# Push everything you commit (Sean, 2026-11-02)
+
+- After **any** commit or merge, push that branch to `origin` right away. Never leave local-only commits on Sean's machine.
+- Don't merge branches locally (e.g. `main` into `upright-board`) unless you push the result immediately.
+- Why: Sean's editor toolbar **Git Sync** (`addons/git_sync`) only fast-forwards. A local-only commit makes the branch diverge from GitHub and Sync stops.
