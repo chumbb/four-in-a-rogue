@@ -1,6 +1,6 @@
 # Four in a Rogue — solo dev + Claude Code
 
-**Sean Bishop** · Godot **4.6.3** (develop and test on this version only) · https://github.com/chumbb/four-in-a-rogue
+**Sean Bishop** · Godot **4.7** (develop and test on this version only; was 4.6.3 until 2026-11-09) · https://github.com/chumbb/four-in-a-rogue
 
 Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement **one milestone per session**, playtest in Godot, commit, stop. **Do not invent mechanics** — if a rule is missing, ask Sean.
 
@@ -12,7 +12,9 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 |------|-------------------------|
 | **Vault root (all games)** | `C:\Users\Sean\Documents\GameDev\` |
 | **v0.1 locked rules (canonical)** | `...\GameDev\Projects\Four-in-a-Rogue\Design\vertical-slice-v0.1.md` |
-| **Full-game GDD** | `...\GameDev\Projects\Four-in-a-Rogue\Design\GDD.md` |
+| **Full-game GDD** (incl. Art direction) | `...\GameDev\Projects\Four-in-a-Rogue\Design\GDD.md` |
+| **Decision log** | `...\GameDev\Projects\Four-in-a-Rogue\Decisions\Decision-Log.md` |
+| **Art research** | `...\GameDev\Projects\Four-in-a-Rogue\Research\HD 2D art style in Godot.md` |
 | **Vault AI rules** | `...\GameDev\CLAUDE.md` |
 
 **Conflict rule:** If this file disagrees with the vault, **the vault wins**. After changing design in Obsidian, update §Locked rules here if needed.
@@ -20,6 +22,8 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 **Cursor:** Open `four-in-a-rogue.code-workspace` (repo + GameDev vault).
 
 **Claude Code + Obsidian MCP:** Project `.mcp.json` in repo root (gitignored; matches Cursor). Run `claude` from repo root; approve **obsidian** MCP once. Keep **Obsidian open** on GameDev. Setup/troubleshooting: `docs/CLAUDE_CODE_MCP.md`. Session handoff: `docs/CLAUDE_CODE_HANDOFF.md`.
+
+**Art (Sean, 2026-11-09): Claude makes all Goob art and animation directly in Aseprite** through [pixel-plugin](https://github.com/willibrandon/pixel-plugin) (no Blender). Install once in local Claude Code: `claude plugin marketplace add willibrandon/pixel-plugin`, `claude plugin install pixel-plugin`, then `/pixel-setup` (Aseprite 1.3+). Claude app sessions can't reach Aseprite; do art from local `claude`. Painted biome background tooling is still being researched.
 
 **Seed vault once:** copy everything from `docs/game-dev-vault-seed/` into your `GameDev` folder.
 
@@ -36,24 +40,24 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently M3.5 — portrait & touch conversion, after Sean playtests and merges M3). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently M3.5 — portrait & touch conversion incl. Godot 4.7 upgrade, after Sean playtests and merges M3; then M3.6 — 2D board conversion). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** board core ✅ + **upright 3D board** ✅ (on `main`). **M3** turn loop implemented on `m3-turn-loop` (desktop layout) — awaiting Sean's playtest from the local copy, then merge | **M3.5** portrait & touch conversion (vault slice §2A, §2B, §6) |
+| **M2** board core ✅ + **upright 3D board** ✅ (on `main`). **M3** turn loop implemented on `m3-turn-loop` (desktop layout) — awaiting Sean's playtest from the local copy, then merge | **M3.5** portrait & touch conversion (vault slice §2A, §2B, §6), then **M3.6** 2D board |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `m3-turn-loop`: click → Strange Man → flip → turn loop vs opponent (left click drops blue; red answers after 0.6 s; Win / Lose / Draw overlay). Still the old 1920×1080 desktop layout until M3.5 |
 
 ---
 
 ## How we work (solo)
 
-1. **One milestone** (M3.5…M7) per session unless Sean says otherwise.
+1. **One milestone** (M3.5…M7, incl. M3.6) per session unless Sean says otherwise.
 2. **Playtest before the next milestone** — Sean always playtests from the **local copy** at `C:\Users\Sean\four-in-a-rogue` (Sean, 2026-11-09): pull first (Git Sync in Godot), then F5 on his vertical **1080×1920** monitor, **mouse clicks as touch**, full flow for that milestone. Cloud / Claude-app sessions must push so the local copy can pull; tell Sean which branch to check out.
 3. **Small commits** — e.g. `M2: BoardState drop and win check`. No drive-by refactors.
    **Push every commit/merge right away** — never leave local-only commits; Git Sync in Godot only fast-forwards (Sean, 2026-11-02).
-4. **Logic first** — `BoardState` / rules scripts before polish; 3D view follows grid state.
+4. **Logic first** — `BoardState` / rules scripts before polish; the view follows grid state (2D from M3.6).
 5. **No design drift** — no shop, runs, new Goobs, or “nice to have” unless Sean asks.
 6. **Stuck on design?** Ask Sean (see §Ask Sean). Stuck on Godot? Fix with docs; don’t change rules.
 
@@ -93,7 +97,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 
 ### Starter deck (each side)
 
-**17× Vanilla, 1× Convincing, 1× Fat, 1× Popular, 1× Plentiful** (21). Data in `resources/goobs/*.tres` + `starter_deck.json` still has 18 Vanilla and no Plentiful — fix in M4 (deck) / M5 (Plentiful effect).
+**17× Vanilla, 1× Convincing, 1× Fat, 1× Popular, 1× Plentiful** (21). Data in `resources/goobs/*.tres` + `starter_deck.json` (updated 2026-11-09: 17 Vanilla + `plentiful_goob.tres`, `EffectType.DRAW_TWO`). The draw-2 effect itself is implemented in M5.
 
 | Goob | Mult | Effect (8-way adjacency from **landed** cell) | Card text (exact) |
 |------|------|-----------------------------------------------|-------------------|
@@ -109,7 +113,7 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 
 ### Invalid column UX
 
-- **Full column:** shake + error SFX + toast (e.g. “Column full”).
+- **Full column:** greyed while aiming; drop attempt → shake + error SFX + toast (e.g. “Column full”); Goob stays in hand.
 - **Blocked** (future): same + **“A Goob stops you from playing here”**.
 
 ### AI (v0.1)
@@ -120,18 +124,22 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 ### Platform & screen (Sean, 2026-11-09 — vault slice §2A/§2B)
 
 - **iOS/Android phones held vertically (portrait)**, developed portrait-first. A landscape Steam version comes later (not v0.1).
-- `project.godot`: viewport **720×1280** base; window override **1080×1920** (Sean's monitor); handheld orientation **portrait**; stretch **canvas_items** / aspect **expand** / scale **fractional**; `emulate_touch_from_mouse` **on**, `emulate_mouse_from_touch` **on**; renderer **mobile**. Board Camera3D `keep_aspect` = **Keep Width**.
+- `project.godot`: viewport **720×1280** base; window override **1080×1920** (Sean's monitor); handheld orientation **portrait**; stretch **canvas_items** / aspect **expand** / scale **fractional**; `emulate_touch_from_mouse` **on**, `emulate_mouse_from_touch` **on**; default canvas texture filter **Nearest**; pixel art imported **lossless**; `application/run/max_fps` **60** (fixed 60 fps).
+- **Renderer: decided later** (after M7). Project uses **mobile** for now; only use effects that also work in **Compatibility** (no DoF, no CompositorEffects, no HDR 2D). Enable the shader baker at export.
 - **Gameplay input reads `InputEventScreenTouch` / `InputEventScreenDrag` only** (never also the emulated mouse events). Single pointer, no hover, no multitouch. Buttons use normal Control signals.
 - **Safe area:** full-screen background; HUD/board/hand inside a SafeArea MarginContainer from `DisplayServer.get_display_safe_area()`, reapplied on resize; debug toggle simulates phone insets (~110 px top, ~70 px bottom at 720 base). Nothing interactive in the bottom home-gesture strip; hand inset ≥ 24 px from side edges.
-- **Layout (top → bottom, 720 base):** HUD 100 (pause in corner, goal text, turn) · opponent hand 60 (smaller red backs) · flex band (coin result, scoring tally, toasts) · aim lane 100 · board 624 (96 px columns) · player strip 56 (deck, "n/5") · hand 170 (up to 5 Goobs, one row). **Touch-target floor 96 px.**
+- **Layout (top → bottom, 720 base):** HUD 100 (pause in corner, goal text, turn) · opponent hand 60 (smaller red backs) · flex band (coin result, scoring tally, toasts) · aim lane 100 · board (2D pixel board from M3.6: 32 game-px columns ≈ 85 px at 4×; zone heights rechecked in M3.6) · player strip 56 (deck, "n/5") · hand 170 (up to 5 Goobs, one row). **Touch-target floor 96 px** (open: board columns fall just under it, vault slice §5 item 5).
 - **Playing a Goob:** drag (lift > ~12 px, ghost over the column under the finger, **release over board = drop, release outside = cancel**) or tap (tap Goob to select, tap column to aim, **tap same column again = drop**). **No undo.** Column hit area = full column height + aim lane. Full column greyed while aiming; drop attempt = shake + error SFX + toast. Long-press (~0.45 s) on a Goob in hand or on the board = inspect (name + card text). Input locked during the opponent's turn and animations.
 - **Options:** animation speed **Normal / Fast / Skip** (affects play animations and the scoring sequence). **Haptics:** built-in `Input.vibrate_handheld()` only.
 
 ### Tech
 
 - Red vs blue: **enemy red, player blue**.
-- Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_3d.tscn` (upright 3D board like the real game; frame is solid on physics layer `board_frame` so physics Goobs can fall into columns).
-- Presentation direction: Goobs look visually interesting, with **real physics, 3D effects and play animations** (Hearthstone / Marvel Snap); each Goob type has its own animation; the hand is a row of up to 5 faces at the bottom, the opponent's backs smaller at the top.
+- Grid truth: `scripts/rules/board_state.gd`. View today: `scenes/board/board_view_3d.tscn` (upright 3D board). **Replaced in M3.6** by an upright **2D pixel board** (Sean, 2026-11-09).
+- **Presentation (all 2D, Sean 2026-11-09):** layers back to front: painted biome background → board back → Goobs → board front (hole mask) → effects → UI.
+- **Pixel layer:** board, Goobs and aim lane on a **270×480 game-pixel canvas**, **32 px Goobs/columns**, shown at the **largest whole-number scale that fits screen width in physical pixels** (4× at 1080 wide), nearest filtering; Goob positions snap to whole game pixels while moving. Background and Control UI stay on the 720 base.
+- **Goob art:** pixel sprites with a 3D look, drawn and animated by Claude in Aseprite; **lighting baked into the sprites**; **outline from a runtime canvas shader**. Placeholders OK for v0.1. Import via `.aseprite`/sprite sheet → `SpriteFrames`.
+- Presentation direction: Goobs look visually interesting, with **real physics, 3D effects and play animations** (2D sprites with a 3D look) (Hearthstone / Marvel Snap); each Goob type has its own animation; the hand is a row of up to 5 faces at the bottom, the opponent's backs smaller at the top.
 - Scenes via **`GameFlow`** autoload only (`scripts/core/game_flow.gd`).
 - Goobs: `GoobDefinition` + `.tres`; column rays use layer `board_columns`.
 
@@ -144,7 +152,7 @@ project.godot                 # boot.tscn, autoload GameFlow
 scenes/app/                   # boot, title, strange_man
 scenes/ui/coin_flip.tscn
 scenes/scenario/scenario.tscn
-scenes/board/board_view_3d.tscn
+scenes/board/board_view_3d.tscn   # replaced by 2D board in M3.6
 scripts/core/game_flow.gd
 scripts/rules/board_state.gd  # extend for M2+
 scripts/goobs/, scripts/deck/, scripts/ai/
@@ -153,7 +161,7 @@ resources/goobs/*.tres, starter_deck.json
 
 ```gdscript
 # BoardState.CellOwner — EMPTY, PLAYER, OPPONENT
-# GoobDefinition.EffectType — NONE, FLIP_ADJACENT, DESTROY_ADJACENT, EXTRA_VANILLA_DROP
+# GoobDefinition.EffectType — NONE, FLIP_ADJACENT, DESTROY_ADJACENT, EXTRA_VANILLA_DROP, DRAW_TWO
 ```
 
 ---
@@ -183,12 +191,22 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 ### M3.5 — Portrait & touch conversion ← **next**
 
-- [ ] `project.godot` portrait settings (§Platform & screen); Camera3D Keep Width
+- [ ] Open in **Godot 4.7** and let it upgrade the project; commit the result
+- [ ] `project.godot` portrait settings (§Platform & screen)
 - [ ] SafeArea root + simulated-inset debug toggle; background fills the screen
 - [ ] Scenario rebuilt in the portrait zones; title, Strange Man, coin flip, end overlay laid out for portrait, ≥ 96 px targets; tap to start
 - [ ] Board input on touch events: tap column to drop (temporary until M4 hands), full-column feedback; remove mouse hover preview
 
 **Test:** Full M3 loop in portrait at 1080×1920 with mouse-as-touch, and in a tall window (e.g. 1080×2340) with simulated insets.
+
+### M3.6 — 2D board conversion
+
+- [ ] Replace the 3D board with an upright 2D pixel board (back layer + front layer with holes)
+- [ ] 270×480 pixel layer at whole-number scale; placeholder painted background; nearest filtering
+- [ ] Placeholder 32 px Goob sprite + runtime outline shader; 2D drop with pixel snapping
+- [ ] Recheck portrait zone heights. Grid logic unchanged.
+
+**Test:** Same loop with the 2D board at 1080×1920 and 1080×2340; Goobs sit inside columns; no mixed pixel sizes.
 
 ### M4 — Decks & hands
 
@@ -234,7 +252,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 ## Out of scope (unless Sean asks)
 
-Multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types**, balance changes beyond starter four.
+Multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types**, balance changes beyond the starter five, final art (placeholders OK).
 
 Full-game vision: GameDev vault `Design/GDD.md` — **not v0.1 tasks**.
 
@@ -244,6 +262,7 @@ Full-game vision: GameDev vault `Design/GDD.md` — **not v0.1 tasks**.
 
 - New Goob effects, multipliers, or deck sizes
 - Changes to draw/stalemate, AI personality, or UX copy beyond locked strings
+- Open slice items: board column width vs 96 px touch floor (§5 item 5); HUD/hand on the pixel grid or not (§5 item 6)
 - Scope creep (“while we’re here…” features)
 
 Everything else: implement from this file + existing scripts.
@@ -257,10 +276,11 @@ Everything else: implement from this file + existing scripts.
 | M2 | Title → scenario, click columns | Gravity, full column error, 4-in-a-row fires |
 | M3 | Play until win/lose/draw | Returns to title; draw Replay goes to coin flip, skipping Strange Man |
 | M3.5 | Full loop on the portrait monitor, then a tall window with simulated insets | Everything fits inside the safe area; taps work; no hover; nothing under the home strip |
+| M3.6 | Same as M3.5 | 2D board; Goobs sit inside columns; even pixels at 1080×1920 and 1080×2340 |
 | M4 | Several turns, drag and tap | Draw/play limits; hand cap 5; cancel outside board; empty deck |
 | M5 | Play each special Goob | Effects match table; score on win line |
 | M6 | Let AI play | Blocks/wins when obvious; no softlock |
 
 ---
 
-*Last updated: 2026-11-09 (synced to vault slice rebuilt for touch and portrait) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-09 (Godot 4.7; all-2D art direction, Aseprite-only art; M3.6) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*

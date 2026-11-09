@@ -6,6 +6,7 @@ enum EffectType {
 	FLIP_ADJACENT,
 	DESTROY_ADJACENT,
 	EXTRA_VANILLA_DROP,
+	DRAW_TWO,
 }
 
 @export var id: String = ""
