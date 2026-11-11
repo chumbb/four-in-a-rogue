@@ -71,7 +71,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 
 - Boot → Title → **Strange Man** (dialogue below) → **Coin flip** (player picks heads/tails) → Scenario.
 - **Tapping the start screen counts as Press Start** (a mouse click on desktop). Strange Man plays **after every Press Start** (portrait: old man in Goob-land clothes holding one Goob). No separate tutorial.
-- Coin winner moves first (`GameFlow.player_moves_first`). The whole coin flip lasts **≤ 3 s** (Sean, 2026-11-11). **Scenario begins as soon as the flip is decided** (no extra start button).
+- Coin winner moves first (`GameFlow.player_moves_first`). The whole coin flip lasts **≤ 3 s** (Sean, 2026-11-11); M6 animation: coin pops in, ~0.6 s toss, ~0.5 s rest, full-screen flash in the **winner's colour** (blue player / red opponent) + "goes first" banner ~1 s. **Scenario begins as soon as the flip is decided** (no extra start button).
 - Win or lose → scoring sequence → **Title**. **Draw** (no four, or both sides four) → no scoring sequence, skip Strange Man (`GameFlow.replay_after_draw()` on `m3-turn-loop` goes straight to the coin flip), coin flip again, reshuffle decks, hand size 3, empty board.
 
 **Strange Man (exact):**
@@ -90,7 +90,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 | Deck | 21 Goobs each side, identical; shuffle once; **no reshuffle** |
 | Empty deck | No draws; may still play from hand |
 | Out of Goobs | A side with no Goobs (hand + deck) takes no more turns; the other side plays on until the board is full. A four during those turns still ends the scenario |
-| Turn timer | **30 s** per player turn (Sean, 2026-11-10), a per-scenario value; HUD countdown; starts when input unlocks, never runs while input is locked; opponent untimed. Timeout must be **obvious** (Sean 2026-11-11: input locks, "Time's up!" toast + column flash ~0.7 s, then the drop). Timeout → Goob plays into the column under the finger, or (none: never touched / cancelled / released on full column) a **random column, full ones included** |
+| Turn timer | **30 s** per player turn (Sean, 2026-11-10), a per-scenario value; HUD countdown; starts when input unlocks, never runs while input is locked; opponent untimed. Timeout must be **obvious** (Sean 2026-11-11: input locks, "Time's up!" toast + column flash ~0.7 s, then the drop). M6 low-time warning: a **burning fuse** in a strip between board and hand; fuse end = timeout. Timeout → Goob plays into the column under the finger, or (none: never touched / cancelled / released on full column) a **random column, full ones included** |
 | Roll | A Goob played into a full column (only at timeout) lands on top, rolls left/right 50/50, keeps going over full columns, **bounces** off the edge, falls into the first open column; then land → effect → win check |
 | Stalemate | Both cannot draw and cannot play, no win → **draw** → replay per flow |
 | Resolution | **Land → effect → win check last** (Plentiful's draw 2 is its effect) |
@@ -111,7 +111,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 
 Card text = immediate effect only. Random targets: game picks the target first, then that Goob's impact animation plays on it.
 
-**Multipliers are hidden during play.** **Scoring sequence** (one side has four): reveal that line Goob by Goob — lowest column to highest, bottom to top within a column — each shows its multiplier; show the sum; then declare win (player four) or lose (opponent four). Draws skip it.
+**Multipliers are hidden during play.** **Scoring sequence** (one side has four): reveal that line Goob by Goob — lowest column to highest, bottom to top within a column — each bounces and shows its multiplier ~0.6 s apart (Balatro rhythm); short pause; collapse into the sum; then declare win (player four) or lose (opponent four). Draws skip it.
 
 ### Invalid column UX
 
@@ -131,9 +131,9 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 - **Renderer: decided later** (after M7). Project uses **mobile** for now; only use effects that also work in **Compatibility** (no DoF, no CompositorEffects, no HDR 2D). Enable the shader baker at export.
 - **Gameplay input reads `InputEventScreenTouch` / `InputEventScreenDrag` only** (never also the emulated mouse events). Single pointer, no hover, no multitouch. Buttons use normal Control signals.
 - **Safe area:** full-screen background; HUD/board/hand inside a SafeArea MarginContainer from `DisplayServer.get_display_safe_area()`, reapplied on resize; debug toggle simulates phone insets (~110 px top, ~70 px bottom at 720 base). Nothing interactive in the bottom home-gesture strip; hand inset ≥ 24 px from side edges.
-- **Layout (top → bottom, 720 base; revised Sean 2026-11-11):** board **vertically centred**. Above it the HUD: opponent portrait · per-scenario **Objective** · **Quit** top right (quits the scenario; no "Back to title") · run details · turn + timer; then opponent hand 60 (smaller red backs) · aim lane 100 · board. Below it **only the player hand** (up to 5 Goobs, one row), drawn as the **table** the board stands on. Coin result not shown in the scenario. Win/lose/draw = big flashy centred overlay. Open: where the M5 scoring tally and M4 deck count go. **Touch-target floor 96 px** (open: board columns fall just under it, vault slice §5 item 5).
+- **Layout (top → bottom, 720 base; revised Sean 2026-11-11):** board **vertically centred**. Above it the HUD: opponent portrait · per-scenario **Objective** · **Quit** top right (quits the scenario; no "Back to title") · run details · turn + timer; then opponent hand 60 (smaller red backs) · aim lane 100 · board. Below it a thin **turn-timer strip** (fuse, M6), then **only the player hand** (up to 5 Goobs, one row), drawn as the **table** the board stands on. Coin result not shown in the scenario. Win/lose/draw = big flashy centred overlay (lead-in: win → opponent portrait cracks + winning four grin; loss → losing Goobs sad faces). Turn banners: red "Opponent's turn", blue "Your turn" (no tint). Open: where the M5 scoring tally and M4 deck count go. **Touch-target floor 96 px** (open: board columns fall just under it, vault slice §5 item 5).
 - **Column touch (M3.5, Sean 2026-11-10):** touch down on a legal column = **blue flash** over column + aim lane; flash stays while held and follows the finger; **release over a column = drop**, release outside board = cancel (quick tap drops at once). Touching/sliding onto a full column = shake + error SFX + toast **once per entry**, no flash; releasing there = neutral. Input locked from release until the drop finishes.
-- **Playing a Goob (M4):** drag (lift > ~12 px, ghost over the column under the finger, **release over board = drop, release outside = cancel**) or tap (tap Goob to select, tap column to aim, **tap same column again = drop**; how this fits the M3.5 press/hold model is decided at M4, slice §5 item 7). **No undo.** Column hit area = full column height + aim lane. Full column greyed while aiming. **Double tap = inspect** (name + card text; Sean 2026-11-10, was long-press): always on hand Goobs, on board Goobs only when no hand Goob is selected. Input locked during the opponent's turn and animations.
+- **Playing a Goob (M4):** drag (lift > ~12 px, ghost over the column under the finger, **release over board = drop, release outside = cancel**, Goob flies back to hand; **nothing dims**, same blue column flash as M3.5) or tap (tap Goob to select, tap column to aim, **tap same column again = drop**; how this fits the M3.5 press/hold model is decided at M4, slice §5 item 7). **No undo.** Column hit area = full column height + aim lane. Full column greyed while aiming. **Double tap = inspect** (name + card text; Sean 2026-11-10, was long-press): always on hand Goobs, on board Goobs only when no hand Goob is selected. Input locked during the opponent's turn and animations.
 - **Options:** animation speed **Normal / Fast / Skip** (affects play animations and the scoring sequence). **Default Normal; Skip only when the player deliberately turns it on** (Sean, 2026-11-11; revisit if an insanely long effect chain appears). **Haptics:** built-in `Input.vibrate_handheld()` only.
 
 ### Tech
@@ -227,7 +227,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 ### M5 — Goob effects
 
 - [ ] Land → effect → win check; per-type impact animations
-- [ ] Flip / destroy / extra vanilla / draw 2; scoring sequence (flex band) on a one-sided four
+- [ ] Flip / destroy / extra vanilla / draw 2; scoring sequence (Balatro rhythm, ~0.6 s per Goob) on a one-sided four
 
 **Test:** Each special once in a session; order land → effect → win.
 
@@ -235,7 +235,8 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 - [ ] Real `OpponentAI`; flip/drop/impact/highlight animations; coin flip anim
 - [ ] Options menu: animation speed Normal / Fast / Skip; built-in haptics
-- [ ] Low-time turn-timer warning (Sean, 2026-11-10)
+- [ ] Low-time turn-timer warning: burning fuse in the strip between board and hand (Sean, 2026-11-10/11)
+- [ ] Coin flip in winner's colour; red/blue turn banners; win/lose lead-ins (Sean, 2026-11-11)
 - [ ] Smoke **A1–A10**
 
 ### M7 — On-device check (optional for v0.1)
