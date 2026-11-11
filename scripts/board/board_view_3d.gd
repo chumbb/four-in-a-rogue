@@ -125,6 +125,12 @@ func column_rect(column: int) -> Rect2:
 	return Rect2(Vector2(minf(a.x, b.x), minf(a.y, b.y)), (b - a).abs())
 
 
+## Screen y (this view's viewport pixels) of the underside of the board's
+## floor: where it rests on the table.
+func floor_bottom_y() -> float:
+	return _camera.unproject_position(Vector3(0.0, -FLOOR_HEIGHT, 0.0)).y
+
+
 ## Keeps the whole board in view whatever the zone's shape: fit the width in
 ## tall zones (portrait phones), the height in wide ones.
 func _fit_camera() -> void:

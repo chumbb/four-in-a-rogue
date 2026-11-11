@@ -1,8 +1,39 @@
-[gd_scene load_steps=4 format=3 uid="uid://fourinarogue_scenario"]
+[gd_scene load_steps=7 format=3 uid="uid://fourinarogue_scenario"]
 
 [ext_resource type="Script" path="res://scripts/scenario/scenario_placeholder.gd" id="1_sc"]
 [ext_resource type="PackedScene" uid="uid://fourinarogue_board3d" path="res://scenes/board/board_view_3d.tscn" id="2_board"]
 [ext_resource type="Script" path="res://scripts/ui/safe_area.gd" id="3_safe"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_portrait"]
+bg_color = Color(0.2, 0.09, 0.1, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9, 0.18, 0.2, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_objective"]
+bg_color = Color(0.1, 0.11, 0.16, 0.9)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 12.0
+content_margin_top = 6.0
+content_margin_right = 12.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_banner"]
+bg_color = Color(0.05, 0.05, 0.09, 0.92)
+border_width_top = 6
+border_width_bottom = 6
+border_color = Color(1, 0.85, 0.3, 1)
+content_margin_top = 32.0
+content_margin_bottom = 32.0
 
 [node name="Scenario" type="Control"]
 layout_mode = 3
@@ -24,6 +55,21 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.06, 0.07, 0.1, 1)
 
+[node name="Table" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+mouse_filter = 2
+color = Color(0.33, 0.2, 0.12, 1)
+
+[node name="Edge" type="ColorRect" parent="Table"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 8.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.48, 0.31, 0.18, 1)
+
 [node name="SafeArea" type="MarginContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 1
@@ -40,68 +86,123 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 0
 
-[node name="HUD" type="HBoxContainer" parent="SafeArea/Zones"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 100)
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 16
-
-[node name="BackToMenuButton" type="Button" parent="SafeArea/Zones/HUD"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 96)
-layout_mode = 2
-size_flags_vertical = 4
-theme_override_font_sizes/font_size = 22
-text = "Back to title"
-
-[node name="Info" type="VBoxContainer" parent="SafeArea/Zones/HUD"]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-alignment = 1
-
-[node name="Goals" type="Label" parent="SafeArea/Zones/HUD/Info"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Goal: four in a row"
-horizontal_alignment = 1
-
-[node name="TurnLabel" type="Label" parent="SafeArea/Zones/HUD/Info"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 30
-horizontal_alignment = 1
-
-[node name="TimerLabel" type="Label" parent="SafeArea/Zones/HUD"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
-theme_override_font_sizes/font_size = 40
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="OpponentHand" type="Control" parent="SafeArea/Zones"]
-custom_minimum_size = Vector2(0, 60)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="FlexBand" type="VBoxContainer" parent="SafeArea/Zones"]
+[node name="TopArea" type="VBoxContainer" parent="SafeArea/Zones"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
-alignment = 1
+theme_override_constants/separation = 0
 
-[node name="FirstPlayerLabel" type="Label" parent="SafeArea/Zones/FlexBand"]
-unique_name_in_owner = true
+[node name="HudMargin" type="MarginContainer" parent="SafeArea/Zones/TopArea"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "First player: —"
+mouse_filter = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 16
+
+[node name="HudRows" type="VBoxContainer" parent="SafeArea/Zones/TopArea/HudMargin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="HUD" type="HBoxContainer" parent="SafeArea/Zones/TopArea/HudMargin/HudRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="OpponentPortrait" type="PanelContainer" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_portrait")
+
+[node name="Placeholder" type="Label" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/HUD/OpponentPortrait"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Opponent"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Objective" type="PanelContainer" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/HUD"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_objective")
+
+[node name="VBox" type="VBoxContainer" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/HUD/Objective"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="Header" type="Label" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/HUD/Objective/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.64, 0.75, 1)
+theme_override_font_sizes/font_size = 18
+text = "Objective"
 horizontal_alignment = 1
 
-[node name="AimLane" type="Control" parent="SafeArea/Zones"]
+[node name="ObjectiveLabel" type="Label" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/HUD/Objective/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Get four in a row"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="QuitButton" type="Button" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/HUD"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 96)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 26
+text = "Quit"
+
+[node name="StatusRow" type="HBoxContainer" parent="SafeArea/Zones/TopArea/HudMargin/HudRows"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="RunLabel" type="Label" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/StatusRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.6, 0.64, 0.75, 1)
+theme_override_font_sizes/font_size = 22
+text = "Scenario 1/1"
+vertical_alignment = 1
+
+[node name="TurnLabel" type="Label" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/StatusRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+vertical_alignment = 1
+
+[node name="TimerLabel" type="Label" parent="SafeArea/Zones/TopArea/HudMargin/HudRows/StatusRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 34
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="OpponentHand" type="Control" parent="SafeArea/Zones/TopArea"]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Spacer" type="Control" parent="SafeArea/Zones/TopArea"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="AimLane" type="Control" parent="SafeArea/Zones/TopArea"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
@@ -116,42 +217,19 @@ stretch = true
 
 [node name="SubViewport" type="SubViewport" parent="SafeArea/Zones/BoardViewportContainer"]
 handle_input_locally = false
+transparent_bg = true
 size = Vector2i(720, 560)
 render_target_update_mode = 4
 
 [node name="BoardView3D" parent="SafeArea/Zones/BoardViewportContainer/SubViewport" instance=ExtResource("2_board")]
 unique_name_in_owner = true
 
-[node name="PlayerStrip" type="Control" parent="SafeArea/Zones"]
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="ResultLabel" type="Label" parent="SafeArea/Zones/PlayerStrip"]
+[node name="PlayerHand" type="Control" parent="SafeArea/Zones"]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
-theme_override_font_sizes/font_size = 40
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PlayerHand" type="CenterContainer" parent="SafeArea/Zones"]
 custom_minimum_size = Vector2(0, 170)
 layout_mode = 2
+size_flags_vertical = 3
 mouse_filter = 2
-
-[node name="EndButton" type="Button" parent="SafeArea/Zones/PlayerHand"]
-unique_name_in_owner = true
-visible = false
-custom_minimum_size = Vector2(360, 96)
-layout_mode = 2
-theme_override_font_sizes/font_size = 32
-text = "Back to title"
 
 [node name="ColumnFlash" type="ColorRect" parent="."]
 unique_name_in_owner = true
@@ -160,5 +238,61 @@ layout_mode = 0
 mouse_filter = 2
 color = Color(0.3, 0.55, 1, 0.35)
 
-[connection signal="pressed" from="SafeArea/Zones/HUD/BackToMenuButton" to="." method="_on_back_to_menu_pressed"]
-[connection signal="pressed" from="SafeArea/Zones/PlayerHand/EndButton" to="." method="_on_end_pressed"]
+[node name="EndOverlay" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="EndOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.55)
+
+[node name="Banner" type="PanelContainer" parent="EndOverlay"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 14
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_top = -150.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBox_banner")
+
+[node name="VBox" type="VBoxContainer" parent="EndOverlay/Banner"]
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="ResultLabel" type="Label" parent="EndOverlay/Banner/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 16
+theme_override_font_sizes/font_size = 104
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ButtonRow" type="CenterContainer" parent="EndOverlay/Banner/VBox"]
+layout_mode = 2
+
+[node name="EndButton" type="Button" parent="EndOverlay/Banner/VBox/ButtonRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 96)
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Back to title"
+
+[connection signal="pressed" from="SafeArea/Zones/TopArea/HudMargin/HudRows/HUD/QuitButton" to="." method="_on_back_to_menu_pressed"]
+[connection signal="pressed" from="EndOverlay/Banner/VBox/ButtonRow/EndButton" to="." method="_on_end_pressed"]

@@ -6,8 +6,8 @@ extends Control
 ## board cancels. The opponent (OpponentAI) replies after a short delay and a
 ## red flash on its column. Player turns are timed (slice §2B): at timeout the
 ## Goob goes into the column under the finger, else a random column, rolling
-## off full columns. Win/lose shows "Back to title"; a draw shows "Replay"
-## (straight back to the coin flip).
+## off full columns. The result is a big centred announcement: win/lose
+## offers "Back to title", a draw "Replay" (straight back to the coin flip).
 
 const OPPONENT_DELAY_SEC := 0.6
 ## Red flash on the opponent's column right before its Goob is played.
@@ -17,17 +17,21 @@ const TURN_SECONDS := 30.0
 
 const COLOR_FLASH_PLAYER := Color(0.3, 0.55, 1.0, 0.35)
 const COLOR_FLASH_OPPONENT := Color(1.0, 0.2, 0.2, 0.45)
+const COLOR_WIN := Color(1.0, 0.85, 0.3)
+const COLOR_LOSE := Color(1.0, 0.3, 0.3)
+const COLOR_DRAW := Color(0.75, 0.82, 1.0)
 
 @onready var _turn_label: Label = %TurnLabel
 @onready var _timer_label: Label = %TimerLabel
-@onready var _first_player_label: Label = %FirstPlayerLabel
 @onready var _result_label: Label = %ResultLabel
 @onready var _end_button: Button = %EndButton
 @onready var _board_view: Node3D = %BoardView3D
 @onready var _board_container: SubViewportContainer = %BoardViewportContainer
 @onready var _aim_lane: Control = %AimLane
-@onready var _flex_band: Control = %FlexBand
 @onready var _flash: ColorRect = %ColumnFlash
+@onready var _table: ColorRect = %Table
+@onready var _end_overlay: Control = %EndOverlay
+@onready var _banner: Control = %Banner
 
 ## Seconds before the opponent drops. Tests set 0.0 (move immediately).
 var opponent_delay_sec := OPPONENT_DELAY_SEC
@@ -57,14 +61,13 @@ var _touch_column := -1
 
 func _ready() -> void:
 	_rng.randomize()
-	var first := "You" if GameFlow.player_moves_first else "Opponent"
-	_first_player_label.text = "First player (coin flip): %s" % first
 	_build_feedback_nodes()
 	_opponent_timer = _make_timer(_choose_opponent_move)
 	_flash_timer = _make_timer(_on_opponent_flash_done)
 	_turn_timer = _make_timer(_on_turn_timeout)
-	_end_button.visible = false
-	_result_label.text = ""
+	_end_overlay.visible = false
+	_board_container.item_rect_changed.connect(_layout_table.call_deferred)
+	_layout_table.call_deferred()
 	_loop.start(GameFlow.player_moves_first)
 	_board_view.sync_from_board(_loop.board)
 	_after_play()
@@ -73,6 +76,16 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if _input_enabled and not _turn_timer.is_stopped():
 		_timer_label.text = "%ds" % ceili(_turn_timer.time_left)
+
+
+## The table runs from under the board's floor to the bottom of the screen:
+## the board stands on it, and the hand (M4) lies on it.
+func _layout_table() -> void:
+	var sub: SubViewport = _board_container.get_child(0)
+	var box := _board_container.get_global_rect()
+	var top: float = box.position.y + _board_view.floor_bottom_y() * box.size.y / float(sub.size.y)
+	_table.position = Vector2(0.0, top)
+	_table.size = Vector2(size.x, maxf(0.0, size.y - top))
 
 
 func _make_timer(callback: Callable) -> Timer:
@@ -268,19 +281,43 @@ func _play_opponent_move() -> void:
 
 func _show_end() -> void:
 	_set_input_enabled(false)
+	var color := COLOR_DRAW
 	match _loop.result:
 		TurnLoop.Result.PLAYER_WIN:
 			_board_view.highlight_cells(_loop.board.find_winning_line(BoardState.CellOwner.PLAYER))
-			_result_label.text = "Win"
+			_result_label.text = "You Win!"
 			_end_button.text = "Back to title"
+			color = COLOR_WIN
 		TurnLoop.Result.OPPONENT_WIN:
 			_board_view.highlight_cells(_loop.board.find_winning_line(BoardState.CellOwner.OPPONENT))
-			_result_label.text = "Lose"
+			_result_label.text = "You Lose"
 			_end_button.text = "Back to title"
+			color = COLOR_LOSE
 		_:
 			_result_label.text = "Draw"
 			_end_button.text = "Replay"
-	_end_button.visible = true
+	_result_label.add_theme_color_override("font_color", color)
+	(_banner.get_theme_stylebox("panel") as StyleBoxFlat).border_color = color
+	_end_overlay.visible = true
+	_announce.call_deferred()
+
+
+## Placeholder juice: dim fades in, the banner slams in with overshoot and a
+## white flash, then the result text keeps pulsing.
+func _announce() -> void:
+	var dim: Control = _end_overlay.get_node("Dim")
+	_banner.pivot_offset = _banner.size * 0.5
+	_result_label.pivot_offset = _result_label.size * 0.5
+	dim.modulate.a = 0.0
+	_banner.scale = Vector2(1.0, 0.0)
+	_banner.modulate = Color(3.0, 3.0, 3.0)
+	var intro := create_tween().set_parallel()
+	intro.tween_property(dim, "modulate:a", 1.0, 0.25)
+	intro.tween_property(_banner, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	intro.tween_property(_banner, "modulate", Color.WHITE, 0.4)
+	var pulse := create_tween().set_loops()
+	pulse.tween_property(_result_label, "scale", Vector2(1.08, 1.08), 0.45).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(_result_label, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE)
 
 
 ## §4.6 feedback: shake + error sound + toast.
@@ -291,13 +328,10 @@ func _reject_placement(message: String) -> void:
 	_place_toast()
 
 
-## Toasts live in the flex band; when it is too short they overlap the aim lane.
+## Toasts sit just above the aim lane.
 func _place_toast() -> void:
-	var band := _flex_band.get_global_rect()
-	_toast.position = Vector2(
-		(size.x - _toast.size.x) * 0.5,
-		maxf(band.position.y, band.end.y - _toast.size.y - 8.0)
-	)
+	var lane := _aim_lane.get_global_rect()
+	_toast.position = Vector2((size.x - _toast.size.x) * 0.5, lane.position.y - _toast.size.y - 8.0)
 
 
 func _refresh_hud() -> void:

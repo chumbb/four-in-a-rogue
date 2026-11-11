@@ -365,7 +365,7 @@ func _test_win_shows_end() -> void:
 	var view := _view(scenario)
 	var board := _board(scenario)
 	var end_button: Button = scenario.get_node("%EndButton")
-	_check(not end_button.visible, "end button hidden during play")
+	_check(not scenario.get_node("%EndOverlay").visible, "result overlay hidden during play")
 	for c in [0, 1, 2]:
 		board.drop(c, P)
 	for c in [6, 6, 5]:
@@ -374,8 +374,9 @@ func _test_win_shows_end() -> void:
 	_tap(_col_pos(scenario, 3))
 	await process_frame
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "player wins")
-	_check(scenario._result_label.text == "Win", "result label Win (got %s)" % scenario._result_label.text)
-	_check(end_button.visible, "end button visible")
+	_check(scenario._result_label.text == "You Win!", "announces You Win! (got %s)" % scenario._result_label.text)
+	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown")
+	_check(end_button.is_visible_in_tree(), "end button visible")
 	_check(end_button.text == "Back to title", "end button says Back to title")
 	_check(end_button.size.y >= 96.0, "end button ≥ 96 px tall")
 	_check(not scenario._input_enabled, "input disabled after win")
@@ -401,8 +402,9 @@ func _test_draw_shows_replay() -> void:
 	await process_frame
 	var end_button: Button = scenario.get_node("%EndButton")
 	_check(scenario._loop.result == TurnLoop.Result.DRAW, "full board is a draw")
-	_check(scenario._result_label.text == "Draw", "result label Draw (got %s)" % scenario._result_label.text)
-	_check(end_button.visible, "end button visible on draw")
+	_check(scenario._result_label.text == "Draw", "announces Draw (got %s)" % scenario._result_label.text)
+	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown on draw")
+	_check(end_button.is_visible_in_tree(), "end button visible on draw")
 	_check(end_button.text == "Replay", "end button says Replay")
 	_check(not scenario._input_enabled, "input disabled after draw")
 	await _free(scenario)
@@ -430,26 +432,37 @@ func _test_free_during_opponent_delay() -> void:
 	_check(_count(loop.board, O) == 0, "pending opponent move never fired (no O on board)")
 
 
-## Zones stack top to bottom inside the safe area and nothing spills out.
+## Top area, board and hand stack inside the safe area; the board sits in
+## the middle when there is room; Quit is top right; the table starts under
+## the board.
 func _test_layout(size: Vector2i, insets: bool) -> void:
 	root.size = size
 	SafeArea.simulate_insets = insets
 	var scenario := await _make(5.0)
 	await process_frame
+	await process_frame
 	var tag := "%s insets=%s" % [str(size), str(insets)]
 	var top := float(SafeArea.SIM_TOP if insets else 0)
 	var bottom := size.y - float(SafeArea.SIM_BOTTOM if insets else 0)
-	var names := ["HUD", "FlexBand", "AimLane", "BoardViewportContainer"]
-	var y := top
-	for zone_name in names:
-		var rect: Rect2 = scenario.get_node("%" + zone_name).get_global_rect()
-		_check(rect.position.y >= y - 0.5, "%s: %s below the zone above" % [tag, zone_name])
-		y = rect.end.y
-	var hand: Rect2 = scenario.get_node("%EndButton").get_parent().get_global_rect()
-	_check(scenario.get_node("%HUD").get_global_rect().position.y >= top - 0.5, "%s: HUD under the top inset" % tag)
+	var top_area: Rect2 = scenario.get_node("%TopArea").get_global_rect()
+	var board: Rect2 = scenario.get_node("%BoardViewportContainer").get_global_rect()
+	var hand: Rect2 = scenario.get_node("%PlayerHand").get_global_rect()
+	_check(top_area.position.y >= top - 0.5, "%s: top area under the top inset" % tag)
+	_check(board.position.y >= top_area.end.y - 0.5 and hand.position.y >= board.end.y - 0.5, "%s: zones in order" % tag)
 	_check(hand.end.y <= bottom + 0.5, "%s: hand zone above the home strip (%.0f ≤ %.0f)" % [tag, hand.end.y, bottom])
-	_check(scenario.get_node("%FlexBand").size.y >= 0.0, "%s: flex band fits" % tag)
-	_check(scenario.get_node("%BackToMenuButton").size.y >= 96.0, "%s: HUD button ≥ 96 px" % tag)
+	_check(hand.size.y >= 170.0, "%s: hand zone ≥ 170 px" % tag)
+	var lane: Rect2 = scenario.get_node("%AimLane").get_global_rect()
+	_check(is_equal_approx(lane.end.y, board.position.y), "%s: aim lane right above the board" % tag)
+	if top_area.size.y > scenario.get_node("%TopArea").get_combined_minimum_size().y + 0.5:
+		var mid := (top + bottom) * 0.5
+		_check(absf(board.get_center().y - mid) < 1.0, "%s: board centred (%.0f vs %.0f)" % [tag, board.get_center().y, mid])
+	var quit_btn: Button = scenario.get_node("%QuitButton")
+	var quit_rect := quit_btn.get_global_rect()
+	_check(quit_rect.end.x >= size.x - 16.5 and quit_rect.position.y <= top + 10.0, "%s: Quit top right" % tag)
+	_check(quit_btn.text == "Quit" and quit_rect.size.y >= 96.0, "%s: Quit button ≥ 96 px" % tag)
 	_check(scenario.column_hit_rect(3).size.x >= 85.0, "%s: columns ≥ 85 px" % tag)
+	var table: Rect2 = scenario.get_node("%Table").get_global_rect()
+	_check(table.position.y > board.get_center().y and table.position.y <= board.end.y + 0.5, "%s: table starts under the board" % tag)
+	_check(is_equal_approx(table.end.y, size.y), "%s: table runs to the screen bottom" % tag)
 	SafeArea.simulate_insets = false
 	await _free(scenario)
