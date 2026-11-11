@@ -21,6 +21,16 @@ const SCENE_PATHS: Dictionary = {
 var player_moves_first: bool = true
 
 
+## F3 (debug builds only) toggles simulated phone safe-area insets (§2A).
+func _input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
+		SafeArea.simulate_insets = not SafeArea.simulate_insets
+		get_tree().call_group(SafeArea.GROUP, "apply")
+		get_viewport().set_input_as_handled()
+
+
 func go_to(key: SceneKey) -> void:
 	var path: String = SCENE_PATHS.get(key, "")
 	if path.is_empty():

@@ -193,16 +193,16 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Test:** Full win/lose returns to title; draw Replay goes to coin flip, skipping Strange Man (checked in the M3.5 playtest).
 
-### M3.5 — Portrait & touch conversion ← **next**
+### M3.5 — Portrait & touch conversion ← **implemented on `m3.5-portrait-touch`, awaiting Sean's playtest**
 
 - [x] Open in **Godot 4.7** and let it upgrade the project; commit the result (`c81baf4`)
-- [ ] `project.godot` portrait settings (§Platform & screen), renderer → **Mobile**
-- [ ] SafeArea root + simulated-inset toggle on **F3** (debug builds only); background fills the screen
-- [ ] Reserve empty opponent-hand / player-strip / hand zones; keep the 3D board, fitted to the board zone (no polish)
-- [ ] Scenario rebuilt in the portrait zones; title, Strange Man, coin flip, end overlay laid out for portrait, ≥ 96 px targets; tap to start
-- [ ] Board input on touch events: press/hold/release with blue column flash, full-column error once per entry; remove mouse hover preview
-- [ ] Red opponent flash before its drop
-- [ ] 30 s turn timer (per-scenario value) with HUD countdown; timeout auto-play; `BoardState` roll resolver with placeholder animation (Goob appears in its final column)
+- [x] `project.godot` portrait settings (§Platform & screen), renderer → **Mobile**
+- [x] SafeArea root + simulated-inset toggle on **F3** (debug builds only); background fills the screen
+- [x] Reserve empty opponent-hand / player-strip / hand zones; keep the 3D board, fitted to the board zone (no polish)
+- [x] Scenario rebuilt in the portrait zones; title, Strange Man, coin flip, end overlay laid out for portrait, ≥ 96 px targets; tap to start
+- [x] Board input on touch events: press/hold/release with blue column flash, full-column error once per entry; remove mouse hover preview
+- [x] Red opponent flash before its drop
+- [x] 30 s turn timer (per-scenario value) with HUD countdown; timeout auto-play; `BoardState` roll resolver with placeholder animation (Goob appears in its final column)
 
 **Test:** Full M3 loop in portrait at 1080×1920 with mouse-as-touch, and in a tall window (e.g. 1080×2340) with simulated insets.
 

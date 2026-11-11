@@ -16,7 +16,8 @@ script = ExtResource("1_bv")
 environment = SubResource("Environment_board")
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(0.952659, -0.051622, 0.299626, 0, 0.985481, 0.169788, -0.30404, -0.16175, 0.938827, 4.943824, 5.2515, 15.490649)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 14.6)
+keep_aspect = 0
 fov = 30.0
 current = true
 

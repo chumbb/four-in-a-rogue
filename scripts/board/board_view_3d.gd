@@ -1,23 +1,20 @@
 extends Node3D
-## Upright 3D Connect 4 board. Display + column picking only — owns no game
-## rules. The scenario reads BoardState and calls sync_from_board(); clicks
-## come back out through column_clicked.
+## Upright 3D Connect 4 board. Display only — owns no game rules or input.
+## The scenario reads BoardState and calls sync_from_board(), and hit-tests
+## touches against column_rect(). Replaced by the 2D pixel board in M3.6.
 ##
 ## Layout: the board stands on the XY plane like the real game. Column 0..6 →
 ## -x..+x, row 0 is the bottom (just above the floor at y = 0), discs sit on
-## z = 0 between a front panel (with holes) and a back panel.
+## z = 0 between a front panel (with holes) and a back panel. The camera looks
+## straight on, so each column projects to an axis-aligned screen rectangle.
 ##
 ## The frame (floor, dividers, panels) is solid on the board_frame physics
 ## layer, so RigidBody Goobs can fall into the columns later. Row pitch equals
 ## disc diameter, so physically stacked discs land exactly on grid_to_world().
 
-signal column_clicked(column: int, button_index: int)
-signal column_hovered(column: int) ## -1 when the mouse leaves the board
-
 const COLUMNS := BoardState.COLUMNS
 const ROWS := BoardState.ROWS
 
-const COLUMN_PICK_LAYER := 1 ## project.godot 3d_physics/layer_1 = "board_columns"
 const FRAME_LAYER := 2 ## project.godot 3d_physics/layer_2 = "board_frame"
 
 const COLUMN_PITCH := 1.0
@@ -31,8 +28,13 @@ const DIVIDER_THICKNESS := 0.06
 const FLOOR_HEIGHT := 0.2
 const FRAME_MARGIN := 0.2
 
+## Region the camera keeps in view (world units, centred on the camera):
+## the board plus its frame. Horizontal FOV when the zone is narrow.
+const VIEW_WIDTH := 7.8
+const VIEW_HEIGHT := 6.07
+const VIEW_FOV := 30.0
+
 const COLOR_FRAME := Color(0.15, 0.22, 0.42)
-const COLOR_HOVER := Color(1.0, 1.0, 1.0, 0.35)
 const COLOR_PLAYER := Color(0.2, 0.42, 0.95) ## blue — player
 const COLOR_OPPONENT := Color(0.9, 0.18, 0.2) ## red — enemy (red is the bad guy)
 
@@ -42,23 +44,11 @@ const COLOR_OPPONENT := Color(0.9, 0.18, 0.2) ## red — enemy (red is the bad g
 var _pivot: Node3D
 var _tokens: Dictionary = {} ## Vector2i(column, row) -> MeshInstance3D
 var _token_owner: Dictionary = {} ## Vector2i -> BoardState.CellOwner
-var _hover_disc: MeshInstance3D
-var _hovered_column := -1
 var _shake_tween: Tween
 var _frame_mat: StandardMaterial3D
 var _player_mat: StandardMaterial3D
 var _opponent_mat: StandardMaterial3D
 var _disc_mesh: CylinderMesh
-
-var input_enabled := true:
-	set(value):
-		input_enabled = value
-		if not value:
-			_set_hover(-1)
-		elif is_inside_tree():
-			# Restore hover if the cursor is already over a column.
-			_set_hover(_pick_column(get_viewport().get_mouse_position()))
-
 
 func _ready() -> void:
 	_pivot = Node3D.new()
@@ -67,8 +57,8 @@ func _ready() -> void:
 	_build_materials()
 	_build_frame()
 	_build_front_panel()
-	_build_column_colliders()
-	_build_hover_disc()
+	get_viewport().size_changed.connect(_fit_camera)
+	_fit_camera()
 
 
 # --- Public API ------------------------------------------------------------
@@ -125,54 +115,29 @@ func shake() -> void:
 	_shake_tween.tween_property(_pivot, "position:x", 0.0, 0.035)
 
 
-# --- Input -----------------------------------------------------------------
+## Screen rectangle (this view's viewport pixels) of a column's slot, from the
+## floor to the top row. Valid because the camera faces the board head-on.
+func column_rect(column: int) -> Rect2:
+	var bottom_left := Vector3(_column_x(column) - COLUMN_PITCH * 0.5, 0.0, 0.0)
+	var top_right := Vector3(_column_x(column) + COLUMN_PITCH * 0.5, _board_height(), 0.0)
+	var a := _camera.unproject_position(bottom_left)
+	var b := _camera.unproject_position(top_right)
+	return Rect2(Vector2(minf(a.x, b.x), minf(a.y, b.y)), (b - a).abs())
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not input_enabled:
+
+## Keeps the whole board in view whatever the zone's shape: fit the width in
+## tall zones (portrait phones), the height in wide ones.
+func _fit_camera() -> void:
+	var size := Vector2(get_viewport().size)
+	if size.y <= 0.0:
 		return
-	if event is InputEventMouseMotion:
-		_set_hover(_pick_column(event.position))
-	elif event is InputEventMouseButton and event.pressed:
-		# Only left/right are game input; let wheel/middle pass through.
-		if event.button_index != MOUSE_BUTTON_LEFT and event.button_index != MOUSE_BUTTON_RIGHT:
-			return
-		var column := _pick_column(event.position)
-		if column != -1:
-			column_clicked.emit(column, event.button_index)
-			get_viewport().set_input_as_handled()
-
-
-## Call when the mouse leaves the viewport container — the SubViewport stops
-## receiving motion events then, so the view can't detect the exit itself.
-func clear_hover() -> void:
-	_set_hover(-1)
-
-
-## Raycast from the camera through the mouse to the column colliders.
-func _pick_column(screen_pos: Vector2) -> int:
-	if _camera == null:
-		return -1
-	var from := _camera.project_ray_origin(screen_pos)
-	var to := from + _camera.project_ray_normal(screen_pos) * 100.0
-	var query := PhysicsRayQueryParameters3D.create(from, to, _layer_bit(COLUMN_PICK_LAYER))
-	query.collide_with_areas = false
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	if hit.is_empty():
-		return -1
-	return int(hit.collider.get_meta("column", -1))
-
-
-## Shows a ghost disc above the hovered column, where a drop would enter.
-func _set_hover(column: int) -> void:
-	if column == _hovered_column:
-		return
-	_hovered_column = column
-	if column == -1:
-		_hover_disc.visible = false
+	if size.x / size.y <= VIEW_WIDTH / VIEW_HEIGHT:
+		_camera.keep_aspect = Camera3D.KEEP_WIDTH
+		_camera.fov = VIEW_FOV
 	else:
-		_hover_disc.visible = true
-		_hover_disc.position = Vector3(_column_x(column), _board_height() + FRAME_MARGIN + DISC_RADIUS + 0.1, 0.0)
-	column_hovered.emit(column)
+		_camera.keep_aspect = Camera3D.KEEP_HEIGHT
+		var half := tan(deg_to_rad(VIEW_FOV * 0.5)) * VIEW_HEIGHT / VIEW_WIDTH
+		_camera.fov = rad_to_deg(atan(half)) * 2.0
 
 
 # --- Build -----------------------------------------------------------------
@@ -257,40 +222,6 @@ func _build_front_panel() -> void:
 			# Hole position is relative to the panel's centre.
 			hole.position = grid_to_world(column, row) - panel.position + Vector3(0.0, 0.0, panel.position.z)
 			panel.add_child(hole)
-
-
-## One tall box per column on layer board_columns, tagged with its index.
-## Covers the slot plus the space above the board where the ghost disc shows.
-func _build_column_colliders() -> void:
-	var height := _board_height() + ROW_PITCH * 1.2
-	for column in COLUMNS:
-		var body := StaticBody3D.new()
-		body.name = "Column%d" % column
-		body.collision_layer = _layer_bit(COLUMN_PICK_LAYER)
-		body.collision_mask = 0
-		body.set_meta("column", column)
-		var shape := CollisionShape3D.new()
-		var box := BoxShape3D.new()
-		box.size = Vector3(COLUMN_PITCH, height, 1.0)
-		shape.shape = box
-		body.add_child(shape)
-		body.position = Vector3(_column_x(column), height * 0.5, 0.0)
-		_pivot.add_child(body)
-
-
-func _build_hover_disc() -> void:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = COLOR_HOVER
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_hover_disc = MeshInstance3D.new()
-	_hover_disc.name = "HoverDisc"
-	_hover_disc.mesh = _disc_mesh
-	_hover_disc.material_override = mat
-	_hover_disc.rotation_degrees = Vector3(90.0, 0.0, 0.0)
-	_hover_disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_hover_disc.visible = false
-	_pivot.add_child(_hover_disc)
 
 
 func _spawn_token(cell: Vector2i, side: BoardState.CellOwner) -> void:

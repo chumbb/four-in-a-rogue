@@ -27,6 +27,7 @@ func _initialize() -> void:
 	_test_destroy_and_set()
 	_test_board_full()
 	_test_outcomes()
+	_test_roll_target()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -196,3 +197,32 @@ func _test_outcomes() -> void:
 		b.drop(6, O)
 	_check(b.get_outcome() == Outcome.DRAW, "both fours → DRAW")
 	_check(b.find_winner() == E, "find_winner names nobody on mutual four")
+
+
+## Timeout roll (slice §2B): a Goob played into a full column rolls over full
+## columns in one direction, bounces off the edge, and stops at the first open one.
+func _test_roll_target() -> void:
+	var b := BoardState.new()
+	_check(b.roll_target(3, true) == 3, "open column: no roll")
+	_fill(b, 3)
+	_check(b.roll_target(3, true) == 4, "full 3 rolling right lands in 4")
+	_check(b.roll_target(3, false) == 2, "full 3 rolling left lands in 2")
+	_fill(b, 4)
+	_fill(b, 5)
+	_check(b.roll_target(3, true) == 6, "rolls over several full columns")
+	_fill(b, 6)
+	_check(b.roll_target(3, true) == 2, "bounces off the right edge back past the start")
+	_check(b.roll_target(6, true) == 2, "start on the edge, roll into it: bounce")
+	var e := BoardState.new()
+	_fill(e, 0)
+	_check(e.roll_target(0, false) == 1, "left edge bounce goes right")
+	var full := BoardState.new()
+	for c in BoardState.COLUMNS:
+		_fill(full, c)
+	_check(full.roll_target(2, true) == -1, "full board: nowhere to roll")
+	_check(b.roll_target(9, true) == -1, "invalid column")
+
+
+func _fill(b: BoardState, column: int) -> void:
+	for r in BoardState.ROWS:
+		b.drop(column, P if r % 2 == 0 else O)

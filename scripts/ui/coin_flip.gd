@@ -4,9 +4,9 @@ extends Control
 const RESULT_HOLD_SEC := 1.5
 
 @onready var _result_label: Label = %ResultLabel
-@onready var _heads_button: Button = $Center/ChoiceRow/HeadsButton
-@onready var _tails_button: Button = $Center/ChoiceRow/TailsButton
-@onready var _flip_button: Button = $Center/FlipButton
+@onready var _heads_button: Button = %HeadsButton
+@onready var _tails_button: Button = %TailsButton
+@onready var _flip_button: Button = %FlipButton
 
 var _player_choice_heads: bool = true
 var _resolved: bool = false
