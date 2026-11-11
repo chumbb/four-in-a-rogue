@@ -67,13 +67,6 @@ text = "Tails"
 layout_mode = 2
 text = "Flip (stub)"
 
-[node name="ContinueButton" type="Button" parent="Center"]
-unique_name_in_owner = true
-layout_mode = 2
-disabled = true
-text = "Start scenario"
-
 [connection signal="pressed" from="Center/ChoiceRow/HeadsButton" to="." method="_on_heads_pressed"]
 [connection signal="pressed" from="Center/ChoiceRow/TailsButton" to="." method="_on_tails_pressed"]
 [connection signal="pressed" from="Center/FlipButton" to="." method="_on_flip_pressed"]
-[connection signal="pressed" from="Center/ContinueButton" to="." method="_on_continue_pressed"]

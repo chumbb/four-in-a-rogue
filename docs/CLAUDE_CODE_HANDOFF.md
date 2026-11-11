@@ -55,13 +55,13 @@ If a design rule is missing, ask Sean — do not guess.
 | M1 Shell | Done | Menu → Strange Man → coin flip → scenario placeholder |
 | M2 Board core | Done (merged to `main`) | `BoardState` drop/win/outcome, mouse column picking, full-column UX, view sync, headless tests |
 | Upright 3D board | Branch `upright-board` — awaiting Sean's playtest | Real-game upright board; physics-ready frame (layer `board_frame`) |
-| **M3 Turn loop** | **Next** | Alternate sides after coin flip; win/lose overlay → Title; draw replay flag path |
+| **M3 Turn loop** | **Implemented — awaiting Sean's playtest** (branch `m3-turn-loop`) | Alternate sides after coin flip; win/lose overlay → Title; draw replay via `GameFlow.replay_after_draw()` |
 | M4–M6 | Queued | See `CLAUDE.md` §Milestones |
 
 ### M3 acceptance (short)
 
 - Alternate sides after the coin flip; end on win/lose; overlay → Title via `GameFlow`
-- Draw replay flag path (`GameFlow.skip_strange_man_on_next_run`)
+- Draw replay via `GameFlow.replay_after_draw()` (straight to coin flip, skips Strange Man)
 - **Test:** full win/lose returns to title; draw retry skips Strange Man
 
 ### Decided by Sean (2026-11-01, Claude session)

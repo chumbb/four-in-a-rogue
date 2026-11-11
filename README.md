@@ -1,6 +1,6 @@
 # Four in a Rogue
 
-Deck-driven **Connect 4** roguelike (Godot 4, PC-first). Currently at **M2 (board core)**: scene flow, starter Goob data, and a playable upright 7×6 3D board (drops, four-in-a-row, full-column feedback) driven by a test harness — no turns, decks or effects yet.
+Deck-driven **Connect 4** roguelike (Godot 4, PC-first). Currently at **M3 (turn loop)**, awaiting playtest: scene flow, starter Goob data, and a playable upright 7×6 3D board with alternating turns against a win/block/random opponent — no decks or effects yet.
 
 Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`, `four-in-a-rogue-design.md`).
 
@@ -14,7 +14,7 @@ Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`,
 1. Install [Godot 4.6.3](https://godotengine.org/download).
 2. Clone this repo and open the folder containing `project.godot`.
 3. In the Project Manager, **Import** → select `project.godot` (or double-click it).
-4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario**. M2 test harness: left click drops blue (player), right click drops red (opponent), **Reset Board** clears.
+4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario**. A left click on the title is Press Start. Pressing **Flip** locks the choice (Heads and Tails can be changed until then) and the scenario loads after 1.5 s. In the scenario, left click drops blue (player) and red (opponent AI) answers after 0.6 s; the end overlay shows Win / Lose / Draw with **Back to title** or **Replay** (draw, goes to the coin flip).
 
 ## Project layout
 
@@ -42,7 +42,10 @@ Headless, no editor needed:
 
 ```bash
 godot --headless -s res://tests/test_board_state.gd   # BoardState logic
-godot --headless -s res://tests/test_scenario_m2.gd    # scenario scene: picking, drops, full column, win
+godot --headless -s res://tests/test_opponent_ai.gd    # OpponentAI win / block / random column
+godot --headless -s res://tests/test_turn_loop.gd      # TurnLoop alternation and end result
+godot --headless -s res://tests/test_scenario.gd       # scenario scene: picking, drops, full column, turn loop
+godot --headless -s res://tests/test_flow_m3.gd        # title click, coin flip auto-continue, replay flow
 godot --headless -s res://tests/test_git_sync.gd       # Git Sync plugin logic (throwaway local repos)
 ```
 
