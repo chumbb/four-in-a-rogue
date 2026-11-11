@@ -110,6 +110,7 @@ func _test_flip_locks_choice() -> void:
 	var hold: Timer = cf._hold_timer
 	_check(not hold.is_stopped() and hold.time_left > 0.0, "hold timer is running after flip")
 	_check(is_equal_approx(hold.wait_time, cf.RESULT_HOLD_SEC), "hold timer wait_time is RESULT_HOLD_SEC")
+	_check(cf.RESULT_HOLD_SEC <= 3.0, "coin flip lasts no longer than 3 s (Sean, 2026-11-11)")
 	_check(cf.get_node("%FlipButton").disabled, "flip disabled")
 	_check(cf.get_node("%HeadsButton").disabled, "heads disabled")
 	_check(cf.get_node("%TailsButton").disabled, "tails disabled")

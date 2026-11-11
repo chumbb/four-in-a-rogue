@@ -14,6 +14,10 @@ const OPPONENT_DELAY_SEC := 0.6
 const OPPONENT_FLASH_SEC := 0.15
 ## Per-scenario player turn limit (slice §2B); v0.1 has one scenario.
 const TURN_SECONDS := 30.0
+## Timeout auto-play must be obvious (Sean, 2026-11-11): "Time's up!" and a
+## flash on the column for this long before the Goob drops.
+const TIMEOUT_REVEAL_SEC := 0.7
+const MSG_TIMES_UP := "Time's up!"
 
 const COLOR_FLASH_PLAYER := Color(0.3, 0.55, 1.0, 0.35)
 const COLOR_FLASH_OPPONENT := Color(1.0, 0.2, 0.2, 0.45)
@@ -38,6 +42,8 @@ var opponent_delay_sec := OPPONENT_DELAY_SEC
 ## Tests set 0.0 to skip the red flash.
 var opponent_flash_sec := OPPONENT_FLASH_SEC
 var turn_seconds := TURN_SECONDS
+## Tests set 0.0 to drop at once on timeout.
+var timeout_reveal_sec := TIMEOUT_REVEAL_SEC
 
 var _loop := TurnLoop.new()
 var _rng := RandomNumberGenerator.new()
@@ -48,7 +54,9 @@ var _sfx_drop: AudioStreamPlayer
 var _opponent_timer: Timer
 var _flash_timer: Timer
 var _turn_timer: Timer
+var _timeout_timer: Timer
 var _opponent_column := -1
+var _timeout_column := -1
 
 ## Player input is accepted only while true (player turn, nothing animating).
 var _input_enabled := false
@@ -65,6 +73,7 @@ func _ready() -> void:
 	_opponent_timer = _make_timer(_choose_opponent_move)
 	_flash_timer = _make_timer(_on_opponent_flash_done)
 	_turn_timer = _make_timer(_on_turn_timeout)
+	_timeout_timer = _make_timer(_finish_timeout)
 	_end_overlay.visible = false
 	_board_container.item_rect_changed.connect(_layout_table.call_deferred)
 	_layout_table.call_deferred()
@@ -228,14 +237,30 @@ func _play_player(column: int) -> int:
 
 
 ## Timeout: the column under the finger, else a random one (full included).
-## A full column sends the Goob rolling to the first open one (slice §2B).
+## Input locks, "Time's up!" shows and the column flashes, then the Goob drops;
+## a full column sends it rolling to the first open one (slice §2B).
 func _on_turn_timeout() -> void:
 	if _loop.phase != TurnLoop.Phase.PLAYER_TURN:
 		return
 	var column := _touch_column
 	if _touch_index == -1 or column == -1:
 		column = _rng.randi_range(0, BoardState.COLUMNS - 1)
-	_play_player(_loop.board.roll_target(column, _rng.randi() % 2 == 0))
+	_set_input_enabled(false)
+	_timer_label.text = "0s"
+	_timer_label.visible = true
+	_toast.show_message(MSG_TIMES_UP)
+	_place_toast()
+	_timeout_column = _loop.board.roll_target(column, _rng.randi() % 2 == 0)
+	if timeout_reveal_sec > 0.0:
+		_show_flash(column, COLOR_FLASH_PLAYER)
+		_timeout_timer.start(timeout_reveal_sec)
+	else:
+		_finish_timeout()
+
+
+func _finish_timeout() -> void:
+	_hide_flash()
+	_play_player(_timeout_column)
 
 
 func _after_play() -> void:

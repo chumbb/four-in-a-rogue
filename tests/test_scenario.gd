@@ -39,6 +39,7 @@ func _run() -> void:
 	await _test_red_opponent_flash()
 	await _test_turn_timer_hud()
 	await _test_timeout_random()
+	await _test_timeout_is_obvious()
 	await _test_timeout_under_finger()
 	await _test_timeout_rolls_off_full_column()
 	await _test_win_shows_end()
@@ -70,6 +71,7 @@ func _make(delay: float, player_first := true, flash := 0.0, turn := 30.0) -> Co
 	scenario.opponent_delay_sec = delay
 	scenario.opponent_flash_sec = flash
 	scenario.turn_seconds = turn
+	scenario.timeout_reveal_sec = 0.0
 	root.add_child(scenario)
 	await process_frame
 	await process_frame
@@ -333,6 +335,34 @@ func _test_timeout_random() -> void:
 	await create_timer(0.35).timeout
 	_check(_count(board, P) == 1, "timeout with no touch plays a Goob")
 	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "turn passes after timeout")
+	await _free(scenario)
+
+
+## Timeout auto-play is announced before the Goob drops (Sean, 2026-11-11).
+func _test_timeout_is_obvious() -> void:
+	_flow().player_moves_first = true
+	var scenario: Control = load(SCENE).instantiate()
+	scenario.opponent_delay_sec = 5.0
+	scenario.turn_seconds = 0.2
+	scenario.timeout_reveal_sec = 0.4
+	root.add_child(scenario)
+	await process_frame
+	var board := _board(scenario)
+	_touch(_col_pos(scenario, 4), true)
+	await create_timer(0.3).timeout
+	_check(scenario._toast._label.text == "Time's up!", "timeout shows Time's up!")
+	_check(scenario._toast.modulate.a > 0.9, "Time's up! toast visible")
+	_check(scenario._flash.visible, "timeout flashes the column")
+	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(4)), "flash on the held column")
+	_check(not scenario._input_enabled, "input locked during the reveal")
+	_check(scenario._timer_label.text == "0s", "timer reads 0s")
+	_check(_count(board, P) == 0, "Goob not dropped yet during the reveal")
+	_drag(_col_pos(scenario, 1))
+	_touch(_col_pos(scenario, 1), false)
+	await create_timer(0.4).timeout
+	_check(board.get_owner(4, 0) == P, "then drops in the held column")
+	_check(_count(board, P) == 1, "release during the reveal does nothing")
+	_check(not scenario._flash.visible, "flash gone after the drop")
 	await _free(scenario)
 
 

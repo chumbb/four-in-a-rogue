@@ -1,6 +1,7 @@
 extends Control
 
-## Time to read the result before the scenario loads.
+## Time to read the result before the scenario loads. The whole flip, from
+## pressing Flip to play starting, must stay within 3 s (Sean, 2026-11-11).
 const RESULT_HOLD_SEC := 1.5
 
 @onready var _result_label: Label = %ResultLabel
