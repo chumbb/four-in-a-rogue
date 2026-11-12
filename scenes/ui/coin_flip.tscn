@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://fourinarogue_coin_flip"]
+[gd_scene load_steps=3 format=3 uid="uid://fourinarogue_coin_flip"]
 
 [ext_resource type="Script" path="res://scripts/ui/coin_flip.gd" id="1_cf"]
+[ext_resource type="Script" path="res://scripts/ui/safe_area.gd" id="2_safe"]
 
 [node name="CoinFlip" type="Control"]
 layout_mode = 3
@@ -20,53 +21,68 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.09, 0.1, 0.15, 1)
 
-[node name="Center" type="VBoxContainer" parent="."]
+[node name="SafeArea" type="MarginContainer" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -240.0
-offset_top = -160.0
-offset_right = 240.0
-offset_bottom = 160.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 16
+script = ExtResource("2_safe")
+
+[node name="Gutter" type="MarginContainer" parent="SafeArea"]
+layout_mode = 2
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_right = 48
+
+[node name="Center" type="VBoxContainer" parent="SafeArea/Gutter"]
+layout_mode = 2
+theme_override_constants/separation = 32
 alignment = 1
 
-[node name="Title" type="Label" parent="Center"]
+[node name="Title" type="Label" parent="SafeArea/Gutter/Center"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 56
 text = "Coin Flip"
 horizontal_alignment = 1
 
-[node name="ResultLabel" type="Label" parent="Center"]
+[node name="ResultLabel" type="Label" parent="SafeArea/Gutter/Center"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
-autowrap_mode = 2
+theme_override_font_sizes/font_size = 30
 text = "Choose heads or tails."
 horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
 
-[node name="ChoiceRow" type="HBoxContainer" parent="Center"]
+[node name="ChoiceRow" type="HBoxContainer" parent="SafeArea/Gutter/Center"]
 layout_mode = 2
-alignment = 1
-theme_override_constants/separation = 16
+theme_override_constants/separation = 24
 
-[node name="HeadsButton" type="Button" parent="Center/ChoiceRow"]
+[node name="HeadsButton" type="Button" parent="SafeArea/Gutter/Center/ChoiceRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 32
 text = "Heads"
 
-[node name="TailsButton" type="Button" parent="Center/ChoiceRow"]
+[node name="TailsButton" type="Button" parent="SafeArea/Gutter/Center/ChoiceRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 32
 text = "Tails"
 
-[node name="FlipButton" type="Button" parent="Center"]
+[node name="FlipButton" type="Button" parent="SafeArea/Gutter/Center"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "Flip (stub)"
 
-[connection signal="pressed" from="Center/ChoiceRow/HeadsButton" to="." method="_on_heads_pressed"]
-[connection signal="pressed" from="Center/ChoiceRow/TailsButton" to="." method="_on_tails_pressed"]
-[connection signal="pressed" from="Center/FlipButton" to="." method="_on_flip_pressed"]
+[connection signal="pressed" from="SafeArea/Gutter/Center/ChoiceRow/HeadsButton" to="." method="_on_heads_pressed"]
+[connection signal="pressed" from="SafeArea/Gutter/Center/ChoiceRow/TailsButton" to="." method="_on_tails_pressed"]
+[connection signal="pressed" from="SafeArea/Gutter/Center/FlipButton" to="." method="_on_flip_pressed"]

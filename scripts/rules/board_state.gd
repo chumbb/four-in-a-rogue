@@ -88,6 +88,22 @@ func is_board_full() -> bool:
 	return true
 
 
+## Where a Goob played into `column` ends up (slice §2B roll). An open column
+## keeps it. A full one (only at turn timeout) sends it rolling one way —
+## `go_right` is the caller's 50/50 — over full columns, bouncing off the board
+## edge, into the first open column. -1 if the board is full or the column invalid.
+func roll_target(column: int, go_right: bool) -> int:
+	if not is_valid_column(column) or is_board_full():
+		return -1
+	var step := 1 if go_right else -1
+	var c := column
+	while column_full(c):
+		if not is_valid_column(c + step):
+			step = -step
+		c += step
+	return c
+
+
 # --- Mutations -------------------------------------------------------------
 
 ## Drops a Goob for `owner` into `column`. Returns the landed row, or -1 if the

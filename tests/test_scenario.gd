@@ -1,6 +1,8 @@
 extends SceneTree
-## Headless test for the scenario scene: raycast picking, token colours, the
-## player/opponent turn loop, full-column rejection, end overlay, draw replay.
+## Headless test for the scenario scene (M3.5 portrait touch): column hit
+## areas, press/hold/release with the blue flash, cancel, full-column entry
+## error, red opponent flash, turn timer + timeout roll, end overlay, draw
+## replay, and the portrait layout with simulated safe-area insets.
 ## Run: godot --headless -s res://tests/test_scenario.gd
 
 const SCENE := "res://scenes/scenario/scenario.tscn"
@@ -24,18 +26,30 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	root.size = Vector2i(1920, 1080) # headless root defaults to 64×64
+	root.size = Vector2i(720, 1280) # the 720 base; headless root defaults to 64×64
 	var saved_first: bool = _flow().player_moves_first
 
-	await _test_picking_and_player_then_opponent()
-	await _test_right_click_ignored()
-	await _test_click_during_opponent_turn()
-	await _test_full_column_on_player_turn()
+	await _test_hit_areas()
+	await _test_tap_drops_then_opponent()
+	await _test_hold_slide_release()
+	await _test_release_off_board_cancels()
+	await _test_full_column_entry()
+	await _test_touch_during_opponent_turn()
+	await _test_second_finger_and_mouse_ignored()
+	await _test_red_opponent_flash()
+	await _test_turn_timer_hud()
+	await _test_timeout_random()
+	await _test_timeout_is_obvious()
+	await _test_timeout_under_finger()
+	await _test_timeout_rolls_off_full_column()
 	await _test_win_shows_end()
 	await _test_draw_shows_replay()
 	await _test_opponent_first()
-	await _test_real_input()
 	await _test_free_during_opponent_delay()
+	await _test_layout(Vector2i(720, 1280), false)
+	await _test_layout(Vector2i(720, 1280), true)
+	await _test_layout(Vector2i(720, 1560), true)
+	root.size = Vector2i(720, 1280)
 
 	_flow().player_moves_first = saved_first
 	await process_frame
@@ -51,13 +65,16 @@ func _flow() -> Node:
 	return root.get_node("GameFlow")
 
 
-func _make(delay: float, player_first := true) -> Control:
+func _make(delay: float, player_first := true, flash := 0.0, turn := 30.0) -> Control:
 	_flow().player_moves_first = player_first
 	var scenario: Control = load(SCENE).instantiate()
 	scenario.opponent_delay_sec = delay
+	scenario.opponent_flash_sec = flash
+	scenario.turn_seconds = turn
+	scenario.timeout_reveal_sec = 0.0
 	root.add_child(scenario)
-	await physics_frame
-	await physics_frame
+	await process_frame
+	await process_frame
 	return scenario
 
 
@@ -90,38 +107,80 @@ func _fill_owner(column: int, row: int) -> BoardState.CellOwner:
 	return P if ((row / 2) + column) % 2 == 0 else O
 
 
+func _fill_column(scenario: Control, column: int) -> void:
+	var board := _board(scenario)
+	for i in BoardState.ROWS:
+		board.drop(column, O if i % 2 == 0 else P)
+	_view(scenario).sync_from_board(board)
+
+
 func _glows(view: Node3D, cell: Vector2i) -> bool:
 	var mat := view._tokens[cell].material_override as StandardMaterial3D
 	return mat.emission_enabled
 
 
+## Middle of a column's slot, in viewport coordinates.
+func _col_pos(scenario: Control, column: int) -> Vector2:
+	var rect: Rect2 = scenario.column_hit_rect(column)
+	return Vector2(rect.get_center().x, rect.end.y - rect.size.y * 0.3)
+
+
+func _off_board(scenario: Control) -> Vector2:
+	return scenario.get_node("%HUD").get_global_rect().get_center()
+
+
+func _touch(pos: Vector2, pressed: bool, index := 0) -> void:
+	var ev := InputEventScreenTouch.new()
+	ev.index = index
+	ev.position = pos
+	ev.pressed = pressed
+	root.push_input(ev)
+
+
+func _drag(pos: Vector2, index := 0) -> void:
+	var ev := InputEventScreenDrag.new()
+	ev.index = index
+	ev.position = pos
+	root.push_input(ev)
+
+
+func _tap(pos: Vector2) -> void:
+	_touch(pos, true)
+	_touch(pos, false)
+
+
 # --- Tests -------------------------------------------------------------------
 
-func _test_picking_and_player_then_opponent() -> void:
+func _test_hit_areas() -> void:
+	var scenario := await _make(0.0)
+	var aim: Rect2 = scenario.get_node("%AimLane").get_global_rect()
+	var last_right := -1.0
+	for column in BoardState.COLUMNS:
+		var rect: Rect2 = scenario.column_hit_rect(column)
+		_check(scenario.column_at(_col_pos(scenario, column)) == column, "slot hits column %d" % column)
+		var in_lane := Vector2(rect.get_center().x, aim.get_center().y)
+		_check(scenario.column_at(in_lane) == column, "aim lane hits column %d" % column)
+		_check(rect.size.x >= 85.0, "column %d is ≥ 85 px wide (got %.1f)" % [column, rect.size.x])
+		_check(rect.position.x > last_right - 0.5, "columns left to right, no overlap")
+		last_right = rect.end.x
+	_check(scenario.column_at(_off_board(scenario)) == -1, "HUD is off the board")
+	_check(scenario.column_at(Vector2(360, 1270)) == -1, "hand zone is off the board")
+	await _free(scenario)
+
+
+func _test_tap_drops_then_opponent() -> void:
 	var scenario := await _make(0.0)
 	var view := _view(scenario)
-	var cam: Camera3D = view.get_node("Camera3D")
-
-	# Raycast picking: every column centre must resolve to its own index.
-	for column in BoardState.COLUMNS:
-		var screen := cam.unproject_position(view.grid_to_world(column, 2))
-		var picked: int = view._pick_column(screen)
-		_check(picked == column, "pick column %d got %d (screen %s)" % [column, picked, screen])
-	_check(view._pick_column(Vector2(-500, -500)) == -1, "off-board pick returns -1")
-
-	# _test_player_then_opponent
-	view.column_clicked.emit(3, MOUSE_BUTTON_LEFT)
-	await process_frame
-	await process_frame
 	var board := _board(scenario)
-	_check(board.get_owner(3, 0) == P, "LMB drops player at (3,0)")
+	_tap(_col_pos(scenario, 3))
+	await process_frame
+	_check(board.get_owner(3, 0) == P, "tap drops player at (3,0)")
 	_check(_count(board, O) == 1, "opponent replied once (got %d)" % _count(board, O))
 	_check(_count(board, P) == 1, "one player token")
 	_check(scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN, "back to player turn")
 	_check(view._tokens.size() == 2, "view shows 2 tokens (got %d)" % view._tokens.size())
-	_check(view.input_enabled, "input re-enabled for player")
-
-	# Token colours.
+	_check(scenario._input_enabled, "input re-enabled for player")
+	_check(not scenario._flash.visible, "no flash after the drop")
 	var p_col: Color = view._tokens[Vector2i(3, 0)].material_override.albedo_color
 	_check(p_col.b > p_col.r, "player token is blue (got %s)" % p_col)
 	for cell in view._tokens:
@@ -131,52 +190,203 @@ func _test_picking_and_player_then_opponent() -> void:
 	await _free(scenario)
 
 
-func _test_right_click_ignored() -> void:
+func _test_hold_slide_release() -> void:
 	var scenario := await _make(0.0)
 	var board := _board(scenario)
-	var before := board.to_debug_string()
-	_view(scenario).column_clicked.emit(0, MOUSE_BUTTON_RIGHT)
+	var flash: ColorRect = scenario._flash
+	_touch(_col_pos(scenario, 1), true)
+	_check(flash.visible, "press shows the flash")
+	_check(flash.color.b > flash.color.r, "player flash is blue")
+	var lane: Rect2 = scenario.get_node("%AimLane").get_global_rect()
+	var rect1: Rect2 = scenario.column_hit_rect(1)
+	_check(flash.get_global_rect().is_equal_approx(rect1), "flash covers column 1")
+	_check(is_equal_approx(flash.global_position.y, lane.position.y), "flash covers the aim lane")
+	_check(_count(board, P) == 0, "holding does not drop")
+	_drag(_col_pos(scenario, 5))
+	_check(flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(5)), "flash follows to column 5")
+	_touch(_col_pos(scenario, 5), false)
 	await process_frame
-	_check(board.to_debug_string() == before, "RMB leaves board unchanged")
-	_check(scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN, "RMB keeps player turn")
+	_check(board.get_owner(5, 0) == P, "release drops where the finger is (5)")
+	_check(board.get_owner(1, 0) != P, "no player Goob in the pressed column")
 	await _free(scenario)
 
 
-func _test_click_during_opponent_turn() -> void:
-	var scenario := await _make(5.0)
-	var view := _view(scenario)
+func _test_release_off_board_cancels() -> void:
+	var scenario := await _make(0.0)
 	var board := _board(scenario)
-	view.column_clicked.emit(0, MOUSE_BUTTON_LEFT)
-	view.column_clicked.emit(1, MOUSE_BUTTON_LEFT)
-	_check(board.get_owner(0, 0) == P, "first click drops player")
-	_check(board.is_empty(1, 0), "click during opponent turn ignored")
-	_check(_count(board, P) == 1, "only one player token")
-	_check(_count(board, O) == 0, "opponent still waiting on delay")
+	_touch(_col_pos(scenario, 2), true)
+	_drag(_off_board(scenario))
+	_check(not scenario._flash.visible, "flash hides off the board")
+	_touch(_off_board(scenario), false)
+	await process_frame
+	_check(_count(board, P) == 0, "release off the board cancels")
+	_check(scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN, "still player turn")
+	_check(scenario._touch_column == -1, "cancel clears the timeout column")
+	# A press that starts off the board does nothing.
+	_touch(_off_board(scenario), true)
+	_drag(_col_pos(scenario, 2))
+	_touch(_col_pos(scenario, 2), false)
+	_check(_count(board, P) == 0, "gesture starting off the board is ignored")
+	await _free(scenario)
+
+
+func _test_full_column_entry() -> void:
+	var scenario := await _make(0.0)
+	var board := _board(scenario)
+	var view := _view(scenario)
+	_fill_column(scenario, 3)
+	var before := board.to_debug_string()
+	_touch(_col_pos(scenario, 3), true)
+	_check(scenario._toast._label.text == Toast.MSG_COLUMN_FULL, "toast says Column full")
+	_check(scenario._toast.modulate.a > 0.9, "toast visible on entry")
+	_check(scenario._sfx_error.playing, "error sound on entry")
+	_check(not scenario._flash.visible, "no flash on a full column")
+	await process_frame
+	await process_frame
+	_check(absf(view._pivot.position.x) > 0.001, "board shakes on entry")
+	# Staying on the column does not repeat the error.
+	scenario._toast.modulate.a = 0.0
+	_drag(_col_pos(scenario, 3) + Vector2(0, -40))
+	_check(scenario._toast.modulate.a < 0.1, "no repeat while staying on the full column")
+	# Leaving and coming back does.
+	_drag(_col_pos(scenario, 2))
+	_check(scenario._flash.visible, "legal column flashes again")
+	_drag(_col_pos(scenario, 3))
+	_check(scenario._toast.modulate.a > 0.9, "re-entry errors again")
+	_touch(_col_pos(scenario, 3), false)
+	await process_frame
+	_check(board.to_debug_string() == before, "release on a full column: no drop")
+	_check(scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN, "still player turn")
+	_check(scenario._touch_column == -1, "release on full clears the timeout column")
+	_check(scenario.try_drop(3) == -1, "try_drop on full column returns -1")
+	await _free(scenario)
+
+
+func _test_touch_during_opponent_turn() -> void:
+	var scenario := await _make(5.0)
+	var board := _board(scenario)
+	_tap(_col_pos(scenario, 0))
+	_check(board.get_owner(0, 0) == P, "first tap drops player")
+	_tap(_col_pos(scenario, 1))
+	_check(board.is_empty(1, 0), "tap during opponent turn ignored")
+	_check(not scenario._flash.visible, "no flash during opponent turn")
 	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "phase is opponent turn")
-	_check(not view.input_enabled, "input disabled during opponent turn")
-	_check(scenario._toast.modulate.a < 0.1, "no toast for out-of-turn click")
+	_check(not scenario._input_enabled, "input disabled during opponent turn")
+	_check(scenario._turn_timer.is_stopped(), "turn timer stopped while input is locked")
+	_check(not scenario._timer_label.visible, "no countdown on the opponent's turn")
+	_check(scenario._toast.modulate.a < 0.1, "no toast for out-of-turn tap")
 	_check(scenario.try_drop(2) == -1, "try_drop refused during opponent turn")
 	await _free(scenario)
 
 
-func _test_full_column_on_player_turn() -> void:
+func _test_second_finger_and_mouse_ignored() -> void:
 	var scenario := await _make(0.0)
-	var view := _view(scenario)
 	var board := _board(scenario)
-	for i in BoardState.ROWS:
-		board.drop(3, P if i % 2 == 0 else O)
-	view.sync_from_board(board)
-	var before := board.to_debug_string()
-	view.column_clicked.emit(3, MOUSE_BUTTON_LEFT)
-	_check(board.to_debug_string() == before, "full column leaves board unchanged")
-	_check(scenario._toast._label.text == Toast.MSG_COLUMN_FULL, "toast says Column full")
-	_check(scenario._toast.modulate.a > 0.9, "toast visible")
-	_check(scenario._sfx_error.playing, "error sound playing")
-	_check(scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN, "still player turn")
-	_check(scenario.try_drop(3) == -1, "try_drop on full column returns -1")
+	_touch(_col_pos(scenario, 1), true, 0)
+	_touch(_col_pos(scenario, 4), true, 1)
+	_touch(_col_pos(scenario, 4), false, 1)
+	_check(_count(board, P) == 0, "second finger does nothing")
+	_touch(_col_pos(scenario, 1), false, 0)
+	_check(board.get_owner(1, 0) == P, "first finger still drops")
+	# Raw mouse clicks are not gameplay input (they arrive as emulated touches).
 	await process_frame
+	for pressed in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.position = _col_pos(scenario, 6)
+		ev.pressed = pressed
+		root.push_input(ev)
+	_check(_count(board, P) == 1, "raw mouse click ignored")
+	await _free(scenario)
+
+
+func _test_red_opponent_flash() -> void:
+	var scenario := await _make(0.0, true, 0.2)
+	var board := _board(scenario)
+	_tap(_col_pos(scenario, 3))
+	_check(scenario._flash.visible, "opponent flash shows before its drop")
+	_check(scenario._flash.color.r > scenario._flash.color.b, "opponent flash is red")
+	_check(_count(board, O) == 0, "opponent has not dropped during the flash")
+	var col: int = scenario._opponent_column
+	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(col)), "flash on the chosen column")
+	await create_timer(0.35).timeout
+	_check(_count(board, O) == 1, "opponent dropped after the flash")
+	var in_col := false
+	for row in BoardState.ROWS:
+		in_col = in_col or board.get_owner(col, row) == O
+	_check(in_col, "dropped in the flashed column")
+	_check(not scenario._flash.visible, "flash hidden after the drop")
+	await _free(scenario)
+
+
+func _test_turn_timer_hud() -> void:
+	var scenario := await _make(5.0)
+	var label: Label = scenario._timer_label
+	_check(scenario.TURN_SECONDS == 30.0, "slice turn limit is 30 s")
+	_check(label.visible and label.text == "30s", "countdown shows 30s (got '%s')" % label.text)
+	_check(not scenario._turn_timer.is_stopped(), "timer runs on the player turn")
+	_check(scenario.get_node("%TurnLabel").text == "Your turn", "turn label")
+	await _free(scenario)
+
+
+func _test_timeout_random() -> void:
+	var scenario := await _make(5.0, true, 0.0, 0.2)
+	var board := _board(scenario)
+	await create_timer(0.35).timeout
+	_check(_count(board, P) == 1, "timeout with no touch plays a Goob")
+	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "turn passes after timeout")
+	await _free(scenario)
+
+
+## Timeout auto-play is announced before the Goob drops (Sean, 2026-11-11).
+func _test_timeout_is_obvious() -> void:
+	_flow().player_moves_first = true
+	var scenario: Control = load(SCENE).instantiate()
+	scenario.opponent_delay_sec = 5.0
+	scenario.turn_seconds = 0.2
+	scenario.timeout_reveal_sec = 0.4
+	root.add_child(scenario)
 	await process_frame
-	_check(absf(view._pivot.position.x) > 0.001, "board shakes after full column")
+	var board := _board(scenario)
+	_touch(_col_pos(scenario, 4), true)
+	await create_timer(0.3).timeout
+	_check(scenario._toast._label.text == "Time's up!", "timeout shows Time's up!")
+	_check(scenario._toast.modulate.a > 0.9, "Time's up! toast visible")
+	_check(scenario._flash.visible, "timeout flashes the column")
+	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(4)), "flash on the held column")
+	_check(not scenario._input_enabled, "input locked during the reveal")
+	_check(scenario._timer_label.text == "0s", "timer reads 0s")
+	_check(_count(board, P) == 0, "Goob not dropped yet during the reveal")
+	_drag(_col_pos(scenario, 1))
+	_touch(_col_pos(scenario, 1), false)
+	await create_timer(0.4).timeout
+	_check(board.get_owner(4, 0) == P, "then drops in the held column")
+	_check(_count(board, P) == 1, "release during the reveal does nothing")
+	_check(not scenario._flash.visible, "flash gone after the drop")
+	await _free(scenario)
+
+
+func _test_timeout_under_finger() -> void:
+	var scenario := await _make(5.0, true, 0.0, 0.2)
+	var board := _board(scenario)
+	_touch(_col_pos(scenario, 2), true)
+	await create_timer(0.35).timeout
+	_check(board.get_owner(2, 0) == P, "timeout plays into the held column")
+	_check(not scenario._flash.visible, "flash cleared at timeout")
+	_touch(_col_pos(scenario, 2), false) # the finger lifts later
+	_check(_count(board, P) == 1, "late release does not drop again")
+	await _free(scenario)
+
+
+func _test_timeout_rolls_off_full_column() -> void:
+	var scenario := await _make(5.0, true, 0.0, 0.2)
+	var board := _board(scenario)
+	_fill_column(scenario, 6)
+	_touch(_col_pos(scenario, 6), true)
+	await create_timer(0.35).timeout
+	# Column 6 is the right edge: rolling right bounces, rolling left goes 5.
+	_check(board.get_owner(5, 0) == P, "held full edge column rolls into 5")
+	_check(_count(board, P) == 4, "one new player Goob (3 from the fill)")
 	await _free(scenario)
 
 
@@ -185,22 +395,25 @@ func _test_win_shows_end() -> void:
 	var view := _view(scenario)
 	var board := _board(scenario)
 	var end_button: Button = scenario.get_node("%EndButton")
-	_check(not end_button.visible, "end button hidden during play")
+	_check(not scenario.get_node("%EndOverlay").visible, "result overlay hidden during play")
 	for c in [0, 1, 2]:
 		board.drop(c, P)
 	for c in [6, 6, 5]:
 		board.drop(c, O)
 	view.sync_from_board(board)
-	view.column_clicked.emit(3, MOUSE_BUTTON_LEFT)
+	_tap(_col_pos(scenario, 3))
 	await process_frame
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "player wins")
-	_check(scenario._result_label.text == "Win", "result label Win (got %s)" % scenario._result_label.text)
-	_check(end_button.visible, "end button visible")
+	_check(scenario._result_label.text == "You Win!", "announces You Win! (got %s)" % scenario._result_label.text)
+	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown")
+	_check(end_button.is_visible_in_tree(), "end button visible")
 	_check(end_button.text == "Back to title", "end button says Back to title")
-	_check(not view.input_enabled, "input disabled after win")
+	_check(end_button.size.y >= 96.0, "end button ≥ 96 px tall")
+	_check(not scenario._input_enabled, "input disabled after win")
+	_check(scenario._turn_timer.is_stopped(), "timer stopped after win")
 	_check(_glows(view, Vector2i(0, 0)) and _glows(view, Vector2i(3, 0)), "winning line highlighted")
 	_check(_count(board, O) == 3, "opponent did not move after win")
-	view.column_clicked.emit(4, MOUSE_BUTTON_LEFT)
+	_tap(_col_pos(scenario, 4))
 	_check(board.is_empty(4, 0), "no drops after win")
 	await _free(scenario)
 
@@ -215,73 +428,31 @@ func _test_draw_shows_replay() -> void:
 				continue
 			board.drop(column, _fill_owner(column, row))
 	view.sync_from_board(board)
-	view.column_clicked.emit(6, MOUSE_BUTTON_LEFT)
+	_tap(_col_pos(scenario, 6))
 	await process_frame
 	var end_button: Button = scenario.get_node("%EndButton")
 	_check(scenario._loop.result == TurnLoop.Result.DRAW, "full board is a draw")
-	_check(scenario._result_label.text == "Draw", "result label Draw (got %s)" % scenario._result_label.text)
-	_check(end_button.visible, "end button visible on draw")
+	_check(scenario._result_label.text == "Draw", "announces Draw (got %s)" % scenario._result_label.text)
+	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown on draw")
+	_check(end_button.is_visible_in_tree(), "end button visible on draw")
 	_check(end_button.text == "Replay", "end button says Replay")
-	_check(not view.input_enabled, "input disabled after draw")
+	_check(not scenario._input_enabled, "input disabled after draw")
 	await _free(scenario)
 
 
 func _test_opponent_first() -> void:
 	var scenario := await _make(0.0, false)
-	await process_frame
-	await process_frame
 	var board := _board(scenario)
 	_check(_count(board, O) == 1, "opponent opens (got %d O)" % _count(board, O))
 	_check(_count(board, P) == 0, "no player tokens yet")
 	_check(scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN, "player turn after opener")
-	_check(_view(scenario).input_enabled, "input enabled after opener")
-	await _free(scenario)
-
-
-## Drives the real path: root viewport → SubViewportContainer → SubViewport →
-## BoardView3D._unhandled_input → raycast → column_clicked → try_drop.
-func _test_real_input() -> void:
-	var scenario := await _make(0.0)
-	var view := _view(scenario)
-	var board := _board(scenario)
-	var container: SubViewportContainer = scenario.get_node("BoardViewportContainer")
-	var sub: SubViewport = container.get_node("SubViewport")
-	var cam: Camera3D = view.get_node("Camera3D")
-	var to_root := func(column: int) -> Vector2:
-		var p := cam.unproject_position(view.grid_to_world(column, 2))
-		var rect := container.get_global_rect()
-		return rect.position + p * rect.size / Vector2(sub.size)
-
-	_push_motion(to_root.call(2))
-	await process_frame
-	_check(view._hovered_column == 2, "real motion hovers column 2 (got %d)" % view._hovered_column)
-	_check(view._hover_disc.visible, "hover disc visible")
-
-	_push_click(to_root.call(2), MOUSE_BUTTON_LEFT)
-	await process_frame
-	_check(board.get_owner(2, 0) == P, "real LMB drops player")
-	_check(_count(board, O) == 1, "opponent replied to real click")
-
-	var clicks: Array = []
-	var record := func(c: int, b: int) -> void: clicks.append(b)
-	view.column_clicked.connect(record)
-	_push_click(to_root.call(2), MOUSE_BUTTON_WHEEL_UP)
-	_push_click(to_root.call(2), MOUSE_BUTTON_MIDDLE)
-	await process_frame
-	view.column_clicked.disconnect(record)
-	_check(clicks.is_empty(), "wheel/middle do not emit column_clicked (got %s)" % str(clicks))
-
-	# Leave the board for the sidebar → hover clears.
-	_push_motion(Vector2(1400, 500))
-	await process_frame
-	_check(view._hovered_column == -1, "hover cleared after leaving board (got %d)" % view._hovered_column)
-	_check(not view._hover_disc.visible, "hover disc hidden after leaving board")
+	_check(scenario._input_enabled, "input enabled after opener")
 	await _free(scenario)
 
 
 func _test_free_during_opponent_delay() -> void:
 	var scenario := await _make(0.2)
-	_view(scenario).column_clicked.emit(0, MOUSE_BUTTON_LEFT)
+	_tap(_col_pos(scenario, 0))
 	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "opponent move pending")
 	var loop: TurnLoop = scenario._loop # RefCounted: outlives the scene
 	scenario.queue_free()
@@ -291,18 +462,37 @@ func _test_free_during_opponent_delay() -> void:
 	_check(_count(loop.board, O) == 0, "pending opponent move never fired (no O on board)")
 
 
-func _push_motion(pos: Vector2) -> void:
-	var ev := InputEventMouseMotion.new()
-	ev.position = pos
-	ev.global_position = pos
-	root.push_input(ev)
-
-
-func _push_click(pos: Vector2, button: MouseButton) -> void:
-	for pressed in [true, false]:
-		var ev := InputEventMouseButton.new()
-		ev.position = pos
-		ev.global_position = pos
-		ev.button_index = button
-		ev.pressed = pressed
-		root.push_input(ev)
+## Top area, board and hand stack inside the safe area; the board sits in
+## the middle when there is room; Quit is top right; the table starts under
+## the board.
+func _test_layout(size: Vector2i, insets: bool) -> void:
+	root.size = size
+	SafeArea.simulate_insets = insets
+	var scenario := await _make(5.0)
+	await process_frame
+	await process_frame
+	var tag := "%s insets=%s" % [str(size), str(insets)]
+	var top := float(SafeArea.SIM_TOP if insets else 0)
+	var bottom := size.y - float(SafeArea.SIM_BOTTOM if insets else 0)
+	var top_area: Rect2 = scenario.get_node("%TopArea").get_global_rect()
+	var board: Rect2 = scenario.get_node("%BoardViewportContainer").get_global_rect()
+	var hand: Rect2 = scenario.get_node("%PlayerHand").get_global_rect()
+	_check(top_area.position.y >= top - 0.5, "%s: top area under the top inset" % tag)
+	_check(board.position.y >= top_area.end.y - 0.5 and hand.position.y >= board.end.y - 0.5, "%s: zones in order" % tag)
+	_check(hand.end.y <= bottom + 0.5, "%s: hand zone above the home strip (%.0f ≤ %.0f)" % [tag, hand.end.y, bottom])
+	_check(hand.size.y >= 170.0, "%s: hand zone ≥ 170 px" % tag)
+	var lane: Rect2 = scenario.get_node("%AimLane").get_global_rect()
+	_check(is_equal_approx(lane.end.y, board.position.y), "%s: aim lane right above the board" % tag)
+	if top_area.size.y > scenario.get_node("%TopArea").get_combined_minimum_size().y + 0.5:
+		var mid := (top + bottom) * 0.5
+		_check(absf(board.get_center().y - mid) < 1.0, "%s: board centred (%.0f vs %.0f)" % [tag, board.get_center().y, mid])
+	var quit_btn: Button = scenario.get_node("%QuitButton")
+	var quit_rect := quit_btn.get_global_rect()
+	_check(quit_rect.end.x >= size.x - 16.5 and quit_rect.position.y <= top + 10.0, "%s: Quit top right" % tag)
+	_check(quit_btn.text == "Quit" and quit_rect.size.y >= 96.0, "%s: Quit button ≥ 96 px" % tag)
+	_check(scenario.column_hit_rect(3).size.x >= 85.0, "%s: columns ≥ 85 px" % tag)
+	var table: Rect2 = scenario.get_node("%Table").get_global_rect()
+	_check(table.position.y > board.get_center().y and table.position.y <= board.end.y + 0.5, "%s: table starts under the board" % tag)
+	_check(is_equal_approx(table.end.y, size.y), "%s: table runs to the screen bottom" % tag)
+	SafeArea.simulate_insets = false
+	await _free(scenario)

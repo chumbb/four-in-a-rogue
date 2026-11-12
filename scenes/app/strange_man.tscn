@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://fourinarogue_strange_man"]
+[gd_scene load_steps=3 format=3 uid="uid://fourinarogue_strange_man"]
 
 [ext_resource type="Script" path="res://scripts/app/strange_man.gd" id="1_sm"]
+[ext_resource type="Script" path="res://scripts/ui/safe_area.gd" id="2_safe"]
 
 [node name="StrangeMan" type="Control"]
 layout_mode = 3
@@ -20,38 +21,56 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.07, 0.08, 0.12, 1)
 
-[node name="Panel" type="PanelContainer" parent="."]
+[node name="SafeArea" type="MarginContainer" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -520.0
-offset_top = -220.0
-offset_right = 520.0
-offset_bottom = 220.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("2_safe")
 
-[node name="VBox" type="VBoxContainer" parent="Panel"]
+[node name="Gutter" type="MarginContainer" parent="SafeArea"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
 
-[node name="Speaker" type="Label" parent="Panel/VBox"]
+[node name="Column" type="VBoxContainer" parent="SafeArea/Gutter"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 32
+alignment = 2
+
+[node name="Panel" type="PanelContainer" parent="SafeArea/Gutter/Column"]
+layout_mode = 2
+
+[node name="Padding" type="MarginContainer" parent="SafeArea/Gutter/Column/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="VBox" type="VBoxContainer" parent="SafeArea/Gutter/Column/Panel/Padding"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="Speaker" type="Label" parent="SafeArea/Gutter/Column/Panel/Padding/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
 text = "Strange Man"
 
-[node name="DialogueLabel" type="Label" parent="Panel/VBox"]
+[node name="DialogueLabel" type="Label" parent="SafeArea/Gutter/Column/Panel/Padding/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 30
 autowrap_mode = 3
 text = "…"
 
-[node name="ContinueButton" type="Button" parent="Panel/VBox"]
+[node name="ContinueButton" type="Button" parent="SafeArea/Gutter/Column/Panel/Padding/VBox"]
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 text = "Continue"
 
-[connection signal="pressed" from="Panel/VBox/ContinueButton" to="." method="_on_continue_pressed"]
+[connection signal="pressed" from="SafeArea/Gutter/Column/Panel/Padding/VBox/ContinueButton" to="." method="_on_continue_pressed"]

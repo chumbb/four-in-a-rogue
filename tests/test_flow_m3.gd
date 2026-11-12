@@ -45,36 +45,46 @@ func _mouse(button: int, pressed: bool) -> InputEventMouseButton:
 	return e
 
 
+func _touch(pressed: bool) -> InputEventScreenTouch:
+	var e := InputEventScreenTouch.new()
+	e.pressed = pressed
+	return e
+
+
 func _test_click_is_press_start() -> void:
 	var title: GDScript = load(TITLE)
-	_check(title.is_press_start(_mouse(MOUSE_BUTTON_LEFT, true)), "left press starts")
-	_check(not title.is_press_start(_mouse(MOUSE_BUTTON_LEFT, false)), "left release does not start")
-	_check(not title.is_press_start(_mouse(MOUSE_BUTTON_RIGHT, true)), "right press does not start")
+	_check(title.is_press_start(_touch(true)), "touch press starts")
+	_check(not title.is_press_start(_touch(false)), "touch release does not start")
+	# A desktop click reaches the title as an emulated touch; the raw click must
+	# not count too, or Press Start fires twice.
+	_check(not title.is_press_start(_mouse(MOUSE_BUTTON_LEFT, true)), "raw mouse press ignored")
+	var enter := InputEventKey.new()
+	enter.keycode = KEY_ENTER
+	enter.physical_keycode = KEY_ENTER
+	enter.pressed = true
+	_check(title.is_press_start(enter), "Enter starts")
 
 
-## Real left click through the GUI (push_input), not a direct call to is_press_start.
+## Real tap through the viewport (push_input), not a direct call to is_press_start.
 func _test_title_click_starts_game() -> void:
 	var saved_size: Vector2i = root.size
-	root.size = Vector2i(1920, 1080)
-	for pos in [Vector2(960, 540), Vector2(40, 40)]:
+	root.size = Vector2i(720, 1280)
+	for pos in [Vector2(360, 640), Vector2(40, 40)]:
 		var title: Control = load(TITLE_SCENE).instantiate()
 		root.add_child(title)
 		current_scene = title
 		await process_frame
 		await process_frame
 		for pressed in [true, false]:
-			var ev := InputEventMouseButton.new()
+			var ev := _touch(pressed)
 			ev.position = pos
-			ev.global_position = pos
-			ev.button_index = MOUSE_BUTTON_LEFT
-			ev.pressed = pressed
 			root.push_input(ev)
 		for i in 5:
 			await process_frame
 		# change_scene_to_file frees the old scene and makes StrangeMan current.
 		var started: bool = not is_instance_valid(title) and current_scene != null \
 				and current_scene.name == "StrangeMan"
-		_check(started, "left click at %s starts the game from title" % str(pos))
+		_check(started, "tap at %s starts the game from title" % str(pos))
 		if is_instance_valid(title):
 			title.free()
 		elif current_scene != null:
@@ -88,7 +98,7 @@ func _test_no_continue_button() -> void:
 	var cf: Control = load(COIN_FLIP).instantiate()
 	root.add_child(cf)
 	await process_frame
-	_check(cf.get_node_or_null("Center/ContinueButton") == null, "no ContinueButton")
+	_check(cf.get_node_or_null("%ContinueButton") == null, "no ContinueButton")
 	cf.free()
 
 
@@ -100,11 +110,12 @@ func _test_flip_locks_choice() -> void:
 	var hold: Timer = cf._hold_timer
 	_check(not hold.is_stopped() and hold.time_left > 0.0, "hold timer is running after flip")
 	_check(is_equal_approx(hold.wait_time, cf.RESULT_HOLD_SEC), "hold timer wait_time is RESULT_HOLD_SEC")
-	_check(cf.get_node("Center/FlipButton").disabled, "flip disabled")
-	_check(cf.get_node("Center/ChoiceRow/HeadsButton").disabled, "heads disabled")
-	_check(cf.get_node("Center/ChoiceRow/TailsButton").disabled, "tails disabled")
+	_check(cf.RESULT_HOLD_SEC <= 3.0, "coin flip lasts no longer than 3 s (Sean, 2026-11-11)")
+	_check(cf.get_node("%FlipButton").disabled, "flip disabled")
+	_check(cf.get_node("%HeadsButton").disabled, "heads disabled")
+	_check(cf.get_node("%TailsButton").disabled, "tails disabled")
 	var first = _flow().player_moves_first
 	_check(first is bool, "player_moves_first is bool")
-	var text: String = cf.get_node("Center/ResultLabel").text
+	var text: String = cf.get_node("%ResultLabel").text
 	_check(text.contains("You moves first") == first, "result text matches player_moves_first")
 	cf.free() # before the hold timer can fire a scene change
