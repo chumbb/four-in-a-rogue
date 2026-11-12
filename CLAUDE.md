@@ -208,7 +208,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 ### M3.6 — 2D board conversion ← **next**
 
-- [ ] Replace the 3D board with an upright 2D pixel board (back layer + front layer with holes)
+- [ ] Replace the 3D board with an upright 2D pixel board (back layer + front layer with holes). **Art ready** (honey wood, Sean 2026-11-11): `assets/board/board_back.png` + `board_front.png`, 240×216 (panel 240×208 + 8 px feet), grid origin (8, 8), 32 px cells, 28 px holes; source `art/board/board.aseprite` / `make_board.py`. Goob still = `assets/goobs/vanilla/<blue|red>_yaw/frame_00.png`, drawn at cell top-left with y −1 to centre in the hole
 - [ ] 270×480 pixel layer at whole-number scale; placeholder painted background; nearest filtering
 - [ ] Placeholder 32 px Goob sprite + runtime outline shader; 2D drop with pixel snapping
 - [ ] Roll animation for timeout plays into full columns
