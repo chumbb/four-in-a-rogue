@@ -139,13 +139,13 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 ### Tech
 
 - Red vs blue: **enemy red, player blue**.
-- Grid truth: `scripts/rules/board_state.gd`. View today: `scenes/board/board_view_3d.tscn` (upright 3D board). **Replaced in M3.6** by an upright **2D pixel board** (Sean, 2026-11-09).
+- Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_2d.tscn` / `scripts/board/board_view_2d.gd` (`BoardView2D`, upright **2D pixel board**, M3.6; replaced the 3D board). Outline shader: `shaders/pixel_outline.gdshader`.
 - **Presentation (all 2D, Sean 2026-11-09):** layers back to front: painted biome background → board back → Goobs → board front (hole mask) → effects → UI.
 - **Pixel layer:** board, Goobs and aim lane on a **270×480 game-pixel canvas**, **32 px Goobs/columns**, shown at the **largest whole-number scale that fits screen width in physical pixels** (4× at 1080 wide), nearest filtering; Goob positions snap to whole game pixels while moving. Background and Control UI stay on the 720 base.
 - **Goob art:** **faces only, no appendages or hands** (Sean, 2026-11-11); Goobs react to game events with **facial expressions**. Pixel sprites with a 3D look, made by Claude with PixelLab + Aseprite (see §Design source of truth, Art); **lighting baked into the sprites**; **outline from a runtime canvas shader**. Placeholders OK for v0.1. Import via `.aseprite`/sprite sheet → `SpriteFrames`.
 - Presentation direction: Goobs look visually interesting, with **real physics, 3D effects and play animations** (2D sprites with a 3D look) (Hearthstone / Marvel Snap); each Goob type has its own animation; the hand is a fan of up to 5 faces at the bottom; the opponent's hand is hidden.
 - Scenes via **`GameFlow`** autoload only (`scripts/core/game_flow.gd`).
-- Goobs: `GoobDefinition` + `.tres`; column rays use layer `board_columns`.
+- Goobs: `GoobDefinition` + `.tres`; column hit areas come from `BoardView2D.column_rect()` + the aim lane.
 
 ---
 
@@ -156,7 +156,7 @@ project.godot                 # boot.tscn, autoload GameFlow
 scenes/app/                   # boot, title, strange_man
 scenes/ui/coin_flip.tscn
 scenes/scenario/scenario.tscn
-scenes/board/board_view_3d.tscn   # replaced by 2D board in M3.6
+scenes/board/board_view_2d.tscn   # 2D pixel board (M3.6)
 scripts/core/game_flow.gd
 scripts/rules/board_state.gd  # extend for M2+
 scripts/goobs/, scripts/deck/, scripts/ai/
@@ -206,13 +206,13 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Test:** Full M3 loop in portrait at 1080×1920 with mouse-as-touch, and in a tall window (e.g. 1080×2340) with simulated insets.
 
-### M3.6 — 2D board conversion ← **next**
+### M3.6 — 2D board conversion ← **built on `m3.6-2d-board`, awaiting Sean's playtest**
 
-- [ ] Replace the 3D board with an upright 2D pixel board (back layer + front layer with holes). **Art ready** (honey wood, Sean 2026-11-11): `assets/board/board_back.png` + `board_front.png`, 240×216 (panel 240×208 + 8 px feet), grid origin (8, 8), 32 px cells, 28 px holes; source `art/board/board.aseprite` / `make_board.py`. Goob still = `assets/goobs/vanilla/<blue|red>_yaw/frame_00.png`, drawn at cell top-left with y −1 to centre in the hole
-- [ ] 270×480 pixel layer at whole-number scale; placeholder painted background; nearest filtering
-- [ ] Placeholder 32 px Goob sprite + runtime outline shader; 2D drop with pixel snapping
-- [ ] Roll animation for timeout plays into full columns
-- [ ] Recheck portrait zone heights. Grid logic unchanged.
+- [x] Replace the 3D board with an upright 2D pixel board (back layer + front layer with holes). **Art ready** (honey wood, Sean 2026-11-11): `assets/board/board_back.png` + `board_front.png`, 240×216 (panel 240×208 + 8 px feet), grid origin (8, 8), 32 px cells, 28 px holes; source `art/board/board.aseprite` / `make_board.py`. Goob still = `assets/goobs/vanilla/<blue|red>_yaw/frame_00.png`, drawn at cell top-left with y −1 to centre in the hole
+- [x] 270×480 pixel layer at whole-number scale; placeholder painted background (gradient); nearest filtering
+- [x] Placeholder 32 px Goob sprite + runtime outline shader; 2D drop with pixel snapping
+- [x] Roll animation for timeout plays into full columns
+- [x] Recheck portrait zone heights (board zone 576 at 1080 wide; removed the 60 px opponent-hand zone per 2026-11-11). Grid logic unchanged.
 
 **Test:** Same loop with the 2D board at 1080×1920 and 1080×2340; Goobs sit inside columns; no mixed pixel sizes.
 

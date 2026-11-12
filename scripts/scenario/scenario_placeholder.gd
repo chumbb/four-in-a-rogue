@@ -1,12 +1,14 @@
 extends Control
-## Scenario controller — M3 turn loop in the M3.5 portrait touch layout.
+## Scenario controller — M3 turn loop in the portrait touch layout, on the
+## M3.6 2D pixel board.
 ##
 ## The coin-flip winner moves first. The player presses a column (a blue flash
 ## follows the finger over the columns) and releases to drop; releasing off the
 ## board cancels. The opponent (OpponentAI) replies after a short delay and a
 ## red flash on its column. Player turns are timed (slice §2B): at timeout the
 ## Goob goes into the column under the finger, else a random column, rolling
-## off full columns. The result is a big centred announcement: win/lose
+## off full columns. Goobs fall (or roll) into place before the next turn;
+## input stays locked until they land. The result is a big centred announcement: win/lose
 ## offers "Back to title", a draw "Replay" (straight back to the coin flip).
 
 const OPPONENT_DELAY_SEC := 0.6
@@ -29,8 +31,7 @@ const COLOR_DRAW := Color(0.75, 0.82, 1.0)
 @onready var _timer_label: Label = %TimerLabel
 @onready var _result_label: Label = %ResultLabel
 @onready var _end_button: Button = %EndButton
-@onready var _board_view: Node3D = %BoardView3D
-@onready var _board_container: SubViewportContainer = %BoardViewportContainer
+@onready var _board_view: BoardView2D = %BoardView
 @onready var _aim_lane: Control = %AimLane
 @onready var _flash: ColorRect = %ColumnFlash
 @onready var _table: ColorRect = %Table
@@ -44,6 +45,8 @@ var opponent_flash_sec := OPPONENT_FLASH_SEC
 var turn_seconds := TURN_SECONDS
 ## Tests set 0.0 to drop at once on timeout.
 var timeout_reveal_sec := TIMEOUT_REVEAL_SEC
+## Tests set false: Goobs land at once (no fall / roll animation).
+var animate_drops := true
 
 var _loop := TurnLoop.new()
 var _rng := RandomNumberGenerator.new()
@@ -57,6 +60,8 @@ var _turn_timer: Timer
 var _timeout_timer: Timer
 var _opponent_column := -1
 var _timeout_column := -1
+## Columns the timeout Goob rolls over (off-board entries = edge bounces).
+var _timeout_path: Array[int] = []
 
 ## Player input is accepted only while true (player turn, nothing animating).
 var _input_enabled := false
@@ -75,7 +80,8 @@ func _ready() -> void:
 	_turn_timer = _make_timer(_on_turn_timeout)
 	_timeout_timer = _make_timer(_finish_timeout)
 	_end_overlay.visible = false
-	_board_container.item_rect_changed.connect(_layout_table.call_deferred)
+	_board_view.animate = animate_drops
+	_board_view.item_rect_changed.connect(_layout_table.call_deferred)
 	_layout_table.call_deferred()
 	_loop.start(GameFlow.player_moves_first)
 	_board_view.sync_from_board(_loop.board)
@@ -90,9 +96,7 @@ func _process(_delta: float) -> void:
 ## The table runs from under the board's floor to the bottom of the screen:
 ## the board stands on it, and the hand (M4) lies on it.
 func _layout_table() -> void:
-	var sub: SubViewport = _board_container.get_child(0)
-	var box := _board_container.get_global_rect()
-	var top: float = box.position.y + _board_view.floor_bottom_y() * box.size.y / float(sub.size.y)
+	var top := _board_view.floor_bottom_y()
 	_table.position = Vector2(0.0, top)
 	_table.size = Vector2(size.x, maxf(0.0, size.y - top))
 
@@ -176,14 +180,9 @@ func column_at(pos: Vector2) -> int:
 
 ## A column's slot on screen, stretched up through the aim lane.
 func column_hit_rect(column: int) -> Rect2:
-	var sub: SubViewport = _board_container.get_child(0)
-	var slot: Rect2 = _board_view.column_rect(column)
-	var box := _board_container.get_global_rect()
-	var k := box.size / Vector2(sub.size)
-	var left := box.position.x + slot.position.x * k.x
+	var slot := _board_view.column_rect(column)
 	var top := _aim_lane.get_global_rect().position.y
-	var bottom := box.position.y + slot.end.y * k.y
-	return Rect2(left, top, slot.size.x * k.x, bottom - top)
+	return Rect2(slot.position.x, top, slot.size.x, slot.end.y - top)
 
 
 func _show_flash(column: int, color: Color) -> void:
@@ -225,15 +224,21 @@ func try_drop(column: int) -> int:
 	return _play_player(column)
 
 
-func _play_player(column: int) -> int:
+## `roll_path`: the timeout roll over full columns (see _roll_path()).
+func _play_player(column: int, roll_path: Array[int] = []) -> int:
 	_set_input_enabled(false) # locked until the drop finishes
 	var row := _loop.play(column)
+	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path)
+	return row
+
+
+## The Goob falls (or rolls) into place, then the next turn starts.
+## §4.2 order: land → special effect (M5) → win check last (in TurnLoop).
+func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = []) -> void:
+	await _board_view.play_drop(column, row, side, roll_path)
 	_sfx_drop.play()
-	# §4.2 order: land → special effect (M5) → win check last (in TurnLoop).
-	# Placeholder animation: the Goob appears in its final cell.
 	_board_view.sync_from_board(_loop.board)
 	_after_play()
-	return row
 
 
 ## Timeout: the column under the finger, else a random one (full included).
@@ -250,7 +255,9 @@ func _on_turn_timeout() -> void:
 	_timer_label.visible = true
 	_toast.show_message(MSG_TIMES_UP)
 	_place_toast()
-	_timeout_column = _loop.board.roll_target(column, _rng.randi() % 2 == 0)
+	var rightward := _rng.randi() % 2 == 0
+	_timeout_column = _loop.board.roll_target(column, rightward)
+	_timeout_path = _roll_path(column, rightward)
 	if timeout_reveal_sec > 0.0:
 		_show_flash(column, COLOR_FLASH_PLAYER)
 		_timeout_timer.start(timeout_reveal_sec)
@@ -260,7 +267,25 @@ func _on_turn_timeout() -> void:
 
 func _finish_timeout() -> void:
 	_hide_flash()
-	_play_player(_timeout_column)
+	_play_player(_timeout_column, _timeout_path)
+
+
+## Columns a Goob played into full `column` rolls over before it falls, for
+## the roll animation. Same walk as BoardState.roll_target(); an off-board
+## entry (-1 or COLUMNS) marks a bounce off that edge. [column] if it is open.
+func _roll_path(column: int, rightward: bool) -> Array[int]:
+	var path: Array[int] = [column]
+	if _loop.board.roll_target(column, rightward) == -1:
+		return path
+	var step := 1 if rightward else -1
+	var at := column
+	while _loop.board.column_full(at):
+		if not _loop.board.is_valid_column(at + step):
+			path.append(at + step)
+			step = -step
+		at += step
+		path.append(at)
+	return path
 
 
 func _after_play() -> void:
@@ -296,12 +321,11 @@ func _on_opponent_flash_done() -> void:
 
 
 func _play_opponent_move() -> void:
-	if _loop.play(_opponent_column) == -1:
+	var row := _loop.play(_opponent_column)
+	if row == -1:
 		push_error("Scenario: opponent chose illegal column %d" % _opponent_column)
 		return
-	_sfx_drop.play()
-	_board_view.sync_from_board(_loop.board)
-	_after_play()
+	_land_then_continue(_opponent_column, row, BoardState.CellOwner.OPPONENT)
 
 
 func _show_end() -> void:

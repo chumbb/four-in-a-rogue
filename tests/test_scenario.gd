@@ -1,14 +1,17 @@
 extends SceneTree
-## Headless test for the scenario scene (M3.5 portrait touch): column hit
-## areas, press/hold/release with the blue flash, cancel, full-column entry
-## error, red opponent flash, turn timer + timeout roll, end overlay, draw
-## replay, and the portrait layout with simulated safe-area insets.
+## Headless test for the scenario scene (M3.5 portrait touch, M3.6 2D board):
+## column hit areas, press/hold/release with the blue flash, cancel,
+## full-column entry error, red opponent flash, turn timer + timeout roll, drop
+## and roll animations, end overlay, draw replay, and the portrait layout with
+## simulated safe-area insets. Window sizes are physical (project stretch maps
+## 1080x1920 to the 720x1280 base).
 ## Run: godot --headless -s res://tests/test_scenario.gd
 
 const SCENE := "res://scenes/scenario/scenario.tscn"
 const P := BoardState.CellOwner.PLAYER
 const O := BoardState.CellOwner.OPPONENT
 const E := BoardState.CellOwner.EMPTY
+const PHONE := Vector2i(1080, 1920)
 
 var _failures := 0
 var _checks := 0
@@ -26,7 +29,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	root.size = Vector2i(720, 1280) # the 720 base; headless root defaults to 64×64
+	root.size = PHONE # 720×1280 base at 1.5×; headless root defaults to 64×64
 	var saved_first: bool = _flow().player_moves_first
 
 	await _test_hit_areas()
@@ -46,10 +49,12 @@ func _run() -> void:
 	await _test_draw_shows_replay()
 	await _test_opponent_first()
 	await _test_free_during_opponent_delay()
-	await _test_layout(Vector2i(720, 1280), false)
-	await _test_layout(Vector2i(720, 1280), true)
-	await _test_layout(Vector2i(720, 1560), true)
-	root.size = Vector2i(720, 1280)
+	await _test_drop_animation_locks_input()
+	await _test_roll_animation()
+	await _test_layout(PHONE, false)
+	await _test_layout(PHONE, true)
+	await _test_layout(Vector2i(1080, 2340), true)
+	root.size = PHONE
 
 	_flow().player_moves_first = saved_first
 	await process_frame
@@ -65,9 +70,10 @@ func _flow() -> Node:
 	return root.get_node("GameFlow")
 
 
-func _make(delay: float, player_first := true, flash := 0.0, turn := 30.0) -> Control:
+func _make(delay: float, player_first := true, flash := 0.0, turn := 30.0, animate := false) -> Control:
 	_flow().player_moves_first = player_first
 	var scenario: Control = load(SCENE).instantiate()
+	scenario.animate_drops = animate
 	scenario.opponent_delay_sec = delay
 	scenario.opponent_flash_sec = flash
 	scenario.turn_seconds = turn
@@ -85,8 +91,8 @@ func _free(scenario: Control) -> void:
 	await process_frame
 
 
-func _view(scenario: Control) -> Node3D:
-	return scenario.get_node("%BoardView3D")
+func _view(scenario: Control) -> BoardView2D:
+	return scenario.get_node("%BoardView")
 
 
 func _board(scenario: Control) -> BoardState:
@@ -114,9 +120,8 @@ func _fill_column(scenario: Control, column: int) -> void:
 	_view(scenario).sync_from_board(board)
 
 
-func _glows(view: Node3D, cell: Vector2i) -> bool:
-	var mat := view._tokens[cell].material_override as StandardMaterial3D
-	return mat.emission_enabled
+func _glows(view: BoardView2D, cell: Vector2i) -> bool:
+	return view.is_highlighted(cell)
 
 
 ## Middle of a column's slot, in viewport coordinates.
@@ -134,14 +139,14 @@ func _touch(pos: Vector2, pressed: bool, index := 0) -> void:
 	ev.index = index
 	ev.position = pos
 	ev.pressed = pressed
-	root.push_input(ev)
+	root.push_input(ev, true) # viewport (720-base) coords
 
 
 func _drag(pos: Vector2, index := 0) -> void:
 	var ev := InputEventScreenDrag.new()
 	ev.index = index
 	ev.position = pos
-	root.push_input(ev)
+	root.push_input(ev, true) # viewport (720-base) coords
 
 
 func _tap(pos: Vector2) -> void:
@@ -181,12 +186,11 @@ func _test_tap_drops_then_opponent() -> void:
 	_check(view._tokens.size() == 2, "view shows 2 tokens (got %d)" % view._tokens.size())
 	_check(scenario._input_enabled, "input re-enabled for player")
 	_check(not scenario._flash.visible, "no flash after the drop")
-	var p_col: Color = view._tokens[Vector2i(3, 0)].material_override.albedo_color
-	_check(p_col.b > p_col.r, "player token is blue (got %s)" % p_col)
+	_check(view._tokens[Vector2i(3, 0)].texture == BoardView2D.TEX_PLAYER, "player Goob is blue")
+	_check(view._tokens[Vector2i(3, 0)].position == view.cell_position(3, 0), "player Goob sits in its hole")
 	for cell in view._tokens:
 		if board.get_owner(cell.x, cell.y) == O:
-			var o_col: Color = view._tokens[cell].material_override.albedo_color
-			_check(o_col.r > o_col.b, "opponent token is red (got %s)" % o_col)
+			_check(view._tokens[cell].texture == BoardView2D.TEX_OPPONENT, "opponent Goob is red")
 	await _free(scenario)
 
 
@@ -243,7 +247,7 @@ func _test_full_column_entry() -> void:
 	_check(not scenario._flash.visible, "no flash on a full column")
 	await process_frame
 	await process_frame
-	_check(absf(view._pivot.position.x) > 0.001, "board shakes on entry")
+	_check(view._shake_px != 0, "board shakes on entry")
 	# Staying on the column does not repeat the error.
 	scenario._toast.modulate.a = 0.0
 	_drag(_col_pos(scenario, 3) + Vector2(0, -40))
@@ -295,7 +299,7 @@ func _test_second_finger_and_mouse_ignored() -> void:
 		ev.button_index = MOUSE_BUTTON_LEFT
 		ev.position = _col_pos(scenario, 6)
 		ev.pressed = pressed
-		root.push_input(ev)
+		root.push_input(ev, true) # viewport (720-base) coords
 	_check(_count(board, P) == 1, "raw mouse click ignored")
 	await _free(scenario)
 
@@ -342,6 +346,7 @@ func _test_timeout_random() -> void:
 func _test_timeout_is_obvious() -> void:
 	_flow().player_moves_first = true
 	var scenario: Control = load(SCENE).instantiate()
+	scenario.animate_drops = false
 	scenario.opponent_delay_sec = 5.0
 	scenario.turn_seconds = 0.2
 	scenario.timeout_reveal_sec = 0.4
@@ -462,6 +467,51 @@ func _test_free_during_opponent_delay() -> void:
 	_check(_count(loop.board, O) == 0, "pending opponent move never fired (no O on board)")
 
 
+## Input stays locked while the Goob falls; the turn passes once it lands.
+func _test_drop_animation_locks_input() -> void:
+	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	var view := _view(scenario)
+	var board := _board(scenario)
+	_tap(_col_pos(scenario, 2))
+	_check(board.get_owner(2, 0) == P, "grid updates at once")
+	_check(not scenario._input_enabled, "input locked while the Goob falls")
+	var token: Sprite2D = view._tokens[Vector2i(2, 0)]
+	_check(token.position.y < view.cell_position(2, 0).y, "Goob starts above its cell")
+	_check(scenario._opponent_timer.is_stopped(), "opponent waits for the landing")
+	await process_frame
+	_check(token.position == token.position.round(), "Goob moves on whole game pixels")
+	await create_timer(0.6).timeout
+	_check(token.position == view.cell_position(2, 0), "Goob landed in its hole")
+	_check(not scenario._opponent_timer.is_stopped(), "opponent turn started after the landing")
+	await _free(scenario)
+
+
+## Timeout into a full column: the Goob rolls on top of the board, bouncing
+## off the edge, then falls into the first open column.
+func _test_roll_animation() -> void:
+	var scenario := await _make(5.0, true, 0.0, 0.2, true)
+	var view := _view(scenario)
+	var board := _board(scenario)
+	_fill_column(scenario, 6)
+	_fill_column(scenario, 5)
+	var right: Array[int] = scenario._roll_path(6, true)
+	var left: Array[int] = scenario._roll_path(6, false)
+	var open: Array[int] = scenario._roll_path(2, true)
+	_check(right == [6, 7, 5, 4], "roll path bounces off the right edge (got %s)" % str(right))
+	_check(left == [6, 5, 4], "roll path left (got %s)" % str(left))
+	_check(open == [2], "open column: no roll (got %s)" % str(open))
+	_touch(_col_pos(scenario, 6), true)
+	await create_timer(0.3).timeout
+	_check(board.get_owner(4, 0) == P, "timeout Goob lands in column 4")
+	var token: Sprite2D = view._tokens[Vector2i(4, 0)]
+	_check(token.position.y <= BoardView2D.ROLL_Y + 0.5, "Goob rolls on top of the board first (y %.0f)" % token.position.y)
+	_check(not scenario._input_enabled, "input locked while rolling")
+	await create_timer(1.2).timeout
+	_check(token.position == view.cell_position(4, 0), "rolled Goob ends in its hole")
+	_touch(_col_pos(scenario, 6), false)
+	await _free(scenario)
+
+
 ## Top area, board and hand stack inside the safe area; the board sits in
 ## the middle when there is room; Quit is top right; the table starts under
 ## the board.
@@ -472,10 +522,11 @@ func _test_layout(size: Vector2i, insets: bool) -> void:
 	await process_frame
 	await process_frame
 	var tag := "%s insets=%s" % [str(size), str(insets)]
+	var view_size := root.get_visible_rect().size # logical, 720 wide
 	var top := float(SafeArea.SIM_TOP if insets else 0)
-	var bottom := size.y - float(SafeArea.SIM_BOTTOM if insets else 0)
+	var bottom := view_size.y - float(SafeArea.SIM_BOTTOM if insets else 0)
 	var top_area: Rect2 = scenario.get_node("%TopArea").get_global_rect()
-	var board: Rect2 = scenario.get_node("%BoardViewportContainer").get_global_rect()
+	var board: Rect2 = scenario.get_node("%BoardView").get_global_rect()
 	var hand: Rect2 = scenario.get_node("%PlayerHand").get_global_rect()
 	_check(top_area.position.y >= top - 0.5, "%s: top area under the top inset" % tag)
 	_check(board.position.y >= top_area.end.y - 0.5 and hand.position.y >= board.end.y - 0.5, "%s: zones in order" % tag)
@@ -488,11 +539,16 @@ func _test_layout(size: Vector2i, insets: bool) -> void:
 		_check(absf(board.get_center().y - mid) < 1.0, "%s: board centred (%.0f vs %.0f)" % [tag, board.get_center().y, mid])
 	var quit_btn: Button = scenario.get_node("%QuitButton")
 	var quit_rect := quit_btn.get_global_rect()
-	_check(quit_rect.end.x >= size.x - 16.5 and quit_rect.position.y <= top + 10.0, "%s: Quit top right" % tag)
+	_check(quit_rect.end.x >= view_size.x - 16.5 and quit_rect.position.y <= top + 10.0, "%s: Quit top right" % tag)
 	_check(quit_btn.text == "Quit" and quit_rect.size.y >= 96.0, "%s: Quit button ≥ 96 px" % tag)
 	_check(scenario.column_hit_rect(3).size.x >= 85.0, "%s: columns ≥ 85 px" % tag)
+	var view := _view(scenario)
+	_check(view.pixel_scale == 4, "%s: board at 4× physical (got %d)" % [tag, view.pixel_scale])
+	var origin_phys: Vector2 = view._pixel.global_position * 1.5
+	_check(origin_phys.is_equal_approx(origin_phys.round()), "%s: board origin on a whole physical pixel (%s)" % [tag, origin_phys])
+	_check(view.column_rect(0).position.x >= board.position.x - 0.5 and view.column_rect(6).end.x <= board.end.x + 0.5, "%s: columns inside the board zone" % tag)
 	var table: Rect2 = scenario.get_node("%Table").get_global_rect()
 	_check(table.position.y > board.get_center().y and table.position.y <= board.end.y + 0.5, "%s: table starts under the board" % tag)
-	_check(is_equal_approx(table.end.y, size.y), "%s: table runs to the screen bottom" % tag)
+	_check(is_equal_approx(table.end.y, view_size.y), "%s: table runs to the screen bottom" % tag)
 	SafeArea.simulate_insets = false
 	await _free(scenario)
