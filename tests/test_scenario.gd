@@ -476,9 +476,12 @@ func _test_drop_animation_locks_input() -> void:
 	_check(board.get_owner(2, 0) == P, "grid updates at once")
 	_check(not scenario._input_enabled, "input locked while the Goob falls")
 	var token: Sprite2D = view._tokens[Vector2i(2, 0)]
-	_check(token.position.y < view.cell_position(2, 0).y, "Goob starts above its cell")
+	_check(token.position == Vector2(view.cell_position(2, 0).x, BoardView2D.TOP_Y), "Goob appears on top of the board over its column")
 	_check(scenario._opponent_timer.is_stopped(), "opponent waits for the landing")
-	await process_frame
+	await create_timer(BoardView2D.TOP_PAUSE_SEC * 0.5).timeout
+	_check(token.position.y == BoardView2D.TOP_Y, "Goob pauses on top of the board")
+	await create_timer(BoardView2D.TOP_PAUSE_SEC * 0.5 + 0.1).timeout
+	_check(token.position.y > BoardView2D.TOP_Y, "then falls")
 	_check(token.position == token.position.round(), "Goob moves on whole game pixels")
 	await create_timer(0.6).timeout
 	_check(token.position == view.cell_position(2, 0), "Goob landed in its hole")
@@ -504,9 +507,15 @@ func _test_roll_animation() -> void:
 	await create_timer(0.3).timeout
 	_check(board.get_owner(4, 0) == P, "timeout Goob lands in column 4")
 	var token: Sprite2D = view._tokens[Vector2i(4, 0)]
-	_check(token.position.y <= BoardView2D.ROLL_Y + 0.5, "Goob rolls on top of the board first (y %.0f)" % token.position.y)
+	_check(token.position == Vector2(view.cell_position(6, 0).x, BoardView2D.TOP_Y), "Goob appears on top of the full column first (%s)" % token.position)
 	_check(not scenario._input_enabled, "input locked while rolling")
-	await create_timer(1.2).timeout
+	var rolled_on_top := false
+	var deadline := Time.get_ticks_msec() + 1500
+	while Time.get_ticks_msec() < deadline and token.position != view.cell_position(4, 0):
+		await process_frame
+		if token.position.y == BoardView2D.TOP_Y and token.position.x < view.cell_position(6, 0).x:
+			rolled_on_top = true
+	_check(rolled_on_top, "Goob rolls along the top before falling")
 	_check(token.position == view.cell_position(4, 0), "rolled Goob ends in its hole")
 	_touch(_col_pos(scenario, 6), false)
 	await _free(scenario)

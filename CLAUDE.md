@@ -122,7 +122,7 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 
 - **M3 (before decks):** opponent drops a plain red Goob, no effect: winning column, else column that blocks the player's immediate four, else **random legal column**.
 - **Red flash** (Sean, 2026-11-10): after the think delay, the AI's chosen column flashes red (~0.15 s) right before its Goob is played.
-- **M6:** hand-aware, human-like: win if possible → block player’s immediate 4 → else reasonable heuristic (not random). **Opponent's hand is not shown** (Sean, 2026-11-11). After its red flash, its Goob does a subtle **flip up from behind the top of the board** into the aim lane, then drops.
+- **M6:** hand-aware, human-like: win if possible → block player’s immediate 4 → else reasonable heuristic (not random). **Opponent's hand is not shown** (Sean, 2026-11-11). After its red flash, its Goob does a subtle **flip up from behind the board**, lands on top of it, then drops.
 
 ### Platform & screen (Sean, 2026-11-09 — vault slice §2A/§2B)
 
@@ -212,6 +212,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 - [x] 270×480 pixel layer at whole-number scale; placeholder painted background (gradient); nearest filtering
 - [x] Placeholder 32 px Goob sprite + runtime outline shader; 2D drop with pixel snapping
 - [x] Roll animation for timeout plays into full columns
+- [x] Every played Goob first rests on top of the board over its column (~0.2 s), then falls; rolls start there. This is the landing spot for the M4/M6 flip animations (Sean, 2026-11-12 playtest)
 - [x] Recheck portrait zone heights (board zone 576 at 1080 wide; removed the 60 px opponent-hand zone per 2026-11-11). Grid logic unchanged.
 
 **Test:** Same loop with the 2D board at 1080×1920 and 1080×2340; Goobs sit inside columns; no mixed pixel sizes.

@@ -24,14 +24,16 @@ const PANEL_HEIGHT := 208 ## board art without the feet
 ## The Goob disc sits 1 px low in its 32 px frame; this centres it in a hole.
 const GOOB_OFFSET := Vector2i(0, -1)
 
-## Drop: gravity in game px/s², tuned so a fall from the aim lane to the
-## bottom row takes ~0.35 s; then a small settle bounce.
+## Every played Goob first appears resting on top of the board over its column
+## for a moment (Sean, 2026-11-12; the M6 flip lands here), then falls in.
+const TOP_Y := -31 ## Goob resting on the top rail
+const TOP_PAUSE_SEC := 0.2
+## Drop: gravity in game px/s², tuned so a fall from the top of the board to
+## the bottom row takes ~0.32 s; then a small settle bounce.
 const GRAVITY := 3800.0
-const DROP_START_Y := -40 ## game px above the board top: in the aim lane
 const BOUNCE_PX := 3
 const BOUNCE_SEC := 0.1
-## Roll (timeout into a full column): on top of the board, column by column.
-const ROLL_Y := -31 ## Goob resting on the top rail
+## Roll (timeout into a full column): from the top, column by column.
 const ROLL_SEC_PER_COLUMN := 0.11
 const ROLL_BUMP_PX := 6 ## nudge into the board edge on a bounce
 const HIGHLIGHT_MODULATE := Color(1.5, 1.5, 1.5)
@@ -96,10 +98,11 @@ func sync_from_board(board: BoardState) -> void:
 	clear_highlight()
 
 
-## Drops a new Goob into (column, row): it falls from the aim lane, or, with a
-## `roll_path` (timeout into a full column), lands on top of the board at
-## roll_path[0], rolls along the path and falls into its last column. An
-## off-board entry in the path (-1 or COLUMNS) is a bounce off that edge. The Goob counts as on the board at once, so a sync during
+## Drops a new Goob into (column, row): it appears on top of the board over
+## its column, pauses, then falls in. With a `roll_path` (timeout into a full
+## column) it appears over roll_path[0], rolls along the path and falls into
+## its last column. An off-board entry in the path (-1 or COLUMNS) is a bounce
+## off that edge. The Goob counts as on the board at once, so a sync during
 ## the animation does not duplicate it. Await this to know when it has landed.
 func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = []) -> void:
 	var cell := Vector2i(column, row)
@@ -109,14 +112,13 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 	if not animate:
 		token.position = target
 		return
+	var start := roll_path[0] if roll_path.size() > 1 else column
+	token.position = Vector2(_column_x(start), TOP_Y)
 	var tween := create_tween()
+	tween.tween_interval(TOP_PAUSE_SEC)
 	if roll_path.size() > 1:
-		token.position = Vector2(_column_x(roll_path[0]), ROLL_Y)
 		_queue_roll(tween, token, roll_path)
-		_queue_fall(tween, token, ROLL_Y, target)
-	else:
-		token.position = Vector2(target.x, DROP_START_Y)
-		_queue_fall(tween, token, DROP_START_Y, target)
+	_queue_fall(tween, token, TOP_Y, target)
 	await tween.finished
 
 
