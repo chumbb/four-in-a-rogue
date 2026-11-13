@@ -1,8 +1,18 @@
-[gd_scene load_steps=7 format=3 uid="uid://fourinarogue_scenario"]
+[gd_scene load_steps=9 format=3 uid="uid://fourinarogue_scenario"]
 
 [ext_resource type="Script" path="res://scripts/scenario/scenario_placeholder.gd" id="1_sc"]
-[ext_resource type="PackedScene" uid="uid://fourinarogue_board3d" path="res://scenes/board/board_view_3d.tscn" id="2_board"]
+[ext_resource type="PackedScene" uid="uid://fourinarogue_board2d" path="res://scenes/board/board_view_2d.tscn" id="2_board"]
 [ext_resource type="Script" path="res://scripts/ui/safe_area.gd" id="3_safe"]
+
+[sub_resource type="Gradient" id="Gradient_bg"]
+offsets = PackedFloat32Array(0, 0.45, 0.7, 1)
+colors = PackedColorArray(0.1, 0.13, 0.26, 1, 0.24, 0.34, 0.52, 1, 0.26, 0.44, 0.32, 1, 0.14, 0.26, 0.17, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture_bg"]
+gradient = SubResource("Gradient_bg")
+width = 16
+height = 256
+fill_to = Vector2(0, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_portrait"]
 bg_color = Color(0.2, 0.09, 0.1, 1)
@@ -45,7 +55,7 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_sc")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -53,7 +63,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.06, 0.07, 0.1, 1)
+texture = SubResource("GradientTexture_bg")
+expand_mode = 1
+stretch_mode = 0
+texture_filter = 2
 
 [node name="Table" type="ColorRect" parent="."]
 unique_name_in_owner = true
@@ -192,11 +205,6 @@ theme_override_font_sizes/font_size = 34
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="OpponentHand" type="Control" parent="SafeArea/Zones/TopArea"]
-custom_minimum_size = Vector2(0, 60)
-layout_mode = 2
-mouse_filter = 2
-
 [node name="Spacer" type="Control" parent="SafeArea/Zones/TopArea"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -208,21 +216,9 @@ custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="BoardViewportContainer" type="SubViewportContainer" parent="SafeArea/Zones"]
+[node name="BoardView" parent="SafeArea/Zones" instance=ExtResource("2_board")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 560)
 layout_mode = 2
-mouse_filter = 2
-stretch = true
-
-[node name="SubViewport" type="SubViewport" parent="SafeArea/Zones/BoardViewportContainer"]
-handle_input_locally = false
-transparent_bg = true
-size = Vector2i(720, 560)
-render_target_update_mode = 4
-
-[node name="BoardView3D" parent="SafeArea/Zones/BoardViewportContainer/SubViewport" instance=ExtResource("2_board")]
-unique_name_in_owner = true
 
 [node name="PlayerHand" type="Control" parent="SafeArea/Zones"]
 unique_name_in_owner = true

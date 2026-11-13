@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://fourinarogue_board2d"]
+
+[ext_resource type="Script" path="res://scripts/board/board_view_2d.gd" id="1_bv"]
+
+[node name="BoardView2D" type="Control"]
+custom_minimum_size = Vector2(0, 576)
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
+script = ExtResource("1_bv")
