@@ -142,6 +142,7 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 - Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_2d.tscn` / `scripts/board/board_view_2d.gd` (`BoardView2D`, upright **2D pixel board**, M3.6; replaced the 3D board). Outline shader: `shaders/pixel_outline.gdshader`.
 - **Presentation (all 2D, Sean 2026-11-09):** layers back to front: painted biome background → board back → Goobs → board front (hole mask) → effects → UI.
 - **Pixel layer:** board, Goobs and aim lane on a **270×480 game-pixel canvas**, **32 px Goobs/columns**, shown at the **largest whole-number scale that fits screen width in physical pixels** (4× at 1080 wide), nearest filtering; Goob positions snap to whole game pixels while moving. Background and Control UI stay on the 720 base.
+- **Art direction (Sean, 2026-11-13 grill; full list in vault GDD §Art direction):** per-biome board skin + painted background (honey wood = **Forest**, v0.1), same board geometry everywhere; **board holes transparent** with a 1–2 px shaded rim; master palette **Resurrect 64** (backgrounds palette-graded, calmer/darker band behind the board); team colour = whole coin body; types = face design + rim emblem; six 2–4 frame expressions per type: idle, **giggle** (selected/dragged/aim float until drop), happy, sad, celebrating, surprised; outline dark brown / gold on winning four / white-blue on selected hand Goob; **hand Goobs one integer step bigger than board** (5× at 1080), fixed size; pixel portraits; coin flip coin = Vanilla Goob with blue and red faces (heads = blue); pixel UI, one look across biomes, font **Monogram** (banners integer 2–3×); no CRT, vignette + pixel VFX on the canvas. Each Goob type gets a type sheet Sean approves before animation.
 - **Goob art:** **faces only, no appendages or hands** (Sean, 2026-11-11); Goobs react to game events with **facial expressions**. Pixel sprites with a 3D look, made by Claude with PixelLab + Aseprite (see §Design source of truth, Art); **lighting baked into the sprites**; **outline from a runtime canvas shader**. Placeholders OK for v0.1. Import via `.aseprite`/sprite sheet → `SpriteFrames`.
 - Presentation direction: Goobs look visually interesting, with **real physics, 3D effects and play animations** (2D sprites with a 3D look) (Hearthstone / Marvel Snap); each Goob type has its own animation; the hand is a fan of up to 5 faces at the bottom; the opponent's hand is hidden.
 - Scenes via **`GameFlow`** autoload only (`scripts/core/game_flow.gd`).
@@ -225,6 +226,13 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 - [ ] Player hand fan (opponent hand hidden), drawn-Goob reveal, hand-full toast + shake; **drag and tap aim state** (ghost, release / second-tap drop, cancel outside board); double-tap inspect
 
 **Test:** Hands visible; deck counts behave; both input styles play and cancel correctly; stalemate replays correctly.
+
+### Art pass A — palette, holes, font, Forest (own session, after M4 is accepted; Sean 2026-11-13)
+
+- [ ] Re-quantise board + Vanilla Goob art to Resurrect 64
+- [ ] Transparent board holes with a 1–2 px shaded rim
+- [ ] Monogram font for UI text
+- [ ] Forest painted background test (palette-graded, calm band behind the board)
 
 ### M5 — Goob effects
 
