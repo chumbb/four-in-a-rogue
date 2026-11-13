@@ -136,7 +136,19 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 - **Column touch (M3.5, Sean 2026-11-10):** touch down on a legal column = **blue flash** over column + aim lane, and **your Goob floats on top of the board over that column** (gentle bob; Sean, 2026-11-13; also during the timeout reveal); flash and Goob stay while held and follow the finger; **release over a column = drop**, release outside board = cancel (quick tap drops at once). Touching/sliding onto a full column = shake + error SFX + toast **once per entry**, no flash; releasing there = neutral. Input locked from release until the drop finishes.
 - **Playing a Goob (M4):** drag (lift > ~12 px, ghost over the column under the finger, **release over board = drop, release outside = cancel**, Goob flies back to hand; **nothing dims**, same blue column flash as M3.5) or tap (tap Goob to select, tap column to aim, **tap same column again = drop**). From M4 a quick tap on a column only aims; hold > ~0.25 s or slide, then release over a column still drops (Sean, 2026-11-11). **No undo.** Column hit area = full column height + aim lane. Full column greyed while aiming. **Double tap = inspect** (name + card text; closes on next tap; Sean 2026-11-10, was long-press): always on hand Goobs, on board Goobs only when no hand Goob is selected. Input locked during the opponent's turn and animations.
 - **Inspect panel (Sean, 2026-11-13):** Goob big on the left; right: name (Monogram 2×, accent colour), effect centred; flavour text (Monogram italic) across the full width at the bottom; board dimmed; next tap closes. Vanilla: name + flavour only. M4 uses a placeholder flavour line. **Hand:** tap lifts the Goob in place, hold makes it follow the finger; giggle face in both.
-- **Options:** HUD pause opens Resume / Options / Quit (title also has Options; Quit on the title only in desktop builds). Rows: animation speed, **Haptics** On/Off, **Screen shake** On/Off (all shakes), **Auto-flip coin** On/Off (default Off), Back. Animation speed **Normal / Fast / Skip** (affects play animations and the scoring sequence). **Default Normal; Skip only when the player deliberately turns it on** (Sean, 2026-11-11; revisit if an insanely long effect chain appears). **Haptics:** built-in `Input.vibrate_handheld()` only; one pulse when your Goob lands and on an invalid drop.
+- **Options:** HUD pause opens Resume / Options / Quit (title also has Options; Quit on the title only in desktop builds). Rows: animation speed, **Haptics** On/Off, **Screen shake** On/Off (all shakes), **Auto-flip coin** On/Off (default Off), **Master / Music / SFX volume** (slider + mute each), Back. Animation speed **Normal / Fast / Skip** (affects play animations and the scoring sequence). **Default Normal; Skip only when the player deliberately turns it on** (Sean, 2026-11-11; revisit if an insanely long effect chain appears). **Haptics:** built-in `Input.vibrate_handheld()` only; one pulse when your Goob lands and on an invalid drop.
+
+### Sound (Sean, 2026-11-13 sound grill — vault slice §2B "Sound")
+
+- **All SFX ship in v0.1; music after v0.1** (chiptune). Free Godot asset store packs, **CC0 only** (CC-BY fallback credited in `assets/audio/CREDITS.md`).
+- **Hybrid style:** tactile for physical things (drop, land, roll, coin, hand, effects); chiptune for UI, banners, scoring, win/lose stings. Full event list: vault slice §2B Sound table.
+- **Never sound-only:** every audio cue also has a visual/text cue.
+- Buses Master → Music, SFX. Options rows: **Master / Music / SFX** sliders, each with a mute toggle; defaults 80 / 70 / 80 %; persisted in a settings file.
+- Mobile: ambient audio (respects silent switch, player's music keeps playing); pause in background.
+- No Goob voices; Strange Man only has the page-advance click. Quiet forest ambience loop (SFX bus) during coin flip + scenario.
+- Opponent sounds ~10 % lower pitch; ±5 % random pitch on repeats. Scoring ticks rise one note per Goob, sum on the top note.
+- Fast = sounds sooner, normal pitch; Skip = result sounds only (land, effect impact, final sum); each sound at most once per frame. Pause: SFX stop (incl. fuse), ambience ducks ~30 %, menu sounds play.
+- Each milestone adds its own sounds (M4 replaces `scripts/audio/sfx.gd` placeholders and covers already-built events).
 
 ### Tech
 
@@ -226,6 +238,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 - [ ] Load/shuffle `starter_deck.json` (17 Vanilla + 4 specials); draw pile + hand per side; **hand max 5**, start 3
 - [ ] Turn draw/play rules; empty deck; draw stalemate → replay
 - [ ] Player hand fan (opponent hand hidden), drawn-Goob reveal, hand-full toast + shake; **drag and tap aim state** (ghost, release / second-tap drop, cancel outside board); double-tap inspect
+- [ ] Sounds (§Sound): CC0 replacements for the error buzz + drop click; hand/drag/draw/inspect sounds; sounds for column flash, rest on top, fall, roll, "Time's up!"
 
 **Test:** Hands visible; deck counts behave; both input styles play and cancel correctly; stalemate replays correctly.
 
@@ -245,13 +258,15 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 - [ ] Land → effect → win check; per-type impact animations
 - [ ] Flip / destroy / extra vanilla / draw 2; scoring sequence (Balatro rhythm, ~0.6 s per Goob) on a one-sided four
+- [ ] Effect sounds + scoring sounds (rising pitch ladder)
 
 **Test:** Each special once in a session; order land → effect → win.
 
 ### M6 — AI & polish
 
 - [ ] Real `OpponentAI`; flip/drop/impact/highlight animations; coin flip anim
-- [ ] Options menu: animation speed Normal / Fast / Skip; built-in haptics
+- [ ] Options menu: animation speed Normal / Fast / Skip; built-in haptics; Master / Music / SFX sliders with mutes (audio buses)
+- [ ] Sounds: coin flip, banners, fuse, opponent flip/red flash, win/lose/draw, portrait explode, UI, forest ambience; Fast/Skip/pause audio rules
 - [ ] Low-time turn-timer warning: burning fuse in the strip between board and hand (Sean, 2026-11-10/11)
 - [ ] Coin flip in winner's colour; red/blue turn banners; win/lose lead-ins (Sean, 2026-11-11)
 - [ ] Smoke **A1–A10**
@@ -279,7 +294,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 ## Out of scope (unless Sean asks)
 
-Multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types** (Sean, 2026-11-13: 17 more specials come after the starter four work, 21 special types in all; Sean specifies them later), balance changes beyond the starter five, final art (placeholders OK).
+Music (after v0.1), multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types** (Sean, 2026-11-13: 17 more specials come after the starter four work, 21 special types in all; Sean specifies them later), balance changes beyond the starter five, final art (placeholders OK).
 
 Full-game vision: GameDev vault `Design/GDD.md` — **not v0.1 tasks**.
 
