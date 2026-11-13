@@ -37,6 +37,10 @@ const BOUNCE_SEC := 0.1
 const ROLL_SEC_PER_COLUMN := 0.11
 const ROLL_BUMP_PX := 6 ## nudge into the board edge on a bounce
 const HIGHLIGHT_MODULATE := Color(1.5, 1.5, 1.5)
+## Aim preview: while the player holds a legal column, their Goob floats on top
+## of the board over it (Sean, 2026-11-13), bobbing gently.
+const FLOAT_BOB_PX := 2
+const FLOAT_BOB_SEC := 0.4
 
 const TEX_BACK := preload("res://assets/board/board_back.png")
 const TEX_FRONT := preload("res://assets/board/board_front.png")
@@ -60,6 +64,8 @@ var _tokens: Dictionary = {} ## Vector2i(column, row) -> Sprite2D
 var _token_owner: Dictionary = {} ## Vector2i -> BoardState.CellOwner
 var _highlight_tweens: Dictionary = {} ## Vector2i -> Tween
 var _outline: ShaderMaterial
+var _preview: Sprite2D
+var _preview_tween: Tween
 
 
 func _ready() -> void:
@@ -74,6 +80,10 @@ func _ready() -> void:
 	_goobs = Node2D.new()
 	_goobs.name = "Goobs"
 	_pixel.add_child(_goobs)
+	_preview = _make_sprite(TEX_PLAYER, "Preview")
+	_preview.material = _outline
+	_preview.visible = false
+	_goobs.add_child(_preview)
 	_pixel.add_child(_make_sprite(TEX_FRONT, "Front"))
 	get_viewport().size_changed.connect(_update_scale)
 	item_rect_changed.connect(_place_layer)
@@ -105,6 +115,7 @@ func sync_from_board(board: BoardState) -> void:
 ## off that edge. The Goob counts as on the board at once, so a sync during
 ## the animation does not duplicate it. Await this to know when it has landed.
 func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = []) -> void:
+	hide_preview()
 	var cell := Vector2i(column, row)
 	_remove_token(cell)
 	var token := _add_token(cell, side)
@@ -120,6 +131,32 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 		_queue_roll(tween, token, roll_path)
 	_queue_fall(tween, token, TOP_Y, target)
 	await tween.finished
+
+
+## Floats a `side` Goob on top of the board over `column` (aim feedback). The
+## drop that follows starts from the same spot, so the Goob seems to fall from
+## here.
+func show_preview(column: int, side: BoardState.CellOwner) -> void:
+	_preview.texture = TEX_PLAYER if side == BoardState.CellOwner.PLAYER else TEX_OPPONENT
+	_preview.position = Vector2(_column_x(column), TOP_Y)
+	if _preview.visible:
+		return
+	_preview.visible = true
+	if not animate:
+		return
+	_preview_tween = create_tween().set_loops()
+	_preview_tween.tween_method(_set_y.bind(_preview), TOP_Y, TOP_Y - FLOAT_BOB_PX, FLOAT_BOB_SEC).set_trans(Tween.TRANS_SINE)
+	_preview_tween.tween_method(_set_y.bind(_preview), TOP_Y - FLOAT_BOB_PX, TOP_Y, FLOAT_BOB_SEC).set_trans(Tween.TRANS_SINE)
+
+
+func hide_preview() -> void:
+	if _preview_tween and _preview_tween.is_valid():
+		_preview_tween.kill()
+	_preview.visible = false
+
+
+func is_preview_visible() -> bool:
+	return _preview.visible
 
 
 ## Makes the given cells pulse brighter (winning four).

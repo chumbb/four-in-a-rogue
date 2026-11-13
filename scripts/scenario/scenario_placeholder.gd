@@ -155,18 +155,18 @@ func _input(event: InputEvent) -> void:
 func _enter_column(column: int) -> void:
 	_touch_column = column
 	if column == -1:
-		_hide_flash()
+		_hide_aim()
 	elif _loop.board.column_full(column):
-		_hide_flash()
+		_hide_aim()
 		_reject_placement(Toast.MSG_COLUMN_FULL)
 	else:
-		_show_flash(column, COLOR_FLASH_PLAYER)
+		_show_aim(column)
 
 
 func _end_touch() -> void:
 	_touch_index = -1
 	_touch_column = -1
-	_hide_flash()
+	_hide_aim()
 
 
 ## Column whose hit area (column slot + the aim lane above it) contains the
@@ -195,6 +195,18 @@ func _show_flash(column: int, color: Color) -> void:
 
 func _hide_flash() -> void:
 	_flash.visible = false
+
+
+## Player aim feedback: blue column flash + their Goob floating on top of the
+## board over that column.
+func _show_aim(column: int) -> void:
+	_show_flash(column, COLOR_FLASH_PLAYER)
+	_board_view.show_preview(column, BoardState.CellOwner.PLAYER)
+
+
+func _hide_aim() -> void:
+	_hide_flash()
+	_board_view.hide_preview()
 
 
 func _set_input_enabled(enabled: bool) -> void:
@@ -259,14 +271,14 @@ func _on_turn_timeout() -> void:
 	_timeout_column = _loop.board.roll_target(column, rightward)
 	_timeout_path = _roll_path(column, rightward)
 	if timeout_reveal_sec > 0.0:
-		_show_flash(column, COLOR_FLASH_PLAYER)
+		_show_aim(column)
 		_timeout_timer.start(timeout_reveal_sec)
 	else:
 		_finish_timeout()
 
 
 func _finish_timeout() -> void:
-	_hide_flash()
+	_hide_aim()
 	_play_player(_timeout_column, _timeout_path)
 
 

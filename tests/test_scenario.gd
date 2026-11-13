@@ -206,12 +206,18 @@ func _test_hold_slide_release() -> void:
 	_check(flash.get_global_rect().is_equal_approx(rect1), "flash covers column 1")
 	_check(is_equal_approx(flash.global_position.y, lane.position.y), "flash covers the aim lane")
 	_check(_count(board, P) == 0, "holding does not drop")
+	var view := _view(scenario)
+	_check(view.is_preview_visible(), "held Goob floats over the column")
+	_check(view._preview.texture == BoardView2D.TEX_PLAYER, "floating Goob is blue")
+	_check(view._preview.position == Vector2(view.cell_position(1, 0).x, BoardView2D.TOP_Y), "floats on top of column 1")
 	_drag(_col_pos(scenario, 5))
 	_check(flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(5)), "flash follows to column 5")
+	_check(view._preview.position.x == view.cell_position(5, 0).x, "floating Goob follows to column 5")
 	_touch(_col_pos(scenario, 5), false)
 	await process_frame
 	_check(board.get_owner(5, 0) == P, "release drops where the finger is (5)")
 	_check(board.get_owner(1, 0) != P, "no player Goob in the pressed column")
+	_check(not view.is_preview_visible(), "floating Goob gone after the drop")
 	await _free(scenario)
 
 
@@ -221,6 +227,7 @@ func _test_release_off_board_cancels() -> void:
 	_touch(_col_pos(scenario, 2), true)
 	_drag(_off_board(scenario))
 	_check(not scenario._flash.visible, "flash hides off the board")
+	_check(not _view(scenario).is_preview_visible(), "floating Goob hides off the board")
 	_touch(_off_board(scenario), false)
 	await process_frame
 	_check(_count(board, P) == 0, "release off the board cancels")
@@ -245,6 +252,7 @@ func _test_full_column_entry() -> void:
 	_check(scenario._toast.modulate.a > 0.9, "toast visible on entry")
 	_check(scenario._sfx_error.playing, "error sound on entry")
 	_check(not scenario._flash.visible, "no flash on a full column")
+	_check(not view.is_preview_visible(), "no floating Goob over a full column")
 	await process_frame
 	await process_frame
 	_check(view._shake_px != 0, "board shakes on entry")
@@ -359,6 +367,7 @@ func _test_timeout_is_obvious() -> void:
 	_check(scenario._toast.modulate.a > 0.9, "Time's up! toast visible")
 	_check(scenario._flash.visible, "timeout flashes the column")
 	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(4)), "flash on the held column")
+	_check(_view(scenario).is_preview_visible(), "Goob floats over the timeout column")
 	_check(not scenario._input_enabled, "input locked during the reveal")
 	_check(scenario._timer_label.text == "0s", "timer reads 0s")
 	_check(_count(board, P) == 0, "Goob not dropped yet during the reveal")
@@ -368,6 +377,7 @@ func _test_timeout_is_obvious() -> void:
 	_check(board.get_owner(4, 0) == P, "then drops in the held column")
 	_check(_count(board, P) == 1, "release during the reveal does nothing")
 	_check(not scenario._flash.visible, "flash gone after the drop")
+	_check(not _view(scenario).is_preview_visible(), "floating Goob gone after the timeout drop")
 	await _free(scenario)
 
 
