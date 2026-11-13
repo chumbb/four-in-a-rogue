@@ -201,6 +201,22 @@ func column_rect(column: int) -> Rect2:
 	return Rect2(_to_global(top_left), Vector2(CELL, ROWS * CELL) * _k)
 
 
+## The board cell (column, row) under a viewport position, or (-1, -1).
+func cell_at(pos: Vector2) -> Vector2i:
+	var local := (pos - global_position - _origin) / _k - Vector2(GRID_ORIGIN)
+	var column := floori(local.x / CELL)
+	var row := ROWS - 1 - floori(local.y / CELL)
+	if column < 0 or column >= COLUMNS or row < 0 or row >= ROWS:
+		return Vector2i(-1, -1)
+	return Vector2i(column, row)
+
+
+## Logical px per game px for hand Goobs: one whole physical step bigger than
+## the board (5× when the board is 4×; GDD Art direction).
+func hand_px() -> float:
+	return _k * (pixel_scale + 1) / pixel_scale
+
+
 ## Viewport y (logical px) of the bottom of the board panel: where its feet
 ## stand on the table.
 func floor_bottom_y() -> float:

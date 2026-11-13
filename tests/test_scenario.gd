@@ -51,6 +51,18 @@ func _run() -> void:
 	await _test_free_during_opponent_delay()
 	await _test_drop_animation_locks_input()
 	await _test_roll_animation()
+	await _test_hand_at_start()
+	await _test_column_without_selection_ignored()
+	await _test_tap_aims_then_drops()
+	await _test_drag_drop_and_cancel()
+	await _test_small_move_is_tap()
+	await _test_double_tap_inspects_hand()
+	await _test_double_tap_inspects_board()
+	await _test_full_column_greyed()
+	await _test_hand_full_toast()
+	await _test_timeout_plays_selected()
+	await _test_stalemate_replay()
+	await _test_hand_fan_layout()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -154,6 +166,27 @@ func _tap(pos: Vector2) -> void:
 	_touch(pos, false)
 
 
+## Animated scenarios lock input while the turn's drawn Goob flies in.
+func _wait_input(scenario: Control) -> void:
+	var deadline := Time.get_ticks_msec() + 3000
+	while not scenario._input_enabled and Time.get_ticks_msec() < deadline:
+		await process_frame
+
+
+## Taps hand Goob `index` to select it (clearing any pending double tap).
+func _select_hand(scenario: Control, index := 0) -> void:
+	scenario._last_tap_key = ""
+	var hand: HandView = scenario.get_node("%PlayerHand")
+	_tap(hand.slot_center(index))
+
+
+## Tap style: select a hand Goob, tap the column to aim, tap again to drop.
+func _play_col(scenario: Control, column: int, index := 0) -> void:
+	_select_hand(scenario, index)
+	_tap(_col_pos(scenario, column))
+	_tap(_col_pos(scenario, column))
+
+
 # --- Tests -------------------------------------------------------------------
 
 func _test_hit_areas() -> void:
@@ -177,7 +210,7 @@ func _test_tap_drops_then_opponent() -> void:
 	var scenario := await _make(0.0)
 	var view := _view(scenario)
 	var board := _board(scenario)
-	_tap(_col_pos(scenario, 3))
+	_play_col(scenario, 3)
 	await process_frame
 	_check(board.get_owner(3, 0) == P, "tap drops player at (3,0)")
 	_check(_count(board, O) == 1, "opponent replied once (got %d)" % _count(board, O))
@@ -198,6 +231,7 @@ func _test_hold_slide_release() -> void:
 	var scenario := await _make(0.0)
 	var board := _board(scenario)
 	var flash: ColorRect = scenario._flash
+	_select_hand(scenario)
 	_touch(_col_pos(scenario, 1), true)
 	_check(flash.visible, "press shows the flash")
 	_check(flash.color.b > flash.color.r, "player flash is blue")
@@ -224,6 +258,7 @@ func _test_hold_slide_release() -> void:
 func _test_release_off_board_cancels() -> void:
 	var scenario := await _make(0.0)
 	var board := _board(scenario)
+	_select_hand(scenario)
 	_touch(_col_pos(scenario, 2), true)
 	_drag(_off_board(scenario))
 	_check(not scenario._flash.visible, "flash hides off the board")
@@ -247,6 +282,7 @@ func _test_full_column_entry() -> void:
 	var view := _view(scenario)
 	_fill_column(scenario, 3)
 	var before := board.to_debug_string()
+	_select_hand(scenario)
 	_touch(_col_pos(scenario, 3), true)
 	_check(scenario._toast._label.text == Toast.MSG_COLUMN_FULL, "toast says Column full")
 	_check(scenario._toast.modulate.a > 0.9, "toast visible on entry")
@@ -277,7 +313,7 @@ func _test_full_column_entry() -> void:
 func _test_touch_during_opponent_turn() -> void:
 	var scenario := await _make(5.0)
 	var board := _board(scenario)
-	_tap(_col_pos(scenario, 0))
+	_play_col(scenario, 0)
 	_check(board.get_owner(0, 0) == P, "first tap drops player")
 	_tap(_col_pos(scenario, 1))
 	_check(board.is_empty(1, 0), "tap during opponent turn ignored")
@@ -294,6 +330,8 @@ func _test_touch_during_opponent_turn() -> void:
 func _test_second_finger_and_mouse_ignored() -> void:
 	var scenario := await _make(0.0)
 	var board := _board(scenario)
+	_select_hand(scenario)
+	_tap(_col_pos(scenario, 1)) # aim; pressing it again drops on release
 	_touch(_col_pos(scenario, 1), true, 0)
 	_touch(_col_pos(scenario, 4), true, 1)
 	_touch(_col_pos(scenario, 4), false, 1)
@@ -315,7 +353,7 @@ func _test_second_finger_and_mouse_ignored() -> void:
 func _test_red_opponent_flash() -> void:
 	var scenario := await _make(0.0, true, 0.2)
 	var board := _board(scenario)
-	_tap(_col_pos(scenario, 3))
+	_play_col(scenario, 3)
 	_check(scenario._flash.visible, "opponent flash shows before its drop")
 	_check(scenario._flash.color.r > scenario._flash.color.b, "opponent flash is red")
 	_check(_count(board, O) == 0, "opponent has not dropped during the flash")
@@ -361,6 +399,7 @@ func _test_timeout_is_obvious() -> void:
 	root.add_child(scenario)
 	await process_frame
 	var board := _board(scenario)
+	_select_hand(scenario)
 	_touch(_col_pos(scenario, 4), true)
 	await create_timer(0.3).timeout
 	_check(scenario._toast._label.text == "Time's up!", "timeout shows Time's up!")
@@ -384,6 +423,7 @@ func _test_timeout_is_obvious() -> void:
 func _test_timeout_under_finger() -> void:
 	var scenario := await _make(5.0, true, 0.0, 0.2)
 	var board := _board(scenario)
+	_select_hand(scenario)
 	_touch(_col_pos(scenario, 2), true)
 	await create_timer(0.35).timeout
 	_check(board.get_owner(2, 0) == P, "timeout plays into the held column")
@@ -397,6 +437,7 @@ func _test_timeout_rolls_off_full_column() -> void:
 	var scenario := await _make(5.0, true, 0.0, 0.2)
 	var board := _board(scenario)
 	_fill_column(scenario, 6)
+	_select_hand(scenario)
 	_touch(_col_pos(scenario, 6), true)
 	await create_timer(0.35).timeout
 	# Column 6 is the right edge: rolling right bounces, rolling left goes 5.
@@ -416,7 +457,7 @@ func _test_win_shows_end() -> void:
 	for c in [6, 6, 5]:
 		board.drop(c, O)
 	view.sync_from_board(board)
-	_tap(_col_pos(scenario, 3))
+	_play_col(scenario, 3)
 	await process_frame
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "player wins")
 	_check(scenario._result_label.text == "You Win!", "announces You Win! (got %s)" % scenario._result_label.text)
@@ -443,7 +484,7 @@ func _test_draw_shows_replay() -> void:
 				continue
 			board.drop(column, _fill_owner(column, row))
 	view.sync_from_board(board)
-	_tap(_col_pos(scenario, 6))
+	_play_col(scenario, 6)
 	await process_frame
 	var end_button: Button = scenario.get_node("%EndButton")
 	_check(scenario._loop.result == TurnLoop.Result.DRAW, "full board is a draw")
@@ -467,7 +508,7 @@ func _test_opponent_first() -> void:
 
 func _test_free_during_opponent_delay() -> void:
 	var scenario := await _make(0.2)
-	_tap(_col_pos(scenario, 0))
+	_play_col(scenario, 0)
 	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "opponent move pending")
 	var loop: TurnLoop = scenario._loop # RefCounted: outlives the scene
 	scenario.queue_free()
@@ -480,9 +521,10 @@ func _test_free_during_opponent_delay() -> void:
 ## Input stays locked while the Goob falls; the turn passes once it lands.
 func _test_drop_animation_locks_input() -> void:
 	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	await _wait_input(scenario)
 	var view := _view(scenario)
 	var board := _board(scenario)
-	_tap(_col_pos(scenario, 2))
+	_play_col(scenario, 2)
 	_check(board.get_owner(2, 0) == P, "grid updates at once")
 	_check(not scenario._input_enabled, "input locked while the Goob falls")
 	var token: Sprite2D = view._tokens[Vector2i(2, 0)]
@@ -503,6 +545,7 @@ func _test_drop_animation_locks_input() -> void:
 ## off the edge, then falls into the first open column.
 func _test_roll_animation() -> void:
 	var scenario := await _make(5.0, true, 0.0, 0.2, true)
+	await _wait_input(scenario)
 	var view := _view(scenario)
 	var board := _board(scenario)
 	_fill_column(scenario, 6)
@@ -513,6 +556,7 @@ func _test_roll_animation() -> void:
 	_check(right == [6, 7, 5, 4], "roll path bounces off the right edge (got %s)" % str(right))
 	_check(left == [6, 5, 4], "roll path left (got %s)" % str(left))
 	_check(open == [2], "open column: no roll (got %s)" % str(open))
+	_select_hand(scenario)
 	_touch(_col_pos(scenario, 6), true)
 	await create_timer(0.3).timeout
 	_check(board.get_owner(4, 0) == P, "timeout Goob lands in column 4")
@@ -570,4 +614,223 @@ func _test_layout(size: Vector2i, insets: bool) -> void:
 	_check(table.position.y > board.get_center().y and table.position.y <= board.end.y + 0.5, "%s: table starts under the board" % tag)
 	_check(is_equal_approx(table.end.y, view_size.y), "%s: table runs to the screen bottom" % tag)
 	SafeArea.simulate_insets = false
+	await _free(scenario)
+
+
+# --- M4: decks and hands --------------------------------------------------------
+
+func _hand_view(scenario: Control) -> HandView:
+	return scenario.get_node("%PlayerHand")
+
+
+func _test_hand_at_start() -> void:
+	var scenario := await _make(0.0)
+	var hand := _hand_view(scenario)
+	_check(scenario._loop.player_deck.hand.size() == 4, "start: player holds 3 + turn draw")
+	_check(hand.count() == 4, "start: fan shows 4 (got %d)" % hand.count())
+	_check(scenario._input_enabled, "start: input on after the draw reveal")
+	await _free(scenario)
+	scenario = await _make(0.0, false)
+	_check(_hand_view(scenario).count() == 4, "opp first: fan shows 4 after its opener")
+	_check(scenario._loop.opponent_deck.hand.size() == 3, "opp first: opponent played 1 of 4")
+	await _free(scenario)
+
+
+func _test_column_without_selection_ignored() -> void:
+	var scenario := await _make(0.0)
+	_touch(_col_pos(scenario, 2), true)
+	_check(not scenario._flash.visible, "no selection: no flash")
+	_check(not _view(scenario).is_preview_visible(), "no selection: no float")
+	_drag(_col_pos(scenario, 4))
+	await create_timer(0.3).timeout
+	_touch(_col_pos(scenario, 4), false)
+	_check(_count(_board(scenario), P) == 0, "no selection: hold + release does not drop")
+	_check(scenario._toast.modulate.a < 0.1, "no selection: no toast")
+	await _free(scenario)
+
+
+func _test_tap_aims_then_drops() -> void:
+	var scenario := await _make(5.0)
+	var board := _board(scenario)
+	var hand := _hand_view(scenario)
+	_select_hand(scenario, 2)
+	_check(scenario._selected == 2 and hand.selected() == 2, "tap selects hand Goob 2")
+	var chosen: GoobDefinition = scenario._loop.player_deck.hand[2]
+	_tap(_col_pos(scenario, 1))
+	_check(_count(board, P) == 0, "quick tap on a column only aims")
+	_check(scenario._flash.visible and _view(scenario).is_preview_visible(), "aim shows flash + float after the tap")
+	_tap(_col_pos(scenario, 4))
+	_check(_count(board, P) == 0, "tapping another column moves the aim")
+	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(4)), "flash moved to column 4")
+	_tap(_col_pos(scenario, 4))
+	_check(board.get_owner(4, 0) == P, "tapping the aimed column again drops")
+	_check(scenario._loop.goob_at(4, 0) == chosen, "the selected Goob was played")
+	_check(hand.count() == 3, "played Goob left the fan")
+	_check(not scenario._flash.visible, "aim cleared after the drop")
+	await _free(scenario)
+
+
+func _test_drag_drop_and_cancel() -> void:
+	var scenario := await _make(5.0)
+	var board := _board(scenario)
+	var hand := _hand_view(scenario)
+	scenario._last_tap_key = ""
+	var start := hand.slot_center(1)
+	_touch(start, true)
+	_drag(start + Vector2(0, -40))
+	_check(hand.is_dragging(), "moving > 12 px starts a drag")
+	_drag(_off_board(scenario))
+	_touch(_off_board(scenario), false)
+	_check(_count(board, P) == 0, "release off the board cancels")
+	_check(not hand.is_dragging() and hand.count() == 4, "Goob flies back to the hand")
+	_check(scenario._selected == -1, "cancel deselects")
+	scenario._last_tap_key = ""
+	var chosen: GoobDefinition = scenario._loop.player_deck.hand[0]
+	start = hand.slot_center(0)
+	_touch(start, true)
+	_drag(start + Vector2(0, -40))
+	_drag(_col_pos(scenario, 5))
+	_check(scenario._flash.visible, "dragging over a column flashes it")
+	_check(_view(scenario).is_preview_visible(), "ghost floats over the column")
+	_check(not hand._cards[0].visible, "dragged Goob hides while the float shows it")
+	_touch(_col_pos(scenario, 5), false)
+	_check(board.get_owner(5, 0) == P, "release over the board drops")
+	_check(scenario._loop.goob_at(5, 0) == chosen, "the dragged Goob was played")
+	_check(hand.count() == 3, "fan closes up")
+	await _free(scenario)
+
+
+func _test_small_move_is_tap() -> void:
+	var scenario := await _make(5.0)
+	var hand := _hand_view(scenario)
+	scenario._last_tap_key = ""
+	var start := hand.slot_center(3)
+	_touch(start, true)
+	_drag(start + Vector2(5, -5))
+	_check(not hand.is_dragging(), "a 7 px move is not a drag")
+	_touch(start + Vector2(5, -5), false)
+	_check(scenario._selected == 3, "small move + release selects")
+	await _free(scenario)
+
+
+func _test_double_tap_inspects_hand() -> void:
+	var scenario := await _make(5.0)
+	var hand := _hand_view(scenario)
+	var inspect: InspectPanel = scenario._inspect
+	var goob: GoobDefinition = scenario._loop.player_deck.hand[1]
+	_select_hand(scenario, 1)
+	_tap(hand.slot_center(1))
+	_check(inspect.is_open(), "double tap opens inspect")
+	_check(inspect.name_text() == goob.display_name, "inspect shows the name")
+	_check(inspect.effect_text() == goob.effect_description, "inspect shows the card text")
+	_tap(_col_pos(scenario, 3))
+	_check(not inspect.is_open(), "next tap closes inspect")
+	_check(_count(_board(scenario), P) == 0 and not scenario._flash.visible, "closing tap does nothing else")
+	await _free(scenario)
+
+
+func _test_double_tap_inspects_board() -> void:
+	var scenario := await _make(5.0)
+	var board := _board(scenario)
+	var view := _view(scenario)
+	var vanilla: GoobDefinition = load("res://resources/goobs/vanilla_goob.tres")
+	board.drop(2, O)
+	scenario._loop._cell_goobs[Vector2i(2, 0)] = vanilla
+	view.sync_from_board(board)
+	var rect := view.column_rect(2)
+	var cell_pos := Vector2(rect.get_center().x, rect.end.y - 20.0)
+	_check(view.cell_at(cell_pos) == Vector2i(2, 0), "cell_at finds (2,0)")
+	_tap(cell_pos)
+	_tap(cell_pos)
+	_check(scenario._inspect.is_open(), "double tap on a board Goob inspects (nothing selected)")
+	_check(scenario._inspect.effect_text() == "", "Vanilla: name + flavour only")
+	_tap(cell_pos)
+	_check(not scenario._inspect.is_open(), "tap closes it")
+	_select_hand(scenario)
+	_tap(cell_pos)
+	_tap(cell_pos)
+	_check(not scenario._inspect.is_open(), "with a Goob selected a board double tap does not inspect")
+	_check(board.get_owner(2, 1) == P, "... it aims and drops instead")
+	await _free(scenario)
+
+
+func _test_full_column_greyed() -> void:
+	var scenario := await _make(5.0)
+	_fill_column(scenario, 3)
+	_check(not scenario._grey[3].visible, "no grey without a selection")
+	_select_hand(scenario)
+	_check(scenario._grey[3].visible, "full column greyed while a Goob is selected")
+	_check(not scenario._grey[2].visible, "open column not greyed")
+	await _free(scenario)
+
+
+func _test_hand_full_toast() -> void:
+	var scenario := await _make(0.0, true, 0.0, 30.0)
+	var loop: TurnLoop = scenario._loop
+	# As after Plentiful: the player's hand is full when their next turn starts.
+	while loop.player_deck.hand.size() < Deck.HAND_MAX + 1:
+		loop.player_deck.hand.append(loop.player_deck.hand[0])
+	_hand_view(scenario).rebuild(loop.player_deck.hand)
+	scenario.try_drop(0, 0)
+	await process_frame
+	_check(loop.phase == TurnLoop.Phase.PLAYER_TURN, "hand full: player's turn again")
+	_check(loop.last_draw_hand_full, "hand full: draw skipped")
+	_check(scenario._toast._label.text == "Hand full", "hand full: toast")
+	_check(_hand_view(scenario).count() == Deck.HAND_MAX, "hand full: fan holds 5")
+	await process_frame
+	_check(scenario.position.x != 0.0, "hand full: screen shakes")
+	await create_timer(0.4).timeout
+	_check(scenario.position.x == 0.0, "hand full: shake settles")
+	await _free(scenario)
+
+
+func _test_timeout_plays_selected() -> void:
+	var scenario := await _make(5.0, true, 0.0, 0.2)
+	var chosen: GoobDefinition = scenario._loop.player_deck.hand[3]
+	_select_hand(scenario, 3)
+	await create_timer(0.35).timeout
+	var played: GoobDefinition = null
+	for column in BoardState.COLUMNS:
+		if scenario._loop.goob_at(column, 0) != null:
+			played = scenario._loop.goob_at(column, 0)
+	_check(played == chosen, "timeout plays the selected Goob")
+	_check(_hand_view(scenario).count() == 3, "timeout Goob left the fan")
+	await _free(scenario)
+
+
+func _test_stalemate_replay() -> void:
+	var scenario := await _make(0.0)
+	var loop: TurnLoop = scenario._loop
+	loop.opponent_deck.hand.clear()
+	loop.opponent_deck.draw_pile.clear()
+	loop.player_deck.draw_pile.clear()
+	loop.player_deck.hand.resize(1)
+	_hand_view(scenario).rebuild(loop.player_deck.hand)
+	_play_col(scenario, 0)
+	await process_frame
+	_check(loop.result == TurnLoop.Result.DRAW, "stalemate: draw")
+	_check(not loop.board.is_board_full(), "stalemate: board not full")
+	_check(scenario._result_label.text == "Draw", "stalemate: announces Draw")
+	_check(scenario.get_node("%EndButton").text == "Replay", "stalemate: Replay")
+	await _free(scenario)
+
+
+func _test_hand_fan_layout() -> void:
+	var scenario := await _make(5.0)
+	var hand := _hand_view(scenario)
+	var loop: TurnLoop = scenario._loop
+	loop.player_deck.hand.append(loop.player_deck.hand[0])
+	hand.rebuild(loop.player_deck.hand)
+	var px := _view(scenario).hand_px()
+	_check(is_equal_approx(px * 1.5, 5.0), "hand Goobs at 5x physical (got %.2f)" % (px * 1.5))
+	var goob := HandView.GOOB_PX * px
+	_check(goob >= 96.0, "hand Goob >= 96 px (got %.1f)" % goob)
+	var zone := hand.get_global_rect()
+	for i in hand.count():
+		var c := hand.slot_center(i)
+		_check(c.x - goob * 0.5 >= 24.0 - 0.5 and c.x + goob * 0.5 <= zone.end.x - 24.0 + 0.5, "card %d >= 24 px from the sides" % i)
+		_check(c.y + goob * 0.5 <= zone.end.y + 0.5, "card %d inside the hand zone" % i)
+		if i > 0:
+			_check(c.x - hand.slot_center(i - 1).x >= goob, "cards %d/%d do not overlap" % [i - 1, i])
+		_check(hand.goob_at(c) == i, "card %d hit-tests" % i)
 	await _free(scenario)

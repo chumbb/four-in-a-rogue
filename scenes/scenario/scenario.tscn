@@ -1,8 +1,9 @@
-[gd_scene load_steps=9 format=3 uid="uid://fourinarogue_scenario"]
+[gd_scene load_steps=10 format=3 uid="uid://fourinarogue_scenario"]
 
 [ext_resource type="Script" path="res://scripts/scenario/scenario_placeholder.gd" id="1_sc"]
 [ext_resource type="PackedScene" uid="uid://fourinarogue_board2d" path="res://scenes/board/board_view_2d.tscn" id="2_board"]
 [ext_resource type="Script" path="res://scripts/ui/safe_area.gd" id="3_safe"]
+[ext_resource type="Script" path="res://scripts/hand/hand_view.gd" id="4_hand"]
 
 [sub_resource type="Gradient" id="Gradient_bg"]
 offsets = PackedFloat32Array(0, 0.45, 0.7, 1)
@@ -226,6 +227,7 @@ custom_minimum_size = Vector2(0, 170)
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
+script = ExtResource("4_hand")
 
 [node name="ColumnFlash" type="ColorRect" parent="."]
 unique_name_in_owner = true

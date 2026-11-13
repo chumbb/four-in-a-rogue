@@ -1,10 +1,15 @@
 extends Control
-## Scenario controller — M3 turn loop in the portrait touch layout, on the
-## M3.6 2D pixel board.
+## Scenario controller — turn loop with decks and hands (M4) in the portrait
+## touch layout, on the M3.6 2D pixel board.
 ##
-## The coin-flip winner moves first. The player presses a column (a blue flash
-## follows the finger over the columns) and releases to drop; releasing off the
-## board cancels. The opponent (OpponentAI) replies after a short delay and a
+## The coin-flip winner moves first. Each turn draws 1 Goob (the player's pops
+## in big, then flies into the fan). The player plays a hand Goob two ways
+## (slice §2B): drag it onto a column and release (release off the board
+## cancels and it flies back), or tap it to select, tap a column to aim and tap
+## that column again to drop; holding or sliding on a column and releasing
+## also drops. A blue flash and the floating Goob follow the aimed column.
+## Column touches with no Goob selected are ignored (Sean, 2026-11-13).
+## Double tap inspects a hand Goob, or a board Goob when none is selected. The opponent (OpponentAI) replies after a short delay and a
 ## red flash on its column. Player turns are timed (slice §2B): at timeout the
 ## Goob goes into the column under the finger, else a random column, rolling
 ## off full columns. Goobs fall (or roll) into place before the next turn;
@@ -20,9 +25,20 @@ const TURN_SECONDS := 30.0
 ## flash on the column for this long before the Goob drops.
 const TIMEOUT_REVEAL_SEC := 0.7
 const MSG_TIMES_UP := "Time's up!"
+const MSG_HAND_FULL := "Hand full"
+## Drag starts once the finger moves this far from the press (slice §2B).
+const DRAG_START_PX := 12.0
+## A press on a column held this long (or slid) drops on release; shorter
+## taps only aim (Sean, 2026-11-11).
+const HOLD_SEC := 0.25
+const DOUBLE_TAP_SEC := 0.3
+## Skipped draw: short whole-screen shake (slice §4, ~0.25 s).
+const SCREEN_SHAKE_PX := [8, -8, 6, -6, 3, -3, 0]
+const SCREEN_SHAKE_STEP_SEC := 0.035
 
 const COLOR_FLASH_PLAYER := Color(0.3, 0.55, 1.0, 0.35)
 const COLOR_FLASH_OPPONENT := Color(1.0, 0.2, 0.2, 0.45)
+const COLOR_FULL_GREY := Color(0.08, 0.08, 0.1, 0.55)
 const COLOR_WIN := Color(1.0, 0.85, 0.3)
 const COLOR_LOSE := Color(1.0, 0.3, 0.3)
 const COLOR_DRAW := Color(0.75, 0.82, 1.0)
@@ -37,6 +53,7 @@ const COLOR_DRAW := Color(0.75, 0.82, 1.0)
 @onready var _table: ColorRect = %Table
 @onready var _end_overlay: Control = %EndOverlay
 @onready var _banner: Control = %Banner
+@onready var _hand: HandView = %PlayerHand
 
 ## Seconds before the opponent drops. Tests set 0.0 (move immediately).
 var opponent_delay_sec := OPPONENT_DELAY_SEC
@@ -60,16 +77,36 @@ var _turn_timer: Timer
 var _timeout_timer: Timer
 var _opponent_column := -1
 var _timeout_column := -1
+var _timeout_hand_index := -1
 ## Columns the timeout Goob rolls over (off-board entries = edge bounces).
 var _timeout_path: Array[int] = []
 
 ## Player input is accepted only while true (player turn, nothing animating).
 var _input_enabled := false
-## Single pointer: the finger that started on a column owns the gesture.
+## What the current finger started on.
+enum Gesture { NONE, HAND, BOARD, SWALLOW }
+
+## Single pointer: the finger that started the gesture owns it.
 var _touch_index := -1
+var _gesture := Gesture.NONE
 ## Column under that finger, -1 when it is off the board. Also the timeout
 ## column; cleared by release and cancel.
 var _touch_column := -1
+## Hand index of the selected Goob, -1 when none.
+var _selected := -1
+## Column aimed by a tap (stays shown after the finger lifts), -1 when none.
+var _aim_column := -1
+var _aim_at_press := -1
+var _press_pos := Vector2.ZERO
+var _press_msec := 0
+var _dragging := false
+var _slid := false
+## Double tap: what the last tap hit and when.
+var _last_tap_key := ""
+var _last_tap_msec := -100000
+var _inspect: InspectPanel
+var _grey: Array[ColorRect] = []
+var _shake_tween: Tween
 
 
 func _ready() -> void:
@@ -81,10 +118,18 @@ func _ready() -> void:
 	_timeout_timer = _make_timer(_finish_timeout)
 	_end_overlay.visible = false
 	_board_view.animate = animate_drops
+	_hand.animate = animate_drops
 	_board_view.item_rect_changed.connect(_layout_table.call_deferred)
 	_layout_table.call_deferred()
-	_loop.start(GameFlow.player_moves_first)
+	_loop.start(GameFlow.player_moves_first, _rng)
 	_board_view.sync_from_board(_loop.board)
+	# The player's first-turn draw is revealed by _after_play(), so the fan
+	# starts without it.
+	var start_hand := _loop.player_deck.hand.duplicate()
+	if _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+		for goob in _loop.last_draw:
+			start_hand.remove_at(start_hand.rfind(goob))
+	_hand.rebuild(start_hand)
 	_after_play()
 
 
@@ -99,6 +144,7 @@ func _layout_table() -> void:
 	var top := _board_view.floor_bottom_y()
 	_table.position = Vector2(0.0, top)
 	_table.size = Vector2(size.x, maxf(0.0, size.y - top))
+	_hand.set_pixel_size(_board_view.hand_px())
 
 
 func _make_timer(callback: Callable) -> Timer:
@@ -118,42 +164,161 @@ func _build_feedback_nodes() -> void:
 	_sfx_drop = AudioStreamPlayer.new()
 	_sfx_drop.stream = Sfx.drop_click()
 	add_child(_sfx_drop)
+	for column in BoardState.COLUMNS:
+		var grey := ColorRect.new()
+		grey.color = COLOR_FULL_GREY
+		grey.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		grey.visible = false
+		add_child(grey)
+		_grey.append(grey)
+	_inspect = InspectPanel.new()
+	add_child(_inspect)
+	move_child(_inspect, _end_overlay.get_index())
 
 
-# --- Touch input (slice §2B column touch) ------------------------------------
+# --- Touch input (slice §2B) ---------------------------------------------------
 
 ## Touch events only: on desktop a click arrives both as a mouse event and as
 ## an emulated touch, so reading both would act twice. _input (not
 ## _unhandled_input) so Controls under the finger can't swallow it.
 func _input(event: InputEvent) -> void:
-	if not _input_enabled:
-		return
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			if _touch_index != -1:
-				return # a second finger; single pointer only
-			var column := column_at(event.position)
-			if column == -1:
-				return
-			_touch_index = event.index
-			_enter_column(column)
-			get_viewport().set_input_as_handled()
+			_on_press(event)
 		elif event.index == _touch_index:
-			var column := column_at(event.position)
-			_end_touch()
-			get_viewport().set_input_as_handled()
-			if column != -1 and not event.canceled and not _loop.board.column_full(column):
-				try_drop(column)
+			_on_release(event)
 	elif event is InputEventScreenDrag and event.index == _touch_index:
-		var column := column_at(event.position)
-		if column != _touch_column:
-			_enter_column(column)
+		_on_drag(event)
+
+
+func _on_press(event: InputEventScreenTouch) -> void:
+	if _touch_index != -1:
+		return # a second finger; single pointer only
+	if _inspect.is_open():
+		# The next tap closes the inspect view and does nothing else.
+		_inspect.close()
+		_start_gesture(event, Gesture.SWALLOW)
+		return
+	if not _input_enabled:
+		return
+	var hand_index := _hand.goob_at(event.position)
+	if hand_index != -1:
+		_start_gesture(event, Gesture.HAND)
+		var double := _is_double_tap("hand:%d" % hand_index)
+		_select(hand_index)
+		if double:
+			_open_inspect(_loop.player_deck.hand[hand_index], BoardState.CellOwner.PLAYER)
+			_gesture = Gesture.SWALLOW
+		return
+	var column := column_at(event.position)
+	if column == -1:
+		return
+	_start_gesture(event, Gesture.BOARD)
+	_aim_at_press = _aim_column
+	if _selected != -1:
+		_enter_column(column)
+		return
+	# No Goob selected: column touches are ignored (Sean, 2026-11-13), but a
+	# double tap on a board Goob inspects it.
+	var cell := _board_view.cell_at(event.position)
+	var goob := _loop.goob_at(cell.x, cell.y)
+	if goob != null and _is_double_tap("cell:%d,%d" % [cell.x, cell.y]):
+		_open_inspect(goob, _loop.board.get_owner(cell.x, cell.y))
+		_gesture = Gesture.SWALLOW
+
+
+func _start_gesture(event: InputEventScreenTouch, gesture: Gesture) -> void:
+	_touch_index = event.index
+	_gesture = gesture
+	_press_pos = event.position
+	_press_msec = Time.get_ticks_msec()
+	_dragging = false
+	_slid = false
+	get_viewport().set_input_as_handled()
+
+
+func _on_drag(event: InputEventScreenDrag) -> void:
+	match _gesture:
+		Gesture.HAND:
+			if not _dragging and event.position.distance_to(_press_pos) > DRAG_START_PX:
+				_dragging = true
+				_last_tap_key = "" # a drag is not a tap
+				_hand.begin_drag(_selected)
+			if _dragging:
+				_hand.drag_to(event.position)
+				var column := column_at(event.position)
+				if column != _touch_column:
+					_enter_column(column)
+				_hand.set_drag_visible(not _board_view.is_preview_visible())
+		Gesture.BOARD:
+			if _selected == -1:
+				return
+			var column := column_at(event.position)
+			if column != _touch_column:
+				_slid = true
+				_enter_column(column)
+
+
+func _on_release(event: InputEventScreenTouch) -> void:
+	var gesture := _gesture
+	var dragging := _dragging
+	_touch_index = -1
+	_gesture = Gesture.NONE
+	_dragging = false
+	get_viewport().set_input_as_handled()
+	if not _input_enabled or _selected == -1:
+		return
+	var column := column_at(event.position)
+	var legal := column != -1 and not event.canceled and not _loop.board.column_full(column)
+	match gesture:
+		Gesture.HAND:
+			if not dragging:
+				return # a tap: the Goob stays selected
+			if legal:
+				_play_selected(column)
+			else:
+				# Released off the board (or on a full column): it flies back.
+				_hand.cancel_drag()
+				_clear_aim()
+				_select(-1)
+		Gesture.BOARD:
+			var held := _slid or Time.get_ticks_msec() - _press_msec >= HOLD_SEC * 1000.0
+			if not legal:
+				_clear_aim() # off the board or a full column: back to neutral
+			elif held or column == _aim_at_press:
+				_play_selected(column)
+			else:
+				# A quick tap only aims; tapping the same column again drops.
+				_aim_column = column
+				_touch_column = -1
+
+
+func _is_double_tap(key: String) -> bool:
+	var now := Time.get_ticks_msec()
+	if key == _last_tap_key and now - _last_tap_msec <= DOUBLE_TAP_SEC * 1000.0:
+		_last_tap_key = ""
+		return true
+	_last_tap_key = key
+	_last_tap_msec = now
+	return false
+
+
+func _select(index: int) -> void:
+	_selected = index
+	if _hand.selected() != index:
+		_hand.select(index)
+	_refresh_grey()
+
+
+func _open_inspect(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
+	_inspect.open(goob, side, HandView.GOOB_PX * _board_view.hand_px() * 2.0)
 
 
 ## The finger moved onto `column` (-1 = off the board). A full column errors
 ## once per entry: this only runs when the column under the finger changes.
 func _enter_column(column: int) -> void:
 	_touch_column = column
+	_aim_column = -1
 	if column == -1:
 		_hide_aim()
 	elif _loop.board.column_full(column):
@@ -163,10 +328,33 @@ func _enter_column(column: int) -> void:
 		_show_aim(column)
 
 
-func _end_touch() -> void:
-	_touch_index = -1
+func _clear_aim() -> void:
+	_aim_column = -1
 	_touch_column = -1
 	_hide_aim()
+
+
+## Input locks: drop any gesture, aim, selection and inspect view.
+func _end_touch() -> void:
+	if _hand.is_dragging():
+		_hand.cancel_drag()
+	_touch_index = -1
+	_gesture = Gesture.NONE
+	_dragging = false
+	_clear_aim()
+	_select(-1)
+	_inspect.close()
+
+
+## Full columns grey out while a Goob is selected (slice §2B).
+func _refresh_grey() -> void:
+	for column in BoardState.COLUMNS:
+		var grey := _grey[column]
+		grey.visible = _selected != -1 and _input_enabled and _loop.board.column_full(column)
+		if grey.visible:
+			var rect := column_hit_rect(column)
+			grey.global_position = rect.position
+			grey.size = rect.size
 
 
 ## Column whose hit area (column slot + the aim lane above it) contains the
@@ -216,30 +404,41 @@ func _set_input_enabled(enabled: bool) -> void:
 	else:
 		_turn_timer.stop()
 		_end_touch()
+	_refresh_grey()
 	_refresh_hud()
 
 
 # --- Turns -------------------------------------------------------------------
 
-## Player entry point. Returns the landed row, or -1 if it is not the
-## player's turn (silently), the column index is invalid (a caller bug), or
-## the column is full (shake + sound + toast).
-func try_drop(column: int) -> int:
+## Player entry point: plays hand Goob `hand_index` into `column`. Returns
+## the landed row, or -1 if it is not the player's turn (silently), the column
+## or hand index is invalid (a caller bug), or the column is full (shake +
+## sound + toast).
+func try_drop(column: int, hand_index: int = 0) -> int:
 	if _loop.phase != TurnLoop.Phase.PLAYER_TURN:
 		return -1
 	if not _loop.board.is_valid_column(column):
 		push_error("Scenario.try_drop: invalid column %d" % column)
 		return -1
+	if hand_index < 0 or hand_index >= _loop.player_deck.hand.size():
+		push_error("Scenario.try_drop: invalid hand index %d" % hand_index)
+		return -1
 	if _loop.board.column_full(column):
 		_reject_placement(Toast.MSG_COLUMN_FULL)
 		return -1
-	return _play_player(column)
+	return _play_player(column, hand_index)
+
+
+## Plays the selected hand Goob into `column` (no undo).
+func _play_selected(column: int) -> void:
+	_play_player(column, _selected)
 
 
 ## `roll_path`: the timeout roll over full columns (see _roll_path()).
-func _play_player(column: int, roll_path: Array[int] = []) -> int:
+func _play_player(column: int, hand_index: int, roll_path: Array[int] = []) -> int:
 	_set_input_enabled(false) # locked until the drop finishes
-	var row := _loop.play(column)
+	_hand.remove(hand_index)
+	var row := _loop.play(column, hand_index)
 	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path)
 	return row
 
@@ -259,10 +458,18 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 func _on_turn_timeout() -> void:
 	if _loop.phase != TurnLoop.Phase.PLAYER_TURN:
 		return
-	var column := _touch_column
-	if _touch_index == -1 or column == -1:
+	# Column under the finger, else the tap-aimed column, else random.
+	var column := _touch_column if _touch_index != -1 else -1
+	if column == -1:
+		column = _aim_column
+	if column == -1:
 		column = _rng.randi_range(0, BoardState.COLUMNS - 1)
+	# The selected (or dragged) Goob, else a random one (Sean, 2026-11-13).
+	_timeout_hand_index = _selected
+	if _timeout_hand_index == -1:
+		_timeout_hand_index = _rng.randi_range(0, _loop.player_deck.hand.size() - 1)
 	_set_input_enabled(false)
+	_hand.remove(_timeout_hand_index)
 	_timer_label.text = "0s"
 	_timer_label.visible = true
 	_toast.show_message(MSG_TIMES_UP)
@@ -279,7 +486,7 @@ func _on_turn_timeout() -> void:
 
 func _finish_timeout() -> void:
 	_hide_aim()
-	_play_player(_timeout_column, _timeout_path)
+	_play_player(_timeout_column, _timeout_hand_index, _timeout_path)
 
 
 ## Columns a Goob played into full `column` rolls over before it falls, for
@@ -307,7 +514,29 @@ func _after_play() -> void:
 		TurnLoop.Phase.OPPONENT_TURN:
 			_run_opponent_turn()
 		_:
-			_set_input_enabled(true)
+			await _show_turn_draw()
+			if is_inside_tree() and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+				_set_input_enabled(true)
+
+
+## The player's start-of-turn draw: each drawn Goob pops in big and flies into
+## the fan; a draw skipped by a full hand shows "Hand full" + a screen shake.
+func _show_turn_draw() -> void:
+	if _loop.last_draw_hand_full:
+		_toast.show_message(MSG_HAND_FULL)
+		_place_toast()
+		_shake_screen()
+	for goob in _loop.last_draw:
+		await _hand.reveal(goob)
+
+
+## Short whole-screen shake in whole logical px.
+func _shake_screen() -> void:
+	if _shake_tween and _shake_tween.is_valid():
+		_shake_tween.kill()
+	_shake_tween = create_tween()
+	for px: int in SCREEN_SHAKE_PX:
+		_shake_tween.tween_property(self, "position:x", float(px), SCREEN_SHAKE_STEP_SEC)
 
 
 func _run_opponent_turn() -> void:
@@ -333,7 +562,9 @@ func _on_opponent_flash_done() -> void:
 
 
 func _play_opponent_move() -> void:
-	var row := _loop.play(_opponent_column)
+	# Until the M6 AI: a random Goob from its hidden hand (Sean, 2026-11-13).
+	var hand_index := _rng.randi_range(0, _loop.opponent_deck.hand.size() - 1)
+	var row := _loop.play(_opponent_column, hand_index)
 	if row == -1:
 		push_error("Scenario: opponent chose illegal column %d" % _opponent_column)
 		return
