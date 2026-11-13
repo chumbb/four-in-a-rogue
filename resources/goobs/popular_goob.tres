@@ -7,5 +7,5 @@ script = ExtResource("1")
 id = "popular"
 display_name = "Popular Goob"
 multiplier = 0.5
-effect_description = "Extra drop — random column, then gravity; spawns a Vanilla Goob (your side)."
+effect_description = "Drop a Vanilla Goob into a random column."
 effect_type = 3

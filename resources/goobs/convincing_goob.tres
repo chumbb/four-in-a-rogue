@@ -7,5 +7,5 @@ script = ExtResource("1")
 id = "convincing"
 display_name = "Convincing Goob"
 multiplier = 0.5
-effect_description = "Flip — random adjacent opposing Goob becomes yours (8-way, from landed cell)."
+effect_description = "Flip a random adjacent enemy Goob to your side."
 effect_type = 1
