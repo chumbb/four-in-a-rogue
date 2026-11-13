@@ -40,14 +40,14 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently M3.6 — 2D board conversion; M3.5 portrait & touch accepted and merged 2026-11-11). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently M4 — Decks & hands; M3.6 2D board accepted and merged 2026-11-13). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅ (accepted by Sean and merged to `main` 2026-11-11) | **M3.6** 2D board conversion (vault slice §2A pixel layer, §6) |
-| Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent (3D board until M3.6) |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅ (accepted by Sean and merged to `main` 2026-11-13) | **M4** Decks & hands |
+| Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board |
 
 ---
 
@@ -206,7 +206,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Test:** Full M3 loop in portrait at 1080×1920 with mouse-as-touch, and in a tall window (e.g. 1080×2340) with simulated insets.
 
-### M3.6 — 2D board conversion ← **built on `m3.6-2d-board`, awaiting Sean's playtest**
+### M3.6 — 2D board conversion ✅ (playtested and merged 2026-11-13)
 
 - [x] Replace the 3D board with an upright 2D pixel board (back layer + front layer with holes). **Art ready** (honey wood, Sean 2026-11-11): `assets/board/board_back.png` + `board_front.png`, 240×216 (panel 240×208 + 8 px feet), grid origin (8, 8), 32 px cells, 28 px holes; source `art/board/board.aseprite` / `make_board.py`. Goob still = `assets/goobs/vanilla/<blue|red>_yaw/frame_00.png`, drawn at cell top-left with y −1 to centre in the hole
 - [x] 270×480 pixel layer at whole-number scale; placeholder painted background (gradient); nearest filtering
@@ -218,7 +218,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Test:** Same loop with the 2D board at 1080×1920 and 1080×2340; Goobs sit inside columns; no mixed pixel sizes.
 
-### M4 — Decks & hands
+### M4 — Decks & hands ← **next**
 
 - [ ] Load/shuffle `starter_deck.json` (17 Vanilla + 4 specials); draw pile + hand per side; **hand max 5**, start 3
 - [ ] Turn draw/play rules; empty deck; draw stalemate → replay
@@ -294,4 +294,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-11 (M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-13 (M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
