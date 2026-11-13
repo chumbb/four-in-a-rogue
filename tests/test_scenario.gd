@@ -63,6 +63,7 @@ func _run() -> void:
 	await _test_timeout_plays_selected()
 	await _test_stalemate_replay()
 	await _test_hand_fan_layout()
+	await _test_sounds()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -286,7 +287,7 @@ func _test_full_column_entry() -> void:
 	_touch(_col_pos(scenario, 3), true)
 	_check(scenario._toast._label.text == Toast.MSG_COLUMN_FULL, "toast says Column full")
 	_check(scenario._toast.modulate.a > 0.9, "toast visible on entry")
-	_check(scenario._sfx_error.playing, "error sound on entry")
+	_check(scenario._sfx.history.back() == &"error", "error sound on entry")
 	_check(not scenario._flash.visible, "no flash on a full column")
 	_check(not view.is_preview_visible(), "no floating Goob over a full column")
 	await process_frame
@@ -776,6 +777,7 @@ func _test_hand_full_toast() -> void:
 	_check(loop.phase == TurnLoop.Phase.PLAYER_TURN, "hand full: player's turn again")
 	_check(loop.last_draw_hand_full, "hand full: draw skipped")
 	_check(scenario._toast._label.text == "Hand full", "hand full: toast")
+	_check(_heard(scenario, &"hand_full"), "hand full: sound")
 	_check(_hand_view(scenario).count() == Deck.HAND_MAX, "hand full: fan holds 5")
 	await process_frame
 	_check(scenario.position.x != 0.0, "hand full: screen shakes")
@@ -833,4 +835,59 @@ func _test_hand_fan_layout() -> void:
 		if i > 0:
 			_check(c.x - hand.slot_center(i - 1).x >= goob, "cards %d/%d do not overlap" % [i - 1, i])
 		_check(hand.goob_at(c) == i, "card %d hit-tests" % i)
+	await _free(scenario)
+
+
+func _heard(scenario: Control, sound: StringName) -> bool:
+	return scenario._sfx.history.has(sound)
+
+
+## Every M4 event has its sound (slice §2B Sound), alongside its visual cue.
+func _test_sounds() -> void:
+	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	await _wait_input(scenario)
+	_check(_heard(scenario, &"draw_pop") and _heard(scenario, &"fly"), "sound: draw pop + fly into the fan")
+	var hand := _hand_view(scenario)
+	_select_hand(scenario, 0)
+	_check(_heard(scenario, &"select"), "sound: select")
+	_tap(_col_pos(scenario, 1))
+	_check(_heard(scenario, &"column"), "sound: column flash blip")
+	_tap(_col_pos(scenario, 2))
+	_check(_heard(scenario, &"column_tick"), "sound: column change tick")
+	_tap(hand.slot_center(0))
+	_check(scenario._inspect.is_open() and _heard(scenario, &"inspect_open"), "sound: inspect open")
+	_tap(_off_board(scenario))
+	_check(_heard(scenario, &"inspect_close"), "sound: inspect close")
+	scenario._last_tap_key = ""
+	var start := hand.slot_center(1)
+	_touch(start, true)
+	_drag(start + Vector2(0, -40))
+	_check(_heard(scenario, &"drag"), "sound: drag pickup")
+	_drag(_off_board(scenario))
+	_touch(_off_board(scenario), false)
+	_check(_heard(scenario, &"cancel"), "sound: cancel fly-back")
+	_play_col(scenario, 3)
+	await create_timer(0.1).timeout
+	_check(_heard(scenario, &"rest"), "sound: rest on top")
+	await create_timer(0.6).timeout
+	_check(_heard(scenario, &"fall") and _heard(scenario, &"land"), "sound: fall + land")
+	await _free(scenario)
+	scenario = await _make(5.0, true, 0.0, 0.2)
+	_fill_column(scenario, 6)
+	_fill_column(scenario, 5)
+	_select_hand(scenario)
+	_touch(_col_pos(scenario, 6), true)
+	await create_timer(0.3).timeout
+	_check(_heard(scenario, &"times_up"), "sound: Time's up!")
+	_touch(_col_pos(scenario, 6), false)
+	await _free(scenario)
+	scenario = await _make(5.0, true, 0.0, 0.2, true)
+	await _wait_input(scenario)
+	_fill_column(scenario, 6)
+	_fill_column(scenario, 5)
+	_select_hand(scenario)
+	_touch(_col_pos(scenario, 6), true)
+	await create_timer(1.2).timeout
+	_check(_heard(scenario, &"roll"), "sound: roll")
+	_touch(_col_pos(scenario, 6), false)
 	await _free(scenario)

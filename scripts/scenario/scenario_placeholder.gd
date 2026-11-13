@@ -68,8 +68,7 @@ var animate_drops := true
 var _loop := TurnLoop.new()
 var _rng := RandomNumberGenerator.new()
 var _toast: Toast
-var _sfx_error: AudioStreamPlayer
-var _sfx_drop: AudioStreamPlayer
+var _sfx: Sfx
 ## One-shot child timers: anything pending is freed with the scene.
 var _opponent_timer: Timer
 var _flash_timer: Timer
@@ -158,12 +157,10 @@ func _make_timer(callback: Callable) -> Timer:
 func _build_feedback_nodes() -> void:
 	_toast = Toast.new()
 	add_child(_toast)
-	_sfx_error = AudioStreamPlayer.new()
-	_sfx_error.stream = Sfx.error_buzz()
-	add_child(_sfx_error)
-	_sfx_drop = AudioStreamPlayer.new()
-	_sfx_drop.stream = Sfx.drop_click()
-	add_child(_sfx_drop)
+	_sfx = Sfx.new()
+	add_child(_sfx)
+	_board_view.drop_sound.connect(_on_drop_sound)
+	_hand.hand_sound.connect(_sfx.play)
 	for column in BoardState.COLUMNS:
 		var grey := ColorRect.new()
 		grey.color = COLOR_FULL_GREY
@@ -197,6 +194,7 @@ func _on_press(event: InputEventScreenTouch) -> void:
 	if _inspect.is_open():
 		# The next tap closes the inspect view and does nothing else.
 		_inspect.close()
+		_sfx.play(&"inspect_close")
 		_start_gesture(event, Gesture.SWALLOW)
 		return
 	if not _input_enabled:
@@ -205,6 +203,8 @@ func _on_press(event: InputEventScreenTouch) -> void:
 	if hand_index != -1:
 		_start_gesture(event, Gesture.HAND)
 		var double := _is_double_tap("hand:%d" % hand_index)
+		if _selected != hand_index:
+			_sfx.play(&"select")
 		_select(hand_index)
 		if double:
 			_open_inspect(_loop.player_deck.hand[hand_index], BoardState.CellOwner.PLAYER)
@@ -244,6 +244,7 @@ func _on_drag(event: InputEventScreenDrag) -> void:
 				_dragging = true
 				_last_tap_key = "" # a drag is not a tap
 				_hand.begin_drag(_selected)
+				_sfx.play(&"drag")
 			if _dragging:
 				_hand.drag_to(event.position)
 				var column := column_at(event.position)
@@ -279,6 +280,7 @@ func _on_release(event: InputEventScreenTouch) -> void:
 			else:
 				# Released off the board (or on a full column): it flies back.
 				_hand.cancel_drag()
+				_sfx.play(&"cancel")
 				_clear_aim()
 				_select(-1)
 		Gesture.BOARD:
@@ -311,6 +313,7 @@ func _select(index: int) -> void:
 
 
 func _open_inspect(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
+	_sfx.play(&"inspect_open")
 	_inspect.open(goob, side, HandView.GOOB_PX * _board_view.hand_px() * 2.0)
 
 
@@ -325,6 +328,8 @@ func _enter_column(column: int) -> void:
 		_hide_aim()
 		_reject_placement(Toast.MSG_COLUMN_FULL)
 	else:
+		# First touch on a column blips; sliding to another one ticks.
+		_sfx.play(&"column_tick" if _board_view.is_preview_visible() else &"column")
 		_show_aim(column)
 
 
@@ -447,7 +452,7 @@ func _play_player(column: int, hand_index: int, roll_path: Array[int] = []) -> i
 ## §4.2 order: land → special effect (M5) → win check last (in TurnLoop).
 func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = []) -> void:
 	await _board_view.play_drop(column, row, side, roll_path)
-	_sfx_drop.play()
+	_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 	_board_view.sync_from_board(_loop.board)
 	_after_play()
 
@@ -473,6 +478,7 @@ func _on_turn_timeout() -> void:
 	_timer_label.text = "0s"
 	_timer_label.visible = true
 	_toast.show_message(MSG_TIMES_UP)
+	_sfx.play(&"times_up")
 	_place_toast()
 	var rightward := _rng.randi() % 2 == 0
 	_timeout_column = _loop.board.roll_target(column, rightward)
@@ -524,10 +530,15 @@ func _after_play() -> void:
 func _show_turn_draw() -> void:
 	if _loop.last_draw_hand_full:
 		_toast.show_message(MSG_HAND_FULL)
+		_sfx.play(&"hand_full")
 		_place_toast()
 		_shake_screen()
 	for goob in _loop.last_draw:
 		await _hand.reveal(goob)
+
+
+func _on_drop_sound(kind: StringName, side: BoardState.CellOwner) -> void:
+	_sfx.play(kind, side == BoardState.CellOwner.OPPONENT)
 
 
 ## Short whole-screen shake in whole logical px.
@@ -615,7 +626,7 @@ func _announce() -> void:
 ## §4.6 feedback: shake + error sound + toast.
 func _reject_placement(message: String) -> void:
 	_board_view.shake()
-	_sfx_error.play()
+	_sfx.play(&"error")
 	_toast.show_message(message)
 	_place_toast()
 

@@ -48,6 +48,11 @@ const TEX_PLAYER := preload("res://assets/goobs/vanilla/blue_yaw/frame_00.png")
 const TEX_OPPONENT := preload("res://assets/goobs/vanilla/red_yaw/frame_00.png")
 const OUTLINE_SHADER := preload("res://shaders/pixel_outline.gdshader")
 
+## Sound cues during play_drop(): &"rest" (on top of the board), &"roll" (each
+## column rolled over), &"bounce" (off the edge), &"fall". The landing itself
+## is the caller's (play_drop() returns then).
+signal drop_sound(kind: StringName, side: BoardState.CellOwner)
+
 ## Tests set false: drops land at once and play_drop() returns immediately.
 var animate := true
 
@@ -126,9 +131,11 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 	var start := roll_path[0] if roll_path.size() > 1 else column
 	token.position = Vector2(_column_x(start), TOP_Y)
 	var tween := create_tween()
+	tween.tween_callback(drop_sound.emit.bind(&"rest", side))
 	tween.tween_interval(TOP_PAUSE_SEC)
 	if roll_path.size() > 1:
-		_queue_roll(tween, token, roll_path)
+		_queue_roll(tween, token, roll_path, side)
+	tween.tween_callback(drop_sound.emit.bind(&"fall", side))
 	_queue_fall(tween, token, TOP_Y, target)
 	await tween.finished
 
@@ -300,15 +307,17 @@ func _queue_fall(tween: Tween, token: Sprite2D, from_y: float, target: Vector2) 
 
 ## Rolls along `path` on top of the board. An off-board entry (-1 or COLUMNS)
 ## is the board's edge: the Goob bumps into it and comes back.
-func _queue_roll(tween: Tween, token: Sprite2D, path: Array[int]) -> void:
+func _queue_roll(tween: Tween, token: Sprite2D, path: Array[int], side: BoardState.CellOwner) -> void:
 	var at := path[0]
 	for i in range(1, path.size()):
 		var next := path[i]
 		if next < 0 or next >= COLUMNS:
 			var wall := _column_x(at) + signf(next - at) * ROLL_BUMP_PX
 			tween.tween_method(_set_x.bind(token), _column_x(at), wall, ROLL_SEC_PER_COLUMN * 0.4)
+			tween.tween_callback(drop_sound.emit.bind(&"bounce", side))
 			tween.tween_method(_set_x.bind(token), wall, _column_x(at), ROLL_SEC_PER_COLUMN * 0.4)
 			continue
+		tween.tween_callback(drop_sound.emit.bind(&"roll", side))
 		tween.tween_method(_set_x.bind(token), _column_x(at), _column_x(next), ROLL_SEC_PER_COLUMN)
 		at = next
 

@@ -24,6 +24,9 @@ const REVEAL_SCALE := 2.0
 const COLOR_OUTLINE := Color(0.08, 0.05, 0.1, 1.0)
 const COLOR_OUTLINE_SELECTED := Color(0.85, 0.95, 1.0, 1.0)
 
+## Sound cues: &"draw_pop" (drawn Goob pops in), &"fly" (it flies to the fan).
+signal hand_sound(kind: StringName)
+
 ## Tests set false: everything snaps into place at once.
 var animate := true
 
@@ -162,8 +165,10 @@ func reveal(goob: GoobDefinition) -> void:
 	card.scale = Vector2(0.4, 0.4)
 	var target := _slot(index)
 	var tween := card.create_tween()
+	tween.tween_callback(hand_sound.emit.bind(&"draw_pop"))
 	tween.tween_property(card, "scale", Vector2.ONE * REVEAL_SCALE, REVEAL_POP_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_interval(REVEAL_HOLD_SEC)
+	tween.tween_callback(hand_sound.emit.bind(&"fly"))
 	tween.set_parallel()
 	tween.tween_property(card, "scale", Vector2.ONE, REVEAL_FLY_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(card, "position", target.origin, REVEAL_FLY_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
