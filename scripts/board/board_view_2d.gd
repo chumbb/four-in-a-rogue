@@ -19,8 +19,8 @@ const ROWS := BoardState.ROWS
 const CANVAS_WIDTH := 270 ## game px; sets the pixel scale (slice §2A)
 const CELL := 32
 const GRID_ORIGIN := Vector2i(8, 8) ## top-left of cell (0, top row) in the board art
-const BOARD_SIZE := Vector2i(240, 216) ## board art incl. feet
-const PANEL_HEIGHT := 208 ## board art without the feet
+const BOARD_SIZE := Vector2i(240, 216) ## board art canvas (panel + an empty 8 px strip; no feet)
+const PANEL_HEIGHT := 208 ## the board panel itself
 ## The Goob disc sits 1 px low in its 32 px frame; this centres it in a hole.
 const GOOB_OFFSET := Vector2i(0, -1)
 
@@ -223,11 +223,6 @@ func cell_at(pos: Vector2) -> Vector2i:
 func hand_px() -> float:
 	return _k * (pixel_scale + 1) / pixel_scale
 
-
-## Viewport y (logical px) of the bottom of the board panel: where its feet
-## stand on the table.
-func floor_bottom_y() -> float:
-	return _to_global(Vector2(0, PANEL_HEIGHT)).y
 
 
 ## Top-left of a Goob sprite sitting in (column, row), in game px.
