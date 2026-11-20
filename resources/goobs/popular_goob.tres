@@ -9,3 +9,4 @@ display_name = "Popular Goob"
 multiplier = 0.5
 effect_description = "Drop a Vanilla Goob into a random column."
 effect_type = 3
+flavour_text = "A favourite at Gooberina's court. Wherever it lands, others follow."

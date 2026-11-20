@@ -9,3 +9,4 @@ display_name = "Fat Goob"
 multiplier = 0.5
 effect_description = "Destroy a random adjacent Goob."
 effect_type = 2
+flavour_text = "Veterans of Goobert's battle swear it won by sitting down."

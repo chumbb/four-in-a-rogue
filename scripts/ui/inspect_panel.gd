@@ -5,8 +5,6 @@ extends Control
 ## and a flavour line in italics across the bottom. Vanilla: name + flavour
 ## only. The scenario opens it on a double tap and closes it on the next tap.
 
-## M4 placeholder until the writing session (CLAUDE.md).
-const FLAVOUR_PLACEHOLDER := "Flavour text coming soon."
 const COLOR_NAME := Color(1.0, 0.85, 0.3)
 const TEX_PLAYER := preload("res://assets/goobs/vanilla/blue_yaw/frame_00.png")
 const TEX_OPPONENT := preload("res://assets/goobs/vanilla/red_yaw/frame_00.png")
@@ -78,7 +76,7 @@ func open(goob: GoobDefinition, side: BoardState.CellOwner, size_px: float) -> v
 	_name_label.text = goob.display_name
 	_effect_label.text = goob.effect_description
 	_effect_label.visible = not goob.effect_description.is_empty()
-	_flavour_label.text = FLAVOUR_PLACEHOLDER
+	_flavour_label.text = goob.flavour_text
 	visible = true
 
 
@@ -96,6 +94,10 @@ func name_text() -> String:
 
 func effect_text() -> String:
 	return _effect_label.text if _effect_label.visible else ""
+
+
+func flavour_text() -> String:
+	return _flavour_label.text
 
 
 ## `variation`: a UiTheme type variation (empty = 1× Monogram).
