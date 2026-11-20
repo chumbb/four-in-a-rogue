@@ -6,7 +6,8 @@ Usage (from the repo root):
 
 Source: 96x160 candidates in art/strange_man/raw_<x>.png (front view, transparent):
 round 1 PixelLab Pixen a/b/c (Sean picked C); round 2 PixelLab Pro with C as the
-reference, Resurrect 64 palette -> c_pro1..4.
+reference, Resurrect 64 palette -> c_pro1..4. Sean picked Pro 3 as the still (final:
+`python art/strange_man/make_strange_man.py c_pro3`); Pro 2's face is kept for an expression.
 Each is re-quantised to Resurrect 64 (nearest OKLab colour, binary alpha).
 
 Outputs (final):
@@ -29,10 +30,20 @@ import make_ui_mocks as mocks  # noqa: E402
 OUT_DIR = "assets/strange_man"
 POOL_RINGS = ("2e222f", "3e3546", "625565")  # outer -> inner, same as the approved mock
 POOL_CX, POOL_Y = 135, 300  # pool centre in game px; his feet stand on it
+# Hand fixes after quantising: swap two same-size boxes (src box, dest top-left).
+# c_pro3 = the approved still (Sean, 2026-11-20): Goob patch moved up from the coat
+# onto his chest, under the lapel; the coat block from there fills the old spot.
+EDITS = {"c_pro3": [((64, 68, 72, 76), (64, 54))]}
 
 
 def figure(pick):
-    return quantize(Image.open(os.path.join(HERE, f"raw_{pick}.png")))
+    im = quantize(Image.open(os.path.join(HERE, f"raw_{pick}.png")))
+    for (x0, y0, x1, y1), (dx, dy) in EDITS.get(pick, ()):
+        a = im.crop((x0, y0, x1, y1))
+        b = im.crop((dx, dy, dx + x1 - x0, dy + y1 - y0))
+        im.paste(b, (x0, y0))
+        im.paste(a, (dx, dy))
+    return im
 
 
 def light_pool():
