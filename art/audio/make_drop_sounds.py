@@ -4,10 +4,10 @@ Usage: python art/audio/make_drop_sounds.py   (from the repo root)
 
 Outputs (Ogg Vorbis, 44.1 kHz mono, via ffmpeg):
   assets/audio/sfx/fall.ogg  airy whoosh while the Goob drops through the column (~0.28 s)
-  assets/audio/sfx/land.ogg  a soft, warm thunk into the wooden board (~0.3 s)
+  assets/audio/sfx/land.ogg  a soft, warm thunk into the wooden board with a short wooden click (~0.3 s)
 Sean (2026-11-19 Art pass A playtest): "it should sound like it's dropping through air and
 clinking against the wood board." Re-check: the clink was a high clang; it should be "a
-soft, warm thunk into the board".
+soft, warm thunk into the board". Re-check 2: keep a (wooden, not metal) click on top.
 """
 import os
 import subprocess
@@ -64,8 +64,15 @@ def land():
     thump = sosfilt(butter(2, 500, fs=SR, output="sos"), rng.standard_normal(len(t))) * np.exp(-t / 0.018)
     attack = np.minimum(1, t / 0.004)
     x = (body + 0.6 * thump) * attack
-    # Keep it soft: roll off everything above ~1.8 kHz.
+    # Keep the body soft: roll off everything above ~1.8 kHz.
     x = sosfilt(butter(4, 1800, fs=SR, output="sos"), x)
+    # Wooden click on contact (Sean, re-check 2: "should still have a click, but not metal").
+    # Wood = very short decays; metal would ring. Band-passed noise tick + a damped knock.
+    tick = sosfilt(butter(2, [1800, 4200], btype="band", fs=SR, output="sos"),
+                   rng.standard_normal(len(t))) * np.exp(-t / 0.0025)
+    knock = np.sin(2 * np.pi * 1600 * t) * np.exp(-t / 0.006) + 0.5 * np.sin(2 * np.pi * 2300 * t + 1.0) * np.exp(-t / 0.004)
+    click = (tick * 1.2 + knock * 0.5) * np.minimum(1, t / 0.0005)
+    x = x / np.max(np.abs(x)) + 0.55 * click / np.max(np.abs(click))
     return x, 0.85
 
 
