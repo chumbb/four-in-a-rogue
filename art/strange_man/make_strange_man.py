@@ -10,13 +10,31 @@ reference, Resurrect 64 palette -> c_pro1..4. Sean picked Pro 3 as the still (fi
 `python art/strange_man/make_strange_man.py c_pro3`); Pro 2's face is kept for an expression.
 Each is re-quantised to Resurrect 64 (nearest OKLab colour, binary alpha).
 
+Bust portrait (HUD; drawn separately, Sean 2026-11-20): PixelLab create_portrait_character
+(character -> portrait, low top-down, 64 px, Resurrect 64) from the still -> bust/raw_idle.png;
+the other expressions are PixelLab edit_image text edits of it -> bust/raw_<expression>.png
+(well played = bust/raw_well_played2.png, the serious slight bow; Sean 2026-11-20).
+
+Intro Goobs (painted, in his world; Sean 2026-11-20): PixelLab create_image_pro 48x48 with
+his still as the style reference -> goobs/raw_red_0.png (flat, face up); the blue one is an
+edit_image of that red one, stood on its edge -> goobs/raw_blue_edit.png.
+
 Outputs (final):
-  assets/strange_man/full_body.png   96x160, feet on the bottom rows of the figure
-  assets/strange_man/light_pool.png  oval pool of light he stands on (game px)
-  art/strange_man/mock_intro.png     1080x1920 intro mock (forest barely visible, pool,
-                                     dialogue box) for Sean's OK on the still
+  assets/strange_man/full_body.png          96x160, feet on the bottom rows of the figure
+  assets/strange_man/light_pool.png         oval pool of light he stands on (game px)
+  assets/strange_man/portrait_<expr>.png    64x64 bust: idle, thinking, happy, angry,
+                                            surprised, celebrating, well_played
+  assets/strange_man/portrait_crack.png     strip of 3 64x64 frames (well played, cracking)
+  assets/strange_man/portrait_explode.png   strip of 6 128x128 frames (shards fly apart;
+                                            the bust sits centred in each frame)
+  assets/strange_man/intro_goob_blue.png    48x48, upright; intro_goob_red.png, flat face up
+  art/strange_man/mock_intro.png            1080x1920 intro mock (forest barely visible,
+                                            pool, his two Goobs, dialogue box)
+  art/strange_man/sheet_portraits.png       review sheet: expressions + crack + explode
 """
+import math
 import os
+import random
 import sys
 import time
 
@@ -35,6 +53,12 @@ POOL_CX, POOL_Y = 135, 300  # pool centre in game px; his feet stand on it
 # c_pro3 = the approved still (Sean, 2026-11-20): no Goob patch; the coat block
 # above it covers the patch.
 EDITS = {"c_pro3": [((64, 54, 72, 62), (64, 68))]}
+EXPRESSIONS = {  # asset name -> bust/raw_<source>.png
+    "idle": "idle", "thinking": "thinking", "happy": "happy", "angry": "angry",
+    "surprised": "surprised", "celebrating": "celebrating", "well_played": "well_played2",
+}
+GOOB_X = {"blue": 72, "red": 198}  # centre x in game px, either side of him on the pool
+CRACK_DARK, CRACK_LIT = hexc("2e222f"), hexc("c7dcd0")
 
 
 def save(img, path):
@@ -68,12 +92,102 @@ def light_pool():
     return im
 
 
-def scene(fig, text="This is a land of Goobs."):
+def bust(name):
+    return quantize(Image.open(os.path.join(HERE, "bust", f"raw_{EXPRESSIONS[name]}.png")))
+
+
+def intro_goob(colour):
+    src = {"blue": "raw_blue_edit.png", "red": "raw_red_0.png"}[colour]
+    return quantize(Image.open(os.path.join(HERE, "goobs", src)))
+
+
+def _crack_paths(rng, n):
+    """Jagged cracks from an impact point a little above the bust's centre."""
+    paths = []
+    for i in range(n):
+        x, y = 32 + rng.randint(-2, 2), 26 + rng.randint(-2, 2)
+        a = (i / n) * 2 * math.pi + rng.uniform(-0.4, 0.4)
+        pts = [(x, y)]
+        for _ in range(rng.randint(4, 7)):
+            a += rng.uniform(-0.6, 0.6)
+            step = rng.uniform(3, 6)
+            x, y = x + math.cos(a) * step, y + math.sin(a) * step
+            pts.append((x, y))
+        paths.append(pts)
+    return paths
+
+
+def crack_frames():
+    """3 frames: a few short cracks, more and longer, then cracked all over."""
+    base = bust("well_played")
+    alpha = base.getchannel("A")
+    clear = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    paths = _crack_paths(random.Random(7), 7)
+    frames = []
+    for count, frac in ((3, 0.45), (5, 0.75), (7, 1.0)):
+        im = base.copy()
+        d = ImageDraw.Draw(im)
+        for pts in paths[:count]:
+            k = max(2, round(len(pts) * frac))
+            seg = [(round(x), round(y)) for x, y in pts[:k]]
+            d.line([(x + 1, y + 1) for x, y in seg], fill=CRACK_LIT, width=1)
+            d.line(seg, fill=CRACK_DARK, width=1)
+        frames.append(Image.composite(im, clear, alpha))  # cracks never draw outside him
+    return frames
+
+
+def explode_frames(n=6, size=128):
+    """Shards (Voronoi cells of the fully cracked bust) fly out from the impact point,
+    fall and drop out one by one; 128x128 frames with the bust centred."""
+    src = crack_frames()[-1]
+    rng = random.Random(11)
+    seeds = [(rng.randint(4, 60), rng.randint(4, 60)) for _ in range(16)]
+    owner = {}
+    for y in range(64):
+        for x in range(64):
+            if src.getpixel((x, y))[3]:
+                owner[(x, y)] = min(range(len(seeds)),
+                                    key=lambda i: (seeds[i][0] - x) ** 2 + (seeds[i][1] - y) ** 2)
+    off = (size - 64) // 2
+    vel = []
+    for sx, sy in seeds:
+        a = math.atan2(sy - 26, sx - 32) + rng.uniform(-0.3, 0.3)
+        sp = rng.uniform(5, 9)
+        vel.append((math.cos(a) * sp, math.sin(a) * sp - 3, rng.randint(2, n)))  # vx, vy, life
+    frames = []
+    for t in range(n):
+        im = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        for (x, y), i in owner.items():
+            vx, vy, life = vel[i]
+            if t >= life:
+                continue
+            nx = round(x + off + vx * t)
+            ny = round(y + off + vy * t + 0.8 * t * t)
+            if 0 <= nx < size and 0 <= ny < size:
+                im.putpixel((nx, ny), src.getpixel((x, y)))
+        frames.append(im)
+    return frames
+
+
+def strip(frames):
+    w, h = frames[0].size
+    out = Image.new("RGBA", (w * len(frames), h), (0, 0, 0, 0))
+    for i, f in enumerate(frames):
+        out.alpha_composite(f, (i * w, 0))
+    return out
+
+
+def scene(fig, text="This is a land of Goobs.", goobs=False):
     s = mocks.Screen("forest")
     s.bg.alpha_composite(Image.new("RGBA", s.bg.size, (0, 0, 0, 225)))
     s.put(light_pool(), POOL_CX - 70, POOL_Y - 18)
     feet = fig.getbbox()[3]
     s.put(fig, POOL_CX - fig.width // 2, POOL_Y + 4 - feet)
+    if goobs:
+        for colour, cx in GOOB_X.items():
+            g = intro_goob(colour)
+            x0, _, x1, y1 = g.getbbox()
+            s.put(g, cx - (x0 + x1) // 2, POOL_Y + 6 - y1)
     s.button("Skip", mocks.GW - 6 - 64, 10, 64)
     s.panel("dialogue", 6, 340, mocks.GW - 12, 96)
     s.text(text, 20, 356, mocks.kit.WHITE)
@@ -106,7 +220,22 @@ def final(pick):
     fig = figure(pick)
     fig.save(os.path.join(OUT_DIR, "full_body.png"))
     light_pool().save(os.path.join(OUT_DIR, "light_pool.png"))
-    print("wrote", OUT_DIR, "and", save(render(scene(fig)), os.path.join(HERE, "mock_intro.png")))
+    for name in EXPRESSIONS:
+        bust(name).save(os.path.join(OUT_DIR, f"portrait_{name}.png"))
+    cracks, boom = crack_frames(), explode_frames()
+    strip(cracks).save(os.path.join(OUT_DIR, "portrait_crack.png"))
+    strip(boom).save(os.path.join(OUT_DIR, "portrait_explode.png"))
+    for colour in GOOB_X:
+        intro_goob(colour).save(os.path.join(OUT_DIR, f"intro_goob_{colour}.png"))
+    print("wrote", save(render(scene(fig, goobs=True)), os.path.join(HERE, "mock_intro.png")))
+    # Review sheet at 4x on dark ink: 7 expressions, then crack frames, then explode frames.
+    row1 = strip([bust(n) for n in EXPRESSIONS])
+    sheet = Image.new("RGBA", (max(row1.width, 6 * 128), 64 + 8 + 64 + 8 + 128), mocks.kit.INK0)
+    sheet.alpha_composite(row1, (0, 0))
+    sheet.alpha_composite(strip(cracks), (0, 72))
+    sheet.alpha_composite(strip(boom), (0, 144))
+    sheet = sheet.resize((sheet.width * 4, sheet.height * 4), Image.NEAREST)
+    print("wrote", OUT_DIR, "and", save(sheet, os.path.join(HERE, "sheet_portraits.png")))
 
 
 if __name__ == "__main__":
