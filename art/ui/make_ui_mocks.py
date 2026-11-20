@@ -10,6 +10,7 @@ place the real Controls. The Strange Man figure is a placeholder silhouette (Art
 import math
 import os
 import sys
+import time
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -28,7 +29,8 @@ UI = {name: Image.open(f"assets/ui/{name}.png").convert("RGBA") for name in (
     "panel", "window", "dialogue", "dialogue_arrow", "button_normal", "button_pressed",
     "button_disabled", "toast", "banner", "slider_track", "slider_fill", "slider_knob",
     "toggle_on", "toggle_off", "segment_normal", "segment_selected", "icon_pause",
-    "icon_speaker", "icon_speaker_muted", "logo", "fuse_rope", "fuse_burnt", "fuse_spark")}
+    "icon_speaker", "icon_speaker_muted", "logo", "fuse_rope", "fuse_burnt", "fuse_spark",
+    "toast_error", "icon_error", "divider_h", "divider_v")}
 SCRIM = (*kit.INK0[:3], 178)
 
 
@@ -65,8 +67,8 @@ def text_img(s, colour, mult=1, italic=False):
 class Screen:
     def __init__(self, bg=None):
         self.px = Image.new("RGBA", (GW, GH), (0, 0, 0, 0))
-        if bg == "forest":
-            self.bg = Image.open("assets/backgrounds/forest.png").convert("RGBA")
+        if bg in ("forest", "title"):
+            self.bg = Image.open(f"assets/backgrounds/{bg}.png").convert("RGBA")
         else:
             self.bg = Image.new("RGBA", (GW * S, GH * S), kit.INK0 if bg is None else bg)
 
@@ -98,7 +100,15 @@ class Screen:
         if vignette:
             out = apply_vignette(out)
         out.alpha_composite(self.px.resize((GW * S, GH * S), Image.NEAREST))
-        out.convert("RGB").save(os.path.join(OUT, f"mock_{name}.png"))
+        # Windows sometimes holds the file (an open viewer, the Godot importer): retry.
+        path = os.path.join(OUT, f"mock_{name}.png")
+        for attempt in range(10):
+            try:
+                out.convert("RGB").save(path)
+                return
+            except OSError:
+                time.sleep(0.5)
+        raise OSError("could not write " + path)
 
 
 def apply_vignette(img, strength=0.55):
@@ -151,25 +161,40 @@ def draw_fuse(s, x, y, w, burnt):
     s.put(UI["fuse_spark"].crop((11, 0, 22, 11)), end - 5, y - 1)
 
 
-def hud(s, top=8, turn="Your turn", timer="24", timer_red=False):
+def hud(s, top=8, timer="24", timer_red=False):
+    """One HUD block with sections (Sean, 2026-11-20 review): portrait | objective |
+    scenario on top, the turn timer centred in the lower section. Pause is bottom left."""
     x0, w = 6, GW - 12
-    # Portrait frame (Strange Man head crop comes in Art pass C).
-    s.panel("window", x0, top, 40, 40)
-    s.put(Image.new("RGBA", (28, 28), hexc("45293f")), x0 + 6, top + 6)
-    s.text("?", x0 + 20, top + 12, kit.INK2, 2, centre=True, shadow=False)
-    # Objective panel.
-    s.panel("panel", x0 + 44, top, w - 44 - 44, 40)
-    s.text("Objective", x0 + 52, top + 5, kit.GOLD_HI)
-    s.text("Get four in a row", x0 + 52, top + 19, kit.CREAM)
-    # Pause button (36x36 = 96 px at the 720 base).
-    s.panel("button_normal", GW - 6 - 40, top + 2, 40, 38)
-    s.put(UI["icon_pause"], GW - 6 - 24, top + 2 + 13)
-    # Status row: run details, turn, timer.
-    y = top + 46
-    s.panel("panel", x0, y, w, 22)
-    s.text("Scenario 1/1", x0 + 8, y + 3, kit.INK3 if False else hexc("9babb2"))
-    s.text(turn, GW // 2, y + 3, hexc("8fd3ff") if turn == "Your turn" else hexc("f68181"), centre=True)
-    s.text(timer, GW - 6 - 10 - int(FONT.getlength(timer)), y + 3, hexc("e83b3b") if timer_red else kit.CREAM, 1)
+    top_h, low_h = 40, 22
+    s.panel("panel", x0, top, w, top_h + low_h)
+    # Portrait section (Strange Man head crop comes in Art pass C).
+    s.put(Image.new("RGBA", (30, 30), hexc("45293f")), x0 + 5, top + 5)
+    s.text("?", x0 + 20, top + 7, kit.INK2, 2, centre=True, shadow=False)
+    vx1, vx2 = x0 + 39, x0 + w - 62
+    for vx in (vx1, vx2):
+        s.put(UI["divider_v"].resize((3, top_h - 6)), vx, top + 3)
+    s.put(UI["divider_h"].resize((w - 6, 3)), x0 + 3, top + top_h - 1)
+    # Objective section.
+    s.text("Objective", vx1 + 8, top + 5, kit.GOLD_HI)
+    s.text("Get four in a row", vx1 + 8, top + 19, kit.CREAM)
+    # Scenario section (where Pause was).
+    cx = (vx2 + 3 + x0 + w) // 2
+    s.text("Scenario", cx, top + 5, kit.GOLD_HI, centre=True)
+    s.text("1/1", cx, top + 13, kit.CREAM, 2, centre=True)
+    # Lower section: the turn timer, centred ("—" on the opponent's turn).
+    s.text(timer, GW // 2, top + top_h - 4, hexc("e83b3b") if timer_red else kit.CREAM, 2, centre=True)
+    # Pause button, bottom left of the safe area (36 game px = 96 px at the 720 base).
+    s.panel("button_normal", 9, GH - 9 - 38, 40, 38)
+    s.put(UI["icon_pause"], 9 + 16, GH - 9 - 38 + 13)
+
+
+def error_toast(s, msg, y=100):
+    """Error toast: red pill + warning badge, above the aim lane."""
+    w = int(FONT.getlength(msg)) + 32
+    x = (GW - w) // 2
+    s.panel("toast_error", x, y, w, 20)
+    s.put(UI["icon_error"], x + 8, y + 5)
+    s.text(msg, x + 20, y + 1, kit.WHITE)
 
 
 CELLS = {(0, 0): "red", (1, 0): "blue", (2, 0): "blue", (3, 0): "red", (3, 1): "blue",
@@ -177,12 +202,9 @@ CELLS = {(0, 0): "red", (1, 0): "blue", (2, 0): "blue", (3, 0): "red", (3, 1): "
 
 
 def mock_title():
-    s = Screen("forest")
+    s = Screen("title")
     logo = UI["logo"]
-    s.put(logo, (GW - logo.width) // 2, 70)
-    for i, (x, col) in enumerate(((50, "blue"), (110, "red"), (170, "blue"), (220, "red"))):
-        g = goob(col)
-        s.put(g, x - 16, 300 - (6 if i % 2 else 0))
+    s.put(logo, (GW - logo.width) // 2, 60)
     s.text("Tap to start", GW // 2, 236, kit.WHITE, 2, centre=True)
     s.button("Options", 75, 380, 120)
     s.button("Quit", 95, 422, 80)
@@ -194,37 +216,34 @@ def mock_hud():
     s = Screen("forest")
     board_scene(s, CELLS)
     hud(s, timer="7", timer_red=True)
-    # Aim lane: a toast above it.
-    s.panel("toast", 85, 100, 100, 18)
-    s.text("Column full", GW // 2, 100, kit.CREAM, centre=True)
+    error_toast(s, "Column full")
     s.save("2_hud_toast_fuse")
 
 
 def mock_dialogue():
-    s = Screen(kit.INK0)
-    bg = Image.new("RGBA", (GW * S, GH * S), (0, 0, 0, 255))
-    d = ImageDraw.Draw(bg)
-    # Oval light pool (pixel steps): concentric ellipses on the game grid.
-    pool = Image.new("RGBA", (GW, GH), (0, 0, 0, 255))
+    """Strange Man intro: the forest barely visible behind him (it fades into focus when
+    the round starts; Sean, 2026-11-20). His two Goobs will be painted (Art pass C)."""
+    s = Screen("forest")
+    dark = Image.new("RGBA", s.bg.size, (0, 0, 0, 225))
+    s.bg.alpha_composite(dark)
+    pool = Image.new("RGBA", (GW, GH), (0, 0, 0, 0))
     pd = ImageDraw.Draw(pool)
     for i, c in enumerate(("2e222f", "3e3546", "625565")):
         rx, ry = 70 - i * 16, 18 - i * 4
         pd.ellipse((135 - rx, 300 - ry, 135 + rx, 300 + ry), fill=hexc(c))
-    s.bg = pool.resize((GW * S, GH * S), Image.NEAREST)
+    s.bg.alpha_composite(pool.resize((GW * S, GH * S), Image.NEAREST))
     # Placeholder figure (Art pass C): ~96x160 silhouette.
     fig = Image.new("RGBA", (96, 160), (0, 0, 0, 0))
     fd = ImageDraw.Draw(fig)
     fd.ellipse((30, 6, 66, 44), fill=hexc("484a77"))
     fd.rounded_rectangle((18, 40, 78, 150), 12, fill=hexc("484a77"))
     s.put(fig, 135 - 48, 300 - 152)
-    s.text("placeholder: Strange Man comes in Art pass C", GW // 2, 120, kit.INK2, centre=True, shadow=False)
-    b = goob("blue")
-    s.put(b, 60, 300 - 30)
-    r = goob("red", 0)
-    s.put(Image.open("assets/goobs/vanilla/red_pitch/frame_02.png").convert("RGBA"), 178, 300 - 22)
-    # Skip button, top right (>= 96 px).
+    s.text("placeholder: Strange Man + painted", GW // 2, 112, kit.INK2, centre=True, shadow=False)
+    s.text("Goobs come in Art pass C", GW // 2, 124, kit.INK2, centre=True, shadow=False)
+    for cx, ry in ((70, 14), (200, 6)):  # where the two painted Goobs land
+        pd2 = ImageDraw.Draw(s.px)
+        pd2.ellipse((cx - 14, 296 - ry * 2, cx + 14, 300), outline=hexc("484a77"))
     s.button("Skip", GW - 6 - 64, 10, 64)
-    # Dialogue box at the bottom of the safe area.
     s.panel("dialogue", 6, 340, GW - 12, 96)
     s.text("This is a land of Goobs.", 20, 356, kit.WHITE)
     s.put(UI["dialogue_arrow"], GW - 6 - 22, 340 + 96 - 18)

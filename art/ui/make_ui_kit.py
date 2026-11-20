@@ -12,7 +12,8 @@ Outputs in assets/ui/ (9-slice margins = the `MARGINS` table below, in game px):
   dialogue.png         Strange Man dialogue box (chunky 2 px gold border)
   dialogue_arrow.png   blinking "next page" triangle
   button_normal.png    honey button with a 2 px lip; _pressed sinks 2 px; _disabled greyed
-  toast.png            toast pill
+  toast.png            toast pill; toast_error.png + icon_error.png for errors (Column full, Hand full)
+  divider_h.png / divider_v.png  section lines inside the one-block HUD
   banner.png           end-overlay frame (double border, gold studs)
   slider_track.png     slider groove; slider_fill.png the filled part; slider_knob.png
   toggle_on.png / toggle_off.png
@@ -63,6 +64,7 @@ MARGINS = {
     "button_pressed": (4, 6, 4, 4),
     "button_disabled": (4, 4, 4, 6),
     "toast": (5, 5, 5, 5),
+    "toast_error": (5, 5, 5, 5),
     "banner": (8, 8, 8, 8),
     "slider_track": (3, 3, 3, 3),
     "slider_fill": (3, 3, 3, 3),
@@ -177,6 +179,35 @@ def button(state, w=12, h=16):
 
 def toast(w=14, h=12):
     return frame(w, h, [INK0, (GOLD, GOLD_LO), INK0], INK0, radius=3)
+
+
+def toast_error(w=14, h=12):
+    """Error toast ("Column full", "Hand full"): red, so it reads as a warning, not HUD."""
+    return frame(w, h, [INK0, (RED, RED_LO), INK0], hexc("6e2727"), radius=3)
+
+
+def icon_error():
+    """9x9 warning badge: white "!" on a red disc."""
+    return bitmap([
+        "..#####..",
+        ".#rrwrr#.",
+        "#rrrwrrr#",
+        "#rrrwrrr#",
+        "#rrrwrrr#",
+        "#rrrrrrr#",
+        "#rrrwrrr#",
+        ".#rrrrr#.",
+        "..#####..",
+    ], {"#": INK0, "r": RED, "w": WHITE})
+
+
+def divider_h():
+    """Tileable horizontal section divider for the one-block HUD (4x3)."""
+    return bitmap(["....", "####", "...."], {"#": GOLD_LO})
+
+
+def divider_v():
+    return bitmap([".#."] * 4, {"#": GOLD_LO})
 
 
 def banner(w=20, h=20):
@@ -382,8 +413,8 @@ def logo():
     def line(y, parts):
         x = (w - sum(p.width for p in parts) - gap * (len(parts) - 1)) // 2
         for p in parts:
-            # Goobs (32 px) sit centred on the letters' cap height.
-            img.alpha_composite(p, (x, y + (lh - 6 - p.height) // 2 + 1 if p.height == 32 else y))
+            # Goobs (32 px) centre on the cap height (letters' caps are rows 1-30).
+            img.alpha_composite(p, (x, y))
             x += p.width + gap
     line(0, lines[0])
     img.alpha_composite(small, ((w - small.width) // 2, lh - 4))
@@ -463,6 +494,10 @@ def build():
         "button_pressed": button("pressed"),
         "button_disabled": button("disabled"),
         "toast": toast(),
+        "toast_error": toast_error(),
+        "icon_error": icon_error(),
+        "divider_h": divider_h(),
+        "divider_v": divider_v(),
         "banner": banner(),
         "slider_track": slider_track(),
         "slider_fill": slider_fill(),
