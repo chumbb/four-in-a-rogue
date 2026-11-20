@@ -73,15 +73,38 @@ def widen(img):
             sx = min(EDGE_BAND - 1, i * EDGE_BAND // span)
             px[SIDE - reach + i, y] = src[sx, y]
             px[SIDE + w - 1 + reach - i, y] = src[w - 1 - sx, y]
-        if reach < SIDE:
-            px[SIDE - reach, y] = OUTLINE
-            px[SIDE + w - 1 + reach, y] = OUTLINE
     return out
+
+
+def outline_sides(img):
+    """Unbroken side outline: each row's outermost pixels, joined to the row above's edge
+    by horizontal runs wherever the slope steps out more than 1 px."""
+    px = img.load()
+    prev = None
+    for y in range(img.height):
+        xs = [x for x in range(img.width) if px[x, y][3]]
+        if not xs:
+            prev = None
+            continue
+        left, right = xs[0], xs[-1]
+        if left > 0:
+            px[left, y] = OUTLINE
+        if right < img.width - 1:
+            px[right, y] = OUTLINE
+        if prev:
+            for x in range(left, min(prev[0], right)):
+                if x > 0:
+                    px[x, y] = OUTLINE
+            for x in range(max(prev[1] + 1, left), right + 1):
+                if x < img.width - 1:
+                    px[x, y] = OUTLINE
+        prev = (left, right)
 
 
 src = quantize(Image.open(SRC))
 fix_crack(src)
 out = widen(extend_down(src))
+outline_sides(out)
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 out.save(OUT)
 print("wrote", OUT, out.size)
