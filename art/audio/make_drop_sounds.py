@@ -4,10 +4,10 @@ Usage: python art/audio/make_drop_sounds.py   (from the repo root)
 
 Outputs (Ogg Vorbis, 44.1 kHz mono, via ffmpeg):
   assets/audio/sfx/fall.ogg  airy whoosh while the Goob drops through the column (~0.28 s)
-  assets/audio/sfx/land.ogg  the Goob clinks against the wooden board: a short wood knock
-                             under a bright coin clink, plus a small settle rattle (~0.4 s)
+  assets/audio/sfx/land.ogg  a soft, warm thunk into the wooden board (~0.3 s)
 Sean (2026-11-19 Art pass A playtest): "it should sound like it's dropping through air and
-clinking against the wood board."
+clinking against the wood board." Re-check: the clink was a high clang; it should be "a
+soft, warm thunk into the board".
 """
 import os
 import subprocess
@@ -54,20 +54,18 @@ def partials(t, freqs_amps_decays):
 
 
 def land():
-    t = t_axis(0.4)
-    # Wood knock: low body resonances + a short filtered noise thump.
-    knock = partials(t, [(190, 1.0, 0.035), (430, 0.6, 0.025), (780, 0.3, 0.018)])
-    thump = sosfilt(butter(2, 1200, fs=SR, output="sos"), rng.standard_normal(len(t))) * np.exp(-t / 0.012)
-    # Coin clink: bright inharmonic partials with fast decay.
-    clink_set = [(2950, 0.55, 0.07), (4420, 0.45, 0.05), (6130, 0.3, 0.035), (7870, 0.18, 0.025)]
-    clink = partials(t, clink_set)
-    # Settle rattle: a quieter, slightly detuned second clink ~45 ms later.
-    d = int(SR * 0.045)
-    t2 = t[: len(t) - d]
-    rattle = np.zeros_like(t)
-    rattle[d:] = 0.35 * partials(t2, [(f * 1.03, a, dec * 0.8) for f, a, dec in clink_set])
-    attack = np.minimum(1, t / 0.0015)
-    x = (0.9 * knock + 0.5 * thump + 0.8 * clink + rattle) * attack
+    """Soft, warm thunk into the wooden board (Sean, 2026-11-19 re-check: no clang)."""
+    t = t_axis(0.3)
+    # Warm wood body: low resonances, short-ish decay, slight downward pitch settle.
+    body = sum(a * np.sin(2 * np.pi * f * (t - 0.08 * t * t) + ph) * np.exp(-t / d)
+               for f, a, d, ph in [(115, 1.0, 0.06, 0.0), (175, 0.7, 0.045, 1.1), (260, 0.45, 0.03, 2.3),
+                                     (430, 0.4, 0.02, 0.7), (610, 0.2, 0.014, 1.9)])  # mids: audible on phone speakers
+    # Muffled thump: low-passed noise burst.
+    thump = sosfilt(butter(2, 500, fs=SR, output="sos"), rng.standard_normal(len(t))) * np.exp(-t / 0.018)
+    attack = np.minimum(1, t / 0.004)
+    x = (body + 0.6 * thump) * attack
+    # Keep it soft: roll off everything above ~1.8 kHz.
+    x = sosfilt(butter(4, 1800, fs=SR, output="sos"), x)
     return x, 0.85
 
 

@@ -14,7 +14,7 @@ fallback credited here). Files in `sfx/` were trimmed / converted to Ogg Vorbis.
 | `sfx/bounce.ogg` | Sound Work 12 — Small Sound Kit | `Footsteps/S_Wood_Mono_3.wav` |
 | `sfx/select.ogg` | Sound Work 12 — Small Sound Kit | `Clothes/Leather_001.wav` |
 | `sfx/drag_pickup.ogg` | Made for this project (ffmpeg sine sweep "pop", 2026-11-19) | — |
-| `sfx/fall.ogg`, `sfx/land.ogg` | Made for this project (`art/audio/make_drop_sounds.py`: air whoosh; wood knock + coin clink, 2026-11-19) | — |
+| `sfx/fall.ogg`, `sfx/land.ogg` | Made for this project (`art/audio/make_drop_sounds.py`: air whoosh; soft wooden thunk, 2026-11-19) | — |
 | `sfx/inspect_open.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookFlip2.ogg` |
 | `sfx/inspect_close.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookClose.ogg` (low-passed, quieter, softened attack) |
 
