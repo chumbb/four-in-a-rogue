@@ -249,7 +249,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 - [x] Monogram font for UI text (`scripts/ui/ui_theme.gd`: 1× default, `Mono2`, `Mono3`, `Mono1Italic` type variations on the board pixel unit; fonts in `resources/fonts/`)
 - [x] Forest painted background test (`art/backgrounds/make_forest.py`: local ComfyUI + Z-Image Turbo, then palette grade → `assets/backgrounds/forest.png`; scenario + coin flip)
 
-**Follow-up (Sean, 2026-11-19, branch `art-hand-stump`, awaiting playtest):** hand area per biome — Forest = pixel-art **oak stump** (`assets/hand/forest_stump.png`, `art/hand/make_stump.py`) at hand-Goob scale, narrower than the screen (forest visible at its edges), replacing the table strip; board **feet removed** (board just sits in the middle).
+**Follow-up ✅ (Sean, 2026-11-19; accepted and merged):** hand area per biome — Forest = pixel-art **oak stump** (`assets/hand/forest_stump.png`, `art/hand/make_stump.py`) at hand-Goob scale, narrower than the screen (forest visible at its edges), replacing the table strip; board **feet removed** (board just sits in the middle).
 
 ### Writing session — lore seed + starter flavour text (own session, after M4; Sean 2026-11-13)
 

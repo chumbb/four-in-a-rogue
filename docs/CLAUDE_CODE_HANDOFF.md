@@ -40,7 +40,7 @@ claude
 | M1, M2, M3, M3.5, M3.6 | Done, merged to `main` |
 | **M4 Decks & hands** | **Accepted by Sean and merged to `main` 2026-11-19** (`dbb9446`) |
 | **Art pass A** | **Accepted by Sean and merged to `main` 2026-11-19** |
-| **Hand stump** (follow-up) | Built on `art-hand-stump` (2026-11-19), awaiting Sean's playtest: Forest oak stump under the hand, board feet removed |
+| **Hand stump** (follow-up) | Accepted and merged to `main` 2026-11-19: Forest oak stump under the hand (`art/hand/make_stump.py`; round top, flared base off the screen edges), board feet removed |
 | **Writing session** | **Next** — lore seed + one flavour line per starter type (see `CLAUDE.md` §Milestones); Sean approves each |
 | Writing session | After Art pass A (lore seed + starter flavour text) |
 | M5–M7 | Queued — see `CLAUDE.md` §Milestones |
