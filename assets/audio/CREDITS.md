@@ -16,8 +16,10 @@ fallback credited here). Files in `sfx/` were trimmed / converted to Ogg Vorbis.
 | `sfx/bounce.ogg` | Sound Work 12 — Small Sound Kit | `Footsteps/S_Wood_Mono_3.wav` |
 | `sfx/select.ogg` | Sound Work 12 — Small Sound Kit | `Clothes/Leather_001.wav` |
 | `sfx/drag_pickup.ogg` | Sound Work 12 — Small Sound Kit | `Clothes/Leather_002.wav` |
+| `sfx/inspect_open.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookFlip2.ogg` |
+| `sfx/inspect_close.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookClose.ogg` |
 
-Kenney starter kits: code MIT, bundled assets CC0 (per each kit's README). Small Sound Kit: CC0 (store listing).
+Kenney starter kits: code MIT, bundled assets CC0 (per each kit's README). Small Sound Kit: CC0 (store listing). Kenney RPG Audio: CC0 (pack `license.txt`).
 
 ## CC-BY 4.0 (attribution)
 
@@ -27,10 +29,7 @@ The store listing says CC0, but the pack's own `License.txt` says CC-BY 4.0, so 
 
 | File | Original |
 |------|----------|
-| `sfx/column_blip.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_HOVER_LOW.wav` |
 | `sfx/column_tick.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_CLICK.wav` |
 | `sfx/hand_full.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_LOCKED.wav` |
 | `sfx/times_up.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_UP_MYSTERY.wav` |
 | `sfx/error.ogg` | `Minimalistic/Menu_Sounds_V2_Minimalistic_ERROR.wav` |
-| `sfx/inspect_open.ogg` | `Minimalistic/Menu_Sounds_V2_Minimalistic_FORWARD.wav` |
-| `sfx/inspect_close.ogg` | `Minimalistic/Menu_Sounds_V2_Minimalistic_BACKWARD.wav` |

@@ -328,8 +328,8 @@ func _enter_column(column: int) -> void:
 		_hide_aim()
 		_reject_placement(Toast.MSG_COLUMN_FULL)
 	else:
-		# First touch on a column blips; sliding to another one ticks.
-		_sfx.play(&"column_tick" if _board_view.is_preview_visible() else &"column")
+		# Every column entry clicks (first touch and each slide; Sean 2026-11-19).
+		_sfx.play(&"column_tick")
 		_show_aim(column)
 
 

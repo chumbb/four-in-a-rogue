@@ -17,7 +17,6 @@ const STREAMS := {
 	&"select": preload("res://assets/audio/sfx/select.ogg"),
 	&"drag": preload("res://assets/audio/sfx/drag_pickup.ogg"),
 	&"cancel": preload("res://assets/audio/sfx/fly_swish.ogg"),
-	&"column": preload("res://assets/audio/sfx/column_blip.ogg"),
 	&"column_tick": preload("res://assets/audio/sfx/column_tick.ogg"),
 	&"error": preload("res://assets/audio/sfx/error.ogg"),
 	&"hand_full": preload("res://assets/audio/sfx/hand_full.ogg"),

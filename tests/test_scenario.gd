@@ -851,7 +851,7 @@ func _test_sounds() -> void:
 	_select_hand(scenario, 0)
 	_check(_heard(scenario, &"select"), "sound: select")
 	_tap(_col_pos(scenario, 1))
-	_check(_heard(scenario, &"column"), "sound: column flash blip")
+	_check(_heard(scenario, &"column_tick"), "sound: first column touch clicks")
 	_tap(_col_pos(scenario, 2))
 	_check(_heard(scenario, &"column_tick"), "sound: column change tick")
 	_tap(hand.slot_center(0))
