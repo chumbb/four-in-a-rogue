@@ -40,13 +40,13 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently the writing session — lore seed + starter flavour text; Art pass A accepted and merged 2026-11-19). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently M5 — Goob effects; writing session accepted and merged 2026-11-19). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅ (both accepted and merged to `main` 2026-11-19) | **Writing session** (lore seed + starter flavour text), then **M5** |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (all accepted and merged to `main` 2026-11-19) | **M5** Goob effects |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -251,7 +251,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Follow-up ✅ (Sean, 2026-11-19; accepted and merged):** hand area per biome — Forest = pixel-art **oak stump** (`assets/hand/forest_stump.png`, `art/hand/make_stump.py`) at hand-Goob scale, narrower than the screen (forest visible at its edges), replacing the table strip; board **feet removed** (board just sits in the middle).
 
-### Writing session — lore seed + starter flavour text (own session, after M4; Sean 2026-11-13) — lines approved 2026-11-19, on branch `writing-flavour-text` awaiting Sean's F5 check
+### Writing session — lore seed + starter flavour text (own session, after M4; Sean 2026-11-13) ✅ (accepted by Sean and merged to `main` 2026-11-19)
 
 - [x] Lore seed by effect family and legendary figures (e.g. Goobert the Brave, Gooberius); hints at an apocalyptic calamity that is **never specified anywhere**
 - [x] One flavour line (1–2 sentences) per starter type, Vanilla shared; FromSoftware + Pokédex voice (vault Research notes); Sean approves each. Done: vault `Design/Lore seed.md`; lines in `resources/goobs/*.tres` (`flavour_text`)
