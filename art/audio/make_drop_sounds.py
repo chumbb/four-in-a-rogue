@@ -1,14 +1,15 @@
-"""Synthesise the Goob drop sounds (made for this project, no licence needed).
+"""Build the Goob drop sounds.
 
 Usage: python art/audio/make_drop_sounds.py   (from the repo root)
 
-Outputs (Ogg Vorbis, 44.1 kHz mono, via ffmpeg):
+Outputs (Ogg Vorbis, 44.1 kHz, via ffmpeg):
   assets/audio/sfx/fall.ogg  airy whoosh while the Goob drops through the column (~0.28 s)
-  assets/audio/sfx/land.ogg  a plastic clack (+ small clatter) over a soft wooden thunk (~0.3 s)
+  assets/audio/sfx/land.ogg  the column hover click (column_tick.ogg) pitched down ~5 semitones
 Sean (2026-11-19 Art pass A playtest): "it should sound like it's dropping through air and
 clinking against the wood board." Re-check: the clink was a high clang; it should be "a
 soft, warm thunk into the board". Re-checks 2-3: mostly a plastic click
-(like the real game's discs), thunk underneath, never metal.
+(like the real game's discs), thunk underneath, never metal. Re-check 4: none of the
+synthesised landings worked; use a lower version of the column hover click.
 """
 import os
 import subprocess
@@ -49,38 +50,18 @@ def fall():
     return x * env, 0.18
 
 
-def partials(t, freqs_amps_decays):
-    return sum(a * np.sin(2 * np.pi * f * t + rng.uniform(0, 6.28)) * np.exp(-t / d)
-               for f, a, d in freqs_amps_decays)
+# Land = the column hover click (column_tick.ogg) pitched down ~5 semitones (Sean,
+# 2026-11-19 re-check 4, after synthesised thunk/click versions didn't work).
+LAND_PITCH = 0.75
 
 
-def land():
-    """Soft, warm thunk into the wooden board (Sean, 2026-11-19 re-check: no clang)."""
-    t = t_axis(0.3)
-    # Warm wood body: low resonances, short-ish decay, slight downward pitch settle.
-    body = sum(a * np.sin(2 * np.pi * f * (t - 0.08 * t * t) + ph) * np.exp(-t / d)
-               for f, a, d, ph in [(115, 1.0, 0.06, 0.0), (175, 0.7, 0.045, 1.1), (260, 0.45, 0.03, 2.3),
-                                     (430, 0.4, 0.02, 0.7), (610, 0.2, 0.014, 1.9)])  # mids: audible on phone speakers
-    # Muffled thump: low-passed noise burst.
-    thump = sosfilt(butter(2, 500, fs=SR, output="sos"), rng.standard_normal(len(t))) * np.exp(-t / 0.018)
-    attack = np.minimum(1, t / 0.004)
-    x = (body + 0.6 * thump) * attack
-    # Keep the body soft: roll off everything above ~1.8 kHz.
-    x = sosfilt(butter(4, 1800, fs=SR, output="sos"), x)
-    # Plastic clack on contact (Sean, re-checks 2-3: "more click than thunk", like the real
-    # Connect 4 game's plastic discs; never metal). Hollow, damped partials (12-22 ms: longer
-    # than wood, far shorter than metal's ring) + a noise tick, then a quieter clatter.
-    def clack(tt, scale):
-        tick = sosfilt(butter(2, [1500, 5000], btype="band", fs=SR, output="sos"),
-                       rng.standard_normal(len(tt))) * np.exp(-tt / 0.003)
-        tone = partials(tt, [(980 * scale, 0.8, 0.022), (1720 * scale, 1.0, 0.016),
-                             (2650 * scale, 0.6, 0.012), (3900 * scale, 0.3, 0.008)])
-        return (tick * 0.9 + tone * 0.35) * np.minimum(1, tt / 0.0005)
-    click = clack(t, 1.0)
-    d = int(SR * 0.028)
-    click[d:] += 0.35 * clack(t[: len(t) - d], 1.06)
-    x = 0.35 * x / np.max(np.abs(x)) + click / np.max(np.abs(click))
-    return x, 0.85
+def make_land():
+    src = os.path.join(OUT_DIR, "column_tick.ogg")
+    out = os.path.join(OUT_DIR, "land.ogg")
+    subprocess.run([FFMPEG, "-y", "-loglevel", "error", "-i", src, "-af",
+                    "asetrate=%d,aresample=%d" % (round(44100 * LAND_PITCH), SR),
+                    "-c:a", "libvorbis", "-q:a", "6", out], check=True)
+    print("wrote", out)
 
 
 def write_ogg(x, peak, name):
@@ -100,4 +81,4 @@ def write_ogg(x, peak, name):
 
 if __name__ == "__main__":
     write_ogg(*fall(), "fall.ogg")
-    write_ogg(*land(), "land.ogg")
+    make_land()
