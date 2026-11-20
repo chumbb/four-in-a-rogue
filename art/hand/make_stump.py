@@ -24,8 +24,11 @@ OUT_H = 240
 BAND = (100, 144)  # lower trunk rows stretched down to OUT_H
 
 SIDE = 60  # px added each side; the screen shows ~108 game px either side of centre
-FLARE_Y0 = 30  # first row below the top rim where the sides start to slope out
-FLARE_K = 0.004  # edge moves out FLARE_K * (y - FLARE_Y0)^2 px
+# Top ellipse (source px): centre row, half-height, half-width. Its ends are carved round,
+# and the sides flare out from its widest row so the stump keeps its round look (Sean).
+TOP_CY, TOP_B, TOP_A = 27, 25, 100
+FLARE_Y0 = TOP_CY  # the flare starts at the ellipse's widest row (vertical tangent)
+FLARE_K = 0.012  # edge moves out FLARE_K * (y - FLARE_Y0)^2 px
 EDGE_BAND = 40  # outer px of each row stretched outward
 CRACK_BOX = (28, 28, 62, 62)  # where the crack runs off the top onto the bark
 CRACK = (0x96, 0x6C, 0x6C)
@@ -46,6 +49,18 @@ def fix_crack(img):
             else:
                 continue
             break
+
+
+def carve_top(img):
+    """Round the top's ends: clear pixels outside the top ellipse above its widest row."""
+    px = img.load()
+    cx = (img.width - 1) / 2
+    for y in range(TOP_CY):
+        t = (TOP_CY - y) / TOP_B
+        half = TOP_A * (1 - t * t) ** 0.5 if t < 1 else -1
+        for x in range(img.width):
+            if abs(x - cx) > half + 0.5:
+                px[x, y] = (0, 0, 0, 0)
 
 
 def extend_down(img):
@@ -103,6 +118,7 @@ def outline_sides(img):
 
 src = quantize(Image.open(SRC))
 fix_crack(src)
+carve_top(src)
 out = widen(extend_down(src))
 outline_sides(out)
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
