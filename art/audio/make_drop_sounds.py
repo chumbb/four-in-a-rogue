@@ -4,10 +4,11 @@ Usage: python art/audio/make_drop_sounds.py   (from the repo root)
 
 Outputs (Ogg Vorbis, 44.1 kHz mono, via ffmpeg):
   assets/audio/sfx/fall.ogg  airy whoosh while the Goob drops through the column (~0.28 s)
-  assets/audio/sfx/land.ogg  a soft, warm thunk into the wooden board with a short wooden click (~0.3 s)
+  assets/audio/sfx/land.ogg  a plastic clack (+ small clatter) over a soft wooden thunk (~0.3 s)
 Sean (2026-11-19 Art pass A playtest): "it should sound like it's dropping through air and
 clinking against the wood board." Re-check: the clink was a high clang; it should be "a
-soft, warm thunk into the board". Re-check 2: keep a (wooden, not metal) click on top.
+soft, warm thunk into the board". Re-checks 2-3: mostly a plastic click
+(like the real game's discs), thunk underneath, never metal.
 """
 import os
 import subprocess
@@ -66,13 +67,19 @@ def land():
     x = (body + 0.6 * thump) * attack
     # Keep the body soft: roll off everything above ~1.8 kHz.
     x = sosfilt(butter(4, 1800, fs=SR, output="sos"), x)
-    # Wooden click on contact (Sean, re-check 2: "should still have a click, but not metal").
-    # Wood = very short decays; metal would ring. Band-passed noise tick + a damped knock.
-    tick = sosfilt(butter(2, [1800, 4200], btype="band", fs=SR, output="sos"),
-                   rng.standard_normal(len(t))) * np.exp(-t / 0.0025)
-    knock = np.sin(2 * np.pi * 1600 * t) * np.exp(-t / 0.006) + 0.5 * np.sin(2 * np.pi * 2300 * t + 1.0) * np.exp(-t / 0.004)
-    click = (tick * 1.2 + knock * 0.5) * np.minimum(1, t / 0.0005)
-    x = x / np.max(np.abs(x)) + 0.55 * click / np.max(np.abs(click))
+    # Plastic clack on contact (Sean, re-checks 2-3: "more click than thunk", like the real
+    # Connect 4 game's plastic discs; never metal). Hollow, damped partials (12-22 ms: longer
+    # than wood, far shorter than metal's ring) + a noise tick, then a quieter clatter.
+    def clack(tt, scale):
+        tick = sosfilt(butter(2, [1500, 5000], btype="band", fs=SR, output="sos"),
+                       rng.standard_normal(len(tt))) * np.exp(-tt / 0.003)
+        tone = partials(tt, [(980 * scale, 0.8, 0.022), (1720 * scale, 1.0, 0.016),
+                             (2650 * scale, 0.6, 0.012), (3900 * scale, 0.3, 0.008)])
+        return (tick * 0.9 + tone * 0.35) * np.minimum(1, tt / 0.0005)
+    click = clack(t, 1.0)
+    d = int(SR * 0.028)
+    click[d:] += 0.35 * clack(t[: len(t) - d], 1.06)
+    x = 0.35 * x / np.max(np.abs(x)) + click / np.max(np.abs(click))
     return x, 0.85
 
 
