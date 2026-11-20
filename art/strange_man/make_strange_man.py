@@ -1,11 +1,13 @@
 """Art pass C: the Strange Man (brief: CLAUDE.md §Art pass C, Sean 2026-11-20).
 
 Usage (from the repo root):
-  python art/strange_man/make_strange_man.py compare   -> art/strange_man/compare.png
-  python art/strange_man/make_strange_man.py <a|b|c>   -> final assets for that candidate
+  python art/strange_man/make_strange_man.py compare [x ...]  -> art/strange_man/compare.png (compare_pro.png for Pro picks)
+  python art/strange_man/make_strange_man.py <x>              -> final assets for raw_<x>.png
 
-Source: PixelLab Pixen 96x160 candidates in art/strange_man/raw_<x>.png (front view,
-transparent). Each is re-quantised to Resurrect 64 (nearest OKLab colour, binary alpha).
+Source: 96x160 candidates in art/strange_man/raw_<x>.png (front view, transparent):
+round 1 PixelLab Pixen a/b/c (Sean picked C); round 2 PixelLab Pro with C as the
+reference, Resurrect 64 palette -> c_pro1..4.
+Each is re-quantised to Resurrect 64 (nearest OKLab colour, binary alpha).
 
 Outputs (final):
   assets/strange_man/full_body.png   96x160, feet on the bottom rows of the figure
@@ -62,18 +64,19 @@ def render(s):
     return out.convert("RGB")
 
 
-def compare():
-    picks = [p for p in "abc" if os.path.exists(os.path.join(HERE, f"raw_{p}.png"))]
+def compare(picks=None):
+    picks = picks or [p for p in "abc" if os.path.exists(os.path.join(HERE, f"raw_{p}.png"))]
     crops = []
     for p in picks:
-        s = scene(figure(p), f"Candidate {p.upper()}")
+        s = scene(figure(p), f"Candidate {p.upper().replace('_PRO', ' Pro ')}")
         crops.append(render(s).crop((0, 440, 1080, 1760)))
     sheet = Image.new("RGB", (1080 * len(crops), 1320))
     for i, c in enumerate(crops):
         sheet.paste(c, (1080 * i, 0))
     sheet = sheet.resize((sheet.width // 2, sheet.height // 2), Image.NEAREST)
-    sheet.save(os.path.join(HERE, "compare.png"))
-    print("wrote art/strange_man/compare.png")
+    name = "compare_pro.png" if any("_pro" in p for p in picks) else "compare.png"
+    sheet.save(os.path.join(HERE, name))
+    print("wrote art/strange_man/" + name)
 
 
 def final(pick):
@@ -87,4 +90,4 @@ def final(pick):
 
 if __name__ == "__main__":
     arg = sys.argv[1] if len(sys.argv) > 1 else "compare"
-    compare() if arg == "compare" else final(arg)
+    compare(sys.argv[2:]) if arg == "compare" else final(arg)
