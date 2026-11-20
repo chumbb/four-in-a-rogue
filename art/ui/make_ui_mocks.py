@@ -187,8 +187,10 @@ def hud(s, top=8, timer="24", timer_red=False):
     ex, ey = (GW - em.width) // 2, top + h + 1
     s.put(em, ex, ey)
     colour = hexc("e83b3b") if timer_red else kit.CREAM
-    tw = int(FONT.getlength(timer)) * 2
-    tx, ty = GW // 2 - tw // 2, ey + em.height // 2 - 19
+    # Centre the drawn glyphs (not the font advance box) on the emblem's face.
+    bx0, by0, bx1, by1 = text_img(timer, colour, 2).getchannel("A").getbbox()
+    tx = ex + (em.width - (bx1 - bx0)) // 2 - bx0
+    ty = ey + (em.height - (by1 - by0)) // 2 - by0
     for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1), (0, 2)):
         s.put(text_img(timer, kit.INK0, 2), tx + dx, ty + dy)
     s.put(text_img(timer, colour, 2), tx, ty)
