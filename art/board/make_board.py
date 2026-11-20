@@ -10,13 +10,19 @@ Outputs (game pixels, shown at whole-number scale on the 270x480 pixel layer):
 Layout: 7x6 grid of 32 px cells starting at GRID_ORIGIN (8, 8); hole centre of cell
 (c, r) = (8 + 32c + 16, 8 + 32r + 16); hole diameter 28 px. The panel is 240x208,
 plus 8 px feet below it that stand on the table. Light comes from the top left.
-Honey wood colours (Sean, 2026-11-11).
+Honey wood colours (Sean, 2026-11-11), all from Resurrect 64 (Art pass A, 2026-11-19).
+Holes are transparent in both layers so the biome background shows through
+(Sean, 2026-11-13); the back layer only holds a thin shaded inner wall in each hole.
 """
 import math
 import os
 import random
+import sys
 
 from PIL import Image
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "palette"))
+from resurrect64 import hexc  # noqa: E402
 
 COLS, ROWS, CELL = 7, 6, 32
 BORDER = 8
@@ -27,17 +33,17 @@ FOOT_H = 8
 W, H = PANEL_W, PANEL_H + FOOT_H  # 240 x 216
 HOLE_R = 14.0
 
-# Honey wood ramp, dark -> light (hue shifts warmer/redder in shadow).
-OUTLINE = (74, 38, 30, 255)
-SHADOW = (138, 78, 42, 255)
-MID = (186, 116, 52, 255)
-BASE = (222, 156, 70, 255)
-LIGHT = (240, 192, 100, 255)
-HIGHLIGHT = (252, 226, 152, 255)
-# Back panel: the inside of the board, seen through the holes behind the Goobs.
-BACK_DEEP = (58, 30, 26, 255)
-BACK_DARK = (92, 50, 34, 255)
-BACK_MID = (120, 68, 40, 255)
+# Honey wood ramp, dark -> light (hue shifts warmer/redder in shadow), Resurrect 64.
+OUTLINE = hexc("45293f")
+SHADOW = hexc("9e4539")
+MID = hexc("cd683d")
+BASE = hexc("e6904e")
+LIGHT = hexc("fbb954")
+HIGHLIGHT = hexc("fdcbb0")
+# Inner wall of each hole, seen behind the Goobs: shaded on the upper left, lit on the lower right.
+WALL_DEEP = hexc("45293f")
+WALL_DARK = hexc("6e2727")
+WALL_LIT = hexc("9e4539")
 
 OUT_DIR = "assets/board"
 PREVIEW = "art/board/board_preview4x.png"
@@ -121,30 +127,25 @@ def make_front():
 
 
 def make_back():
+    """Transparent except a 1-2 px inner wall just inside each hole's rim."""
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     px = img.load()
-    rng = random.Random(9)
-    for y in range(1, PANEL_H - 1):
-        for x in range(1, PANEL_W - 1):
-            px[x, y] = BACK_MID if (x * 7 + y * 3) % 23 == 0 else BACK_DARK
-    # Grain on the back wall, darker.
-    for _ in range(90):
-        y, x, n = rng.randrange(2, PANEL_H - 2), rng.randrange(2, PANEL_W - 2), rng.randrange(4, 12)
-        for i in range(n):
-            if x + i < PANEL_W - 1:
-                px[x + i, y] = BACK_MID if rng.random() < 0.5 else BACK_DEEP
-    # The front lip casts a crescent shadow on the back wall inside each hole (upper left).
     for r in range(ROWS):
         for c in range(COLS):
             cx, cy = hole_centre(c, r)
             for y in range(int(cy - HOLE_R), int(cy + HOLE_R) + 1):
                 for x in range(int(cx - HOLE_R), int(cx + HOLE_R) + 1):
                     dx, dy = x + 0.5 - cx, y + 0.5 - cy
-                    if math.hypot(dx, dy) >= HOLE_R:
+                    d = math.hypot(dx, dy)
+                    if d >= HOLE_R or d < HOLE_R - 2:
                         continue
-                    # Inside the hole but outside the same circle shifted 3 px down-right = crescent.
-                    if math.hypot(dx - 3, dy - 3) >= HOLE_R:
-                        px[x, y] = BACK_DEEP
+                    a = math.atan2(dy, dx)
+                    # 1 = facing the lower right (lit), -1 = facing the upper left (in shadow).
+                    facing = math.cos(a - math.pi / 4)
+                    if d >= HOLE_R - 1:
+                        px[x, y] = WALL_LIT if facing > 0.2 else WALL_DARK if facing > -0.5 else WALL_DEEP
+                    elif facing < -0.6:
+                        px[x, y] = WALL_DARK
     return img
 
 
@@ -156,7 +157,7 @@ def preview(back, front):
     # (col, row from bottom, side)
     placed = [(0, 0, "b"), (1, 0, "r"), (2, 0, "b"), (3, 0, "r"), (3, 1, "b"), (2, 1, "r"),
               (3, 2, "b"), (4, 0, "b"), (3, 3, "r"), (6, 0, "r")]
-    bg = (92, 140, 120, 255)
+    bg = hexc("547e64")
     canvas = Image.new("RGBA", (W + 16, H + 40 + 16), bg)
     ox, oy = 8, 8 + 40
     canvas.alpha_composite(back, (ox, oy))
