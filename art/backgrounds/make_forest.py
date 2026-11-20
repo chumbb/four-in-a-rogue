@@ -8,8 +8,9 @@ generate: Z-Image Turbo (Apache 2.0, local, free) through ComfyUI's HTTP API.
 grade:    palette-grades the painting to Resurrect 64 while keeping smooth
           blends: each pixel is pulled toward a soft blend of its nearest
           palette colours (not hard-quantised), saturation and contrast are
-          lowered, a baked soft focus is applied, and a calmer, darker band is
-          laid behind the board so Goobs and empty holes stay readable.
+          lowered, and a calmer, darker band is laid behind the board so Goobs
+          and empty holes stay readable. No blur (Sean, 2026-11-19 playtest:
+          the soft-focus version looked too blurry).
 Output is 1080x1920 (shown cover-fit behind the 720x1280 UI base).
 """
 import json
@@ -19,7 +20,7 @@ import sys
 import time
 import urllib.request
 
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import Image, ImageEnhance
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "palette"))
 from resurrect64 import PALETTE, oklab  # noqa: E402
@@ -115,13 +116,10 @@ def grade(raw_path):
             c = px[x, y]
             p = _soft_palette(c, cache)
             px[x, y] = tuple(round(c[k] * 0.3 + p[k] * 0.7) for k in range(3))
-    # Baked soft focus (no runtime DoF); stronger in the board band.
-    soft = img.filter(ImageFilter.GaussianBlur(2))
-    blur = img.filter(ImageFilter.GaussianBlur(10))
     # Calm, darker band behind the board: dark tint from the palette (313638), feathered.
     dark = Image.new("RGB", img.size, PALETTE[34])
     out = Image.new("RGB", img.size)
-    opx, spx, bpx, dpx = out.load(), soft.load(), blur.load(), dark.load()
+    opx, spx, dpx = out.load(), img.load(), dark.load()
     feather = 220
     for y in range(OUT_H):
         if y < BAND_TOP - feather or y > BAND_BOTTOM + feather:
@@ -133,8 +131,7 @@ def grade(raw_path):
             t = 1.0 - edge / feather
             t = t * t * (3 - 2 * t)
         for x in range(OUT_W):
-            a, b, d = spx[x, y], bpx[x, y], dpx[x, y]
-            c = tuple(a[k] + (b[k] - a[k]) * t for k in range(3))
+            c, d = spx[x, y], dpx[x, y]
             opx[x, y] = tuple(round(c[k] + (d[k] - c[k]) * 0.45 * t) for k in range(3))
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     out.save(OUT)
