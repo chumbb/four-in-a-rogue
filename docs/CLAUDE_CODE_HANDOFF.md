@@ -35,12 +35,12 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Next session: Art pass B.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B accepted and merged (2026-11-20). Next session: Art pass C.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
-| 1 | **Art pass B** — UI kit ← **next** | 9-slice pixel panels (HUD, dialogue box, buttons, toast, inspect, end banner, pause/options, scrim), Options widgets, pause + speaker icons, pixel logo, fuse strip art, vignette; approved as one mock set | — |
-| 2 | **Art pass C** — Strange Man | Full body ~96×160 + light pool (stop for Sean's OK) per the brief in `CLAUDE.md`; HUD head crop × 7 expressions; crack/explode frames | — |
+| 1 | **Art pass B** — UI kit ✅ | 9-slice pixel panels (HUD, dialogue box, buttons, toast, inspect, end banner, pause/options, scrim), Options widgets, pause + speaker icons, pixel logo, fuse strip art, vignette; approved as one mock set | — |
+| 2 | **Art pass C** — Strange Man ← **next** | Full body ~96×160 + light pool (stop for Sean's OK) per the brief in `CLAUDE.md`; HUD head crop × 7 expressions; crack/explode frames | — |
 | 3 | **M6a** — Flow & screens | 0.3 s fades; title (logo, idle Goobs, Tap to start, Options); Strange Man 5-page intro with Skip + Goob pop-in; **coin flip rebuilt** (swipe up, 50/50, winner-colour flash + banner, draw replay over the forest) — today it is still the superseded heads/tails stub | B, C |
 | 4 | **M6b** — HUD, pause, options, speed | Pixel HUD + Pause (replaces Quit) with scrim + Quit confirm; Options panel + persisted settings + audio buses; Normal/Fast/Skip everywhere; haptics; turn banners | B |
 | 5 | **Art pass D1** — Goob type sheets | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
