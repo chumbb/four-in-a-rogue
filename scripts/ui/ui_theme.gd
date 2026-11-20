@@ -44,6 +44,10 @@ static func apply(root: Window) -> void:
 	if _theme == null:
 		return
 	_theme.default_font_size = font_size(root, 1)
+	# Controls outside a Control/Window chain (e.g. hand labels under a Node2D)
+	# don't inherit the root theme; the fallback catches them.
+	ThemeDB.fallback_font = FONT
+	ThemeDB.fallback_font_size = _theme.default_font_size
 	for variation: StringName in VARIATIONS:
 		_theme.set_font_size(&"font_size", variation, font_size(root, VARIATIONS[variation]))
 

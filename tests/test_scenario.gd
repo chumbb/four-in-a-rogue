@@ -611,9 +611,11 @@ func _test_layout(size: Vector2i, insets: bool) -> void:
 	var origin_phys: Vector2 = view._pixel.global_position * 1.5
 	_check(origin_phys.is_equal_approx(origin_phys.round()), "%s: board origin on a whole physical pixel (%s)" % [tag, origin_phys])
 	_check(view.column_rect(0).position.x >= board.position.x - 0.5 and view.column_rect(6).end.x <= board.end.x + 0.5, "%s: columns inside the board zone" % tag)
-	var table: Rect2 = scenario.get_node("%Table").get_global_rect()
-	_check(table.position.y > board.get_center().y and table.position.y <= board.end.y + 0.5, "%s: table starts under the board" % tag)
-	_check(is_equal_approx(table.end.y, view_size.y), "%s: table runs to the screen bottom" % tag)
+	var stump: Rect2 = scenario.get_node("%Stump").get_global_rect()
+	_check(stump.position.x > 1.0 and stump.end.x < view_size.x - 1.0, "%s: forest visible beside the stump" % tag)
+	_check(absf(stump.get_center().x - view_size.x * 0.5) < 1.0, "%s: stump centred" % tag)
+	_check(stump.position.y > board.get_center().y, "%s: stump below the board" % tag)
+	_check(stump.end.y >= view_size.y - 0.5, "%s: stump runs off the screen bottom" % tag)
 	SafeArea.simulate_insets = false
 	await _free(scenario)
 
