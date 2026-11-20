@@ -98,8 +98,11 @@ def bust(name):
     return quantize(Image.open(os.path.join(HERE, "bust", f"raw_{EXPRESSIONS[name]}.png")))
 
 
+RED_SRC = "raw_red_tipped.png"  # goobs/make_red_lying.py options: raw_red_lying_<a|b|c>.png
+
+
 def intro_goob(colour):
-    src = {"blue": "raw_blue_edit.png", "red": "raw_red_tipped.png"}[colour]
+    src = {"blue": "raw_blue_edit.png", "red": RED_SRC}[colour]
     return quantize(Image.open(os.path.join(HERE, "goobs", src)))
 
 
@@ -240,6 +243,23 @@ def final(pick):
     print("wrote", OUT_DIR, "and", save(sheet, os.path.join(HERE, "sheet_portraits.png")))
 
 
+def compare_red(fig_pick="c_pro3", opts="abc"):
+    """Review sheet: the intro scene once per red Goob option, cropped round the pool."""
+    global RED_SRC
+    crops = []
+    for o in opts:
+        RED_SRC = f"raw_red_lying_{o}.png"
+        crops.append(render(scene(figure(fig_pick), f"Option {o.upper()}", goobs=True))
+                     .crop((0, 600, 1080, 1440)))
+    sheet = Image.new("RGB", (1080 * len(crops), 840))
+    for i, c in enumerate(crops):
+        sheet.paste(c, (1080 * i, 0))
+    print("wrote", save(sheet, os.path.join(HERE, "compare_red.png")))
+
+
 if __name__ == "__main__":
     arg = sys.argv[1] if len(sys.argv) > 1 else "compare"
-    compare(sys.argv[2:]) if arg == "compare" else final(arg)
+    if arg == "compare_red":
+        compare_red()
+    else:
+        compare(sys.argv[2:]) if arg == "compare" else final(arg)
