@@ -21,6 +21,12 @@ const SCENE_PATHS: Dictionary = {
 var player_moves_first: bool = true
 
 
+func _ready() -> void:
+	var root := get_tree().root
+	UiTheme.install(root)
+	root.size_changed.connect(UiTheme.apply.bind(root))
+
+
 ## F3 (debug builds only) toggles simulated phone safe-area insets (§2A).
 func _input(event: InputEvent) -> void:
 	if not OS.is_debug_build():

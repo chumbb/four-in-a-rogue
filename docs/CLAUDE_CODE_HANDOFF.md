@@ -33,15 +33,23 @@ claude
 
 ---
 
-## Current focus — Art pass A (own session)
+## Current focus — Art pass A playtest
 
 | Milestone | Status |
 |-----------|--------|
 | M1, M2, M3, M3.5, M3.6 | Done, merged to `main` |
 | **M4 Decks & hands** | **Accepted by Sean and merged to `main` 2026-11-19** (`dbb9446`) |
-| **Art pass A** | **Next** — see `CLAUDE.md` §Milestones: Resurrect 64 re-quantise, transparent board holes with rim, Monogram font, Forest background test |
+| **Art pass A** | **Built on `art-pass-a` (2026-11-19), awaiting Sean's playtest**: Resurrect 64 re-quantise, transparent holes with rim, Monogram font, Forest background test |
 | Writing session | After Art pass A (lore seed + starter flavour text) |
 | M5–M7 | Queued — see `CLAUDE.md` §Milestones |
+
+### Art pass A (2026-11-19, branch `art-pass-a`)
+
+- Palette: `art/palette/resurrect64.py` (OKLab nearest + lightness `Ramp`s, `.gpl` for Aseprite). Goob frames: `art/tests/rotation/make_goob_flips.py` quantises to blue/red ramps; copy `out_*` into `assets/goobs/vanilla/`. Board: `python art/board/make_board.py` (`board.aseprite` is now stale; the script is the source).
+- Holes: both board layers transparent in the holes; the back layer only has a 1–2 px inner wall.
+- Font: `UiTheme` (`scripts/ui/ui_theme.gd`) is installed by `GameFlow._ready`. Use `theme_type_variation` `Mono2` / `Mono3` / `Mono1Italic` on Labels (no variation = 1×); don't add raw `font_size` overrides. Size = round(16 × n × pixel_scale / ui_scale); checked crisp at 1080 wide (43 / 85 / 128).
+- Background: start ComfyUI (`cd C:\Users\Sean\Documents\comfy\ComfyUI; python main.py`), then `python art/backgrounds/make_forest.py generate <seed>` and `... grade art/backgrounds/forest_raw_<seed>.png`. Chosen seed: 11.
+- Screenshots on a landscape monitor: a temporary `override.cfg` (window mode 0, 540×960) gives a half-size 1080×1920 window; delete it after.
 
 ### M4 wrap-up (2026-11-19)
 
@@ -113,4 +121,4 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 
 ---
 
-*Last updated: 2026-11-19 (M4 accepted and merged; next Art pass A)*
+*Last updated: 2026-11-19 (Art pass A built on `art-pass-a`, awaiting playtest)*

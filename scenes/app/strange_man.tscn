@@ -57,20 +57,18 @@ theme_override_constants/separation = 24
 
 [node name="Speaker" type="Label" parent="SafeArea/Gutter/Column/Panel/Padding/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 40
+theme_type_variation = &"Mono2"
 text = "Strange Man"
 
 [node name="DialogueLabel" type="Label" parent="SafeArea/Gutter/Column/Panel/Padding/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
 autowrap_mode = 3
 text = "…"
 
 [node name="ContinueButton" type="Button" parent="SafeArea/Gutter/Column/Panel/Padding/VBox"]
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
-theme_override_font_sizes/font_size = 32
 text = "Continue"
 
 [connection signal="pressed" from="SafeArea/Gutter/Column/Panel/Padding/VBox/ContinueButton" to="." method="_on_continue_pressed"]

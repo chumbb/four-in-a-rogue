@@ -252,7 +252,6 @@ func _make_card(goob: GoobDefinition) -> Node2D:
 		label.name = "Name"
 		label.text = goob.display_name.trim_suffix(" Goob")
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", 18)
 		label.add_theme_color_override("font_outline_color", Color.BLACK)
 		label.add_theme_constant_override("outline_size", 6)
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -267,8 +266,9 @@ func _place_label(card: Node2D) -> void:
 	if label == null:
 		return
 	var half := GOOB_PX * _px * 0.5
-	label.size = Vector2(half * 2.0 + 24.0, 24.0)
-	label.position = Vector2(-half - 12.0, half - 6.0)
+	var line := label.get_minimum_size().y
+	label.size = Vector2(half * 2.0 + 24.0, line)
+	label.position = Vector2(-half - 12.0, half - line * 0.5)
 
 
 func _kill_tween(card: Node2D) -> void:

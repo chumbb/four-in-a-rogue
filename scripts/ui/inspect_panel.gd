@@ -60,17 +60,13 @@ func _ready() -> void:
 	text.alignment = BoxContainer.ALIGNMENT_CENTER
 	text.add_theme_constant_override("separation", 16)
 	top.add_child(text)
-	_name_label = _make_label(40, HORIZONTAL_ALIGNMENT_CENTER)
+	_name_label = _make_label(&"Mono2", HORIZONTAL_ALIGNMENT_CENTER)
 	_name_label.add_theme_color_override("font_color", COLOR_NAME)
 	text.add_child(_name_label)
-	_effect_label = _make_label(28, HORIZONTAL_ALIGNMENT_CENTER)
+	_effect_label = _make_label(&"", HORIZONTAL_ALIGNMENT_CENTER)
 	text.add_child(_effect_label)
-	_flavour_label = _make_label(24, HORIZONTAL_ALIGNMENT_CENTER)
+	_flavour_label = _make_label(&"Mono1Italic", HORIZONTAL_ALIGNMENT_CENTER)
 	_flavour_label.add_theme_color_override("font_color", Color(0.75, 0.78, 0.88))
-	var italic := FontVariation.new()
-	italic.base_font = ThemeDB.fallback_font
-	italic.variation_transform = Transform2D(Vector2(1, 0), Vector2(0.2, 1), Vector2.ZERO)
-	_flavour_label.add_theme_font_override("font", italic)
 	rows.add_child(_flavour_label)
 
 
@@ -102,9 +98,10 @@ func effect_text() -> String:
 	return _effect_label.text if _effect_label.visible else ""
 
 
-func _make_label(font_size: int, align: HorizontalAlignment) -> Label:
+## `variation`: a UiTheme type variation (empty = 1× Monogram).
+func _make_label(variation: StringName, align: HorizontalAlignment) -> Label:
 	var label := Label.new()
-	label.add_theme_font_size_override("font_size", font_size)
+	label.theme_type_variation = variation
 	label.horizontal_alignment = align
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE

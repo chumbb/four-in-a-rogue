@@ -11,12 +11,17 @@ Pitch = end-over-end flip built from 2b's south (face), north (back) and east
         (edge) views: vertical squash by |cos(angle)|, a rim band for coin
         thickness, and the edge view turned on its side at 90/270 degrees.
 Red   = hue shift of the blue frames (enemy red, player blue).
+All frames are quantised to Resurrect 64 before saving (Art pass A, 2026-11-19).
 """
 import colorsys
 import math
 import os
+import sys
 
 from PIL import Image
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "palette"))
+from resurrect64 import BLUE_GOOB, RED_GOOB, quantize  # noqa: E402
 
 SRC = "pixellab_2b_8dir_pro/rotations"
 SIZE = 32
@@ -150,7 +155,8 @@ def to_red(im):
     return out
 
 
-def save_set(frames, name):
+def save_set(frames, name, ramps):
+    frames = [quantize(f, ramps) for f in frames]
     os.makedirs(name, exist_ok=True)
     for i, f in enumerate(frames):
         f.save(os.path.join(name, "frame_%02d.png" % i))
@@ -172,9 +178,9 @@ def main():
     yaw = [load(d) for d in YAW_ORDER]
     pitch = pitch_frames()
     strips = []
-    for color, conv in (("blue", lambda f: f), ("red", to_red)):
-        strips.append(save_set([conv(f) for f in yaw], "out_%s_yaw" % color))
-        strips.append(save_set([conv(f) for f in pitch], "out_%s_pitch" % color))
+    for color, conv, ramps in (("blue", lambda f: f, BLUE_GOOB), ("red", to_red, RED_GOOB)):
+        strips.append(save_set([conv(f) for f in yaw], "out_%s_yaw" % color, ramps))
+        strips.append(save_set([conv(f) for f in pitch], "out_%s_pitch" % color, ramps))
     sheet = Image.new("RGBA", (SIZE * 8, SIZE * len(strips)), BG)
     for r, s in enumerate(strips):
         sheet.alpha_composite(s, (0, r * SIZE))
