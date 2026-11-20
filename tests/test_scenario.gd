@@ -747,6 +747,8 @@ func _test_double_tap_inspects_board() -> void:
 	_tap(cell_pos)
 	_check(scenario._inspect.is_open(), "double tap on a board Goob inspects (nothing selected)")
 	_check(scenario._inspect.effect_text() == "", "Vanilla: name + flavour only")
+	_check(scenario._inspect.flavour_text() == vanilla.flavour_text and vanilla.flavour_text != "",
+			"inspect shows the Goob's flavour line")
 	_tap(cell_pos)
 	_check(not scenario._inspect.is_open(), "tap closes it")
 	_select_hand(scenario)
