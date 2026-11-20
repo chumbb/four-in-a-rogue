@@ -40,14 +40,14 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently M4 — Decks & hands; M3.6 2D board accepted and merged 2026-11-13). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently Art pass A — palette, holes, font, Forest; M4 Decks & hands accepted and merged 2026-11-19). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅ (accepted by Sean and merged to `main` 2026-11-13) | **M4** Decks & hands |
-| Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅ (accepted by Sean and merged to `main` 2026-11-19) | **Art pass A** (palette, holes, font, Forest), then the writing session, then **M5** |
+| Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
 
@@ -233,7 +233,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Test:** Same loop with the 2D board at 1080×1920 and 1080×2340; Goobs sit inside columns; no mixed pixel sizes.
 
-### M4 — Decks & hands ← **built on `m4-decks-hands`, awaiting Sean's playtest** (2026-11-13)
+### M4 — Decks & hands ✅ (playtested and merged 2026-11-19)
 
 - [x] Load/shuffle `starter_deck.json` (17 Vanilla + 4 specials); draw pile + hand per side; **hand max 5**, start 3
 - [x] Turn draw/play rules; empty deck; draw stalemate → replay
@@ -324,4 +324,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-13 (M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-19 (M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
