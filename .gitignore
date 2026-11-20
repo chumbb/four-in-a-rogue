@@ -26,3 +26,6 @@ mono_crash.*.json
 
 # Local MCP secrets (use .mcp.json.example)
 .mcp.json
+
+# Python
+__pycache__/

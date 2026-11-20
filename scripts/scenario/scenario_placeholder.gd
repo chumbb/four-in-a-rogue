@@ -26,6 +26,10 @@ const TURN_SECONDS := 30.0
 const TIMEOUT_REVEAL_SEC := 0.7
 const MSG_TIMES_UP := "Time's up!"
 const MSG_HAND_FULL := "Hand full"
+## Forest hand prop (assets/hand/forest_stump.png), in its game px: the row the
+## hand Goobs' bottoms rest on, and the usable width of its top.
+const STUMP_SEAT_Y := 34.0
+const STUMP_TOP_WIDTH := 180.0
 ## Drag starts once the finger moves this far from the press (slice §2B).
 const DRAG_START_PX := 12.0
 ## A press on a column held this long (or slid) drops on release; shorter
@@ -50,7 +54,7 @@ const COLOR_DRAW := Color(0.75, 0.82, 1.0)
 @onready var _board_view: BoardView2D = %BoardView
 @onready var _aim_lane: Control = %AimLane
 @onready var _flash: ColorRect = %ColumnFlash
-@onready var _table: ColorRect = %Table
+@onready var _stump: TextureRect = %Stump
 @onready var _end_overlay: Control = %EndOverlay
 @onready var _banner: Control = %Banner
 @onready var _hand: HandView = %PlayerHand
@@ -137,13 +141,21 @@ func _process(_delta: float) -> void:
 		_timer_label.text = "%ds" % ceili(_turn_timer.time_left)
 
 
-## The table runs from under the board's floor to the bottom of the screen:
-## the board stands on it, and the hand (M4) lies on it.
+## The biome's hand prop (Forest: an oak stump, Sean 2026-11-19): pixel art
+## at the hand Goobs' pixel scale, centred, narrower than the screen so the
+## background shows at its sides, running off the bottom. The hand Goobs rest
+## on its top, and the fan stays within it.
 func _layout_table() -> void:
-	var top := _board_view.floor_bottom_y()
-	_table.position = Vector2(0.0, top)
-	_table.size = Vector2(size.x, maxf(0.0, size.y - top))
-	_hand.set_pixel_size(_board_view.hand_px())
+	var hand_px := _board_view.hand_px()
+	_hand.set_pixel_size(hand_px)
+	var tex_size := _stump.texture.get_size()
+	var ui_scale := float(get_window().size.x) / get_viewport_rect().size.x
+	# Goob bottoms (hand_view slot) sit on the stump's seat line.
+	var goob_bottom := _hand.global_position.y + HandView.LIFT_PX * hand_px + 8.0 + HandView.GOOB_PX * hand_px
+	var pos := Vector2((size.x - tex_size.x * hand_px) * 0.5, goob_bottom - STUMP_SEAT_Y * hand_px)
+	_stump.position = (pos * ui_scale).round() / ui_scale
+	_stump.size = tex_size * hand_px
+	_hand.set_fan_width(STUMP_TOP_WIDTH * hand_px)
 
 
 func _make_timer(callback: Callable) -> Timer:

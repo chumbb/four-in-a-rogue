@@ -32,6 +32,7 @@ var animate := true
 
 var _cards: Array[Node2D] = []
 var _px := 1.0 ## logical px per game px
+var _fan_width := 0.0 ## logical px; 0 = whole zone (set_fan_width)
 var _selected := -1
 var _dragged := -1
 var _revealing: Node2D ## the drawn Goob still flying in (layout skips it)
@@ -48,6 +49,13 @@ func _ready() -> void:
 
 
 # --- Public API ------------------------------------------------------------
+
+## Widest span (logical px) the fan may use, e.g. the top of the biome's hand
+## prop; 0 = the whole zone minus the side insets.
+func set_fan_width(width: float) -> void:
+	_fan_width = width
+	layout(false)
+
 
 func set_pixel_size(px: float) -> void:
 	_px = px
@@ -225,7 +233,10 @@ func _slot(index: int) -> Transform2D:
 	var mid := (n - 1) * 0.5
 	var step := goob + GAP_MIN * 2.0
 	if n > 1:
-		step = minf(step, (size.x - SIDE_INSET * 2.0 - goob) / (n - 1))
+		var span := size.x - SIDE_INSET * 2.0
+		if _fan_width > 0.0:
+			span = minf(span, _fan_width)
+		step = minf(step, (span - goob) / (n - 1))
 	var offset := index - mid
 	var x := size.x * 0.5 + offset * step
 	var y := LIFT_PX * _px + 8.0 + goob * 0.5 + offset * offset * FAN_SINK_PX

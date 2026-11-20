@@ -9,7 +9,9 @@ Outputs (game pixels, shown at whole-number scale on the 270x480 pixel layer):
 
 Layout: 7x6 grid of 32 px cells starting at GRID_ORIGIN (8, 8); hole centre of cell
 (c, r) = (8 + 32c + 16, 8 + 32r + 16); hole diameter 28 px. The panel is 240x208,
-plus 8 px feet below it that stand on the table. Light comes from the top left.
+plus an empty 8 px strip below it (the feet were removed: the board doesn't stand on
+anything, Sean 2026-11-19; the canvas keeps its size so the geometry is unchanged).
+Light comes from the top left.
 Honey wood colours (Sean, 2026-11-11), all from Resurrect 64 (Art pass A, 2026-11-19).
 Holes are transparent in both layers so the biome background shows through
 (Sean, 2026-11-13); the back layer only holds a thin shaded inner wall in each hole.
@@ -29,7 +31,7 @@ BORDER = 8
 GRID_ORIGIN = (BORDER, BORDER)
 PANEL_W = COLS * CELL + 2 * BORDER  # 240
 PANEL_H = ROWS * CELL + 2 * BORDER  # 208
-FOOT_H = 8
+FOOT_H = 8  # empty strip under the panel (no feet since 2026-11-19)
 W, H = PANEL_W, PANEL_H + FOOT_H  # 240 x 216
 HOLE_R = 14.0
 
@@ -111,18 +113,6 @@ def make_front():
                 px[x, y] = HIGHLIGHT if lit_side(a) > 0 else OUTLINE
             elif d < HOLE_R + 2:
                 px[x, y] = LIGHT if lit_side(a) > 0 else SHADOW
-    # Feet: two short blocks under the panel, standing on the table.
-    for fx0 in (12, PANEL_W - 12 - 28):
-        for y in range(PANEL_H, H):
-            for x in range(fx0, fx0 + 28):
-                if x in (fx0, fx0 + 27) or y == H - 1:
-                    px[x, y] = OUTLINE
-                elif y == H - 2 or x == fx0 + 26:
-                    px[x, y] = SHADOW
-                elif x == fx0 + 1:
-                    px[x, y] = LIGHT
-                else:
-                    px[x, y] = MID
     return img
 
 

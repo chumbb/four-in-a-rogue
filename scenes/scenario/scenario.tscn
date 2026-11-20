@@ -1,10 +1,11 @@
-[gd_scene load_steps=9 format=3 uid="uid://fourinarogue_scenario"]
+[gd_scene load_steps=10 format=3 uid="uid://fourinarogue_scenario"]
 
 [ext_resource type="Script" path="res://scripts/scenario/scenario_placeholder.gd" id="1_sc"]
 [ext_resource type="PackedScene" uid="uid://fourinarogue_board2d" path="res://scenes/board/board_view_2d.tscn" id="2_board"]
 [ext_resource type="Script" path="res://scripts/ui/safe_area.gd" id="3_safe"]
 [ext_resource type="Script" path="res://scripts/hand/hand_view.gd" id="4_hand"]
 [ext_resource type="Texture2D" path="res://assets/backgrounds/forest.png" id="5_forest"]
+[ext_resource type="Texture2D" path="res://assets/hand/forest_stump.png" id="6_stump"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_portrait"]
 bg_color = Color(0.2, 0.09, 0.1, 1)
@@ -60,20 +61,14 @@ expand_mode = 1
 stretch_mode = 6
 texture_filter = 2
 
-[node name="Table" type="ColorRect" parent="."]
+[node name="Stump" type="TextureRect" parent="."]
 unique_name_in_owner = true
+texture_filter = 1
 layout_mode = 0
 mouse_filter = 2
-color = Color(0.33, 0.2, 0.12, 1)
-
-[node name="Edge" type="ColorRect" parent="Table"]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_bottom = 8.0
-grow_horizontal = 2
-mouse_filter = 2
-color = Color(0.48, 0.31, 0.18, 1)
+texture = ExtResource("6_stump")
+expand_mode = 1
+stretch_mode = 0
 
 [node name="SafeArea" type="MarginContainer" parent="."]
 unique_name_in_owner = true
