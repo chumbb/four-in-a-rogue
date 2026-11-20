@@ -1,19 +1,10 @@
-[gd_scene load_steps=10 format=3 uid="uid://fourinarogue_scenario"]
+[gd_scene load_steps=9 format=3 uid="uid://fourinarogue_scenario"]
 
 [ext_resource type="Script" path="res://scripts/scenario/scenario_placeholder.gd" id="1_sc"]
 [ext_resource type="PackedScene" uid="uid://fourinarogue_board2d" path="res://scenes/board/board_view_2d.tscn" id="2_board"]
 [ext_resource type="Script" path="res://scripts/ui/safe_area.gd" id="3_safe"]
 [ext_resource type="Script" path="res://scripts/hand/hand_view.gd" id="4_hand"]
-
-[sub_resource type="Gradient" id="Gradient_bg"]
-offsets = PackedFloat32Array(0, 0.45, 0.7, 1)
-colors = PackedColorArray(0.1, 0.13, 0.26, 1, 0.24, 0.34, 0.52, 1, 0.26, 0.44, 0.32, 1, 0.14, 0.26, 0.17, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture_bg"]
-gradient = SubResource("Gradient_bg")
-width = 16
-height = 256
-fill_to = Vector2(0, 1)
+[ext_resource type="Texture2D" path="res://assets/backgrounds/forest.png" id="5_forest"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_portrait"]
 bg_color = Color(0.2, 0.09, 0.1, 1)
@@ -64,9 +55,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-texture = SubResource("GradientTexture_bg")
+texture = ExtResource("5_forest")
 expand_mode = 1
-stretch_mode = 0
+stretch_mode = 6
 texture_filter = 2
 
 [node name="Table" type="ColorRect" parent="."]
