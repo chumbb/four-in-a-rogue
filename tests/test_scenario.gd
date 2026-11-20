@@ -612,7 +612,7 @@ func _test_layout(size: Vector2i, insets: bool) -> void:
 	_check(origin_phys.is_equal_approx(origin_phys.round()), "%s: board origin on a whole physical pixel (%s)" % [tag, origin_phys])
 	_check(view.column_rect(0).position.x >= board.position.x - 0.5 and view.column_rect(6).end.x <= board.end.x + 0.5, "%s: columns inside the board zone" % tag)
 	var stump: Rect2 = scenario.get_node("%Stump").get_global_rect()
-	_check(stump.position.x > 1.0 and stump.end.x < view_size.x - 1.0, "%s: forest visible beside the stump" % tag)
+	_check(stump.position.x < 0.0 and stump.end.x > view_size.x, "%s: stump base runs off both screen edges" % tag)
 	_check(absf(stump.get_center().x - view_size.x * 0.5) < 1.0, "%s: stump centred" % tag)
 	_check(stump.position.y > board.get_center().y, "%s: stump below the board" % tag)
 	_check(stump.end.y >= view_size.y - 0.5, "%s: stump runs off the screen bottom" % tag)
