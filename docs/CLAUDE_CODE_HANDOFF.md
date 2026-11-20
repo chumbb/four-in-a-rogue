@@ -26,20 +26,21 @@ claude
 - Canonical v0.1 rules: `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md`
 - Full GDD: `Projects/Four-in-a-Rogue/Design/GDD.md`
 - Decision log: `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`
-- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-19 Claude - M4 playtest sound fixes.md`
+- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-19 Claude - Art pass A.md`
 - Vault agent rules: `GameDev/CLAUDE.md`
 
 **Conflict rule:** Obsidian vault wins over repo `CLAUDE.md` for game design.
 
 ---
 
-## Current focus — Art pass A playtest
+## Current focus — Writing session
 
 | Milestone | Status |
 |-----------|--------|
 | M1, M2, M3, M3.5, M3.6 | Done, merged to `main` |
 | **M4 Decks & hands** | **Accepted by Sean and merged to `main` 2026-11-19** (`dbb9446`) |
-| **Art pass A** | **Built on `art-pass-a` (2026-11-19), awaiting Sean's playtest**: Resurrect 64 re-quantise, transparent holes with rim, Monogram font, Forest background test |
+| **Art pass A** | **Accepted by Sean and merged to `main` 2026-11-19** |
+| **Writing session** | **Next** — lore seed + one flavour line per starter type (see `CLAUDE.md` §Milestones); Sean approves each |
 | Writing session | After Art pass A (lore seed + starter flavour text) |
 | M5–M7 | Queued — see `CLAUDE.md` §Milestones |
 
@@ -49,6 +50,7 @@ claude
 - Holes: both board layers transparent in the holes; the back layer only has a 1–2 px inner wall.
 - Font: `UiTheme` (`scripts/ui/ui_theme.gd`) is installed by `GameFlow._ready`. Use `theme_type_variation` `Mono2` / `Mono3` / `Mono1Italic` on Labels (no variation = 1×); don't add raw `font_size` overrides. Size = round(16 × n × pixel_scale / ui_scale); checked crisp at 1080 wide (43 / 85 / 128).
 - Background: start ComfyUI (`cd C:\Users\Sean\Documents\comfy\ComfyUI; python main.py`), then `python art/backgrounds/make_forest.py generate <seed>` and `... grade art/backgrounds/forest_raw_<seed>.png`. Chosen seed: 11.
+- Playtest changes: landing sound = `column_tick.ogg` pitched down ~5 semitones (`art/audio/make_drop_sounds.py`; synthesised thunk/click versions were rejected); fall = synthesised whoosh; Forest grade has **no blur** (Sean).
 - Screenshots on a landscape monitor: a temporary `override.cfg` (window mode 0, 540×960) gives a half-size 1080×1920 window; delete it after.
 
 ### M4 wrap-up (2026-11-19)
@@ -89,7 +91,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently Art pass A) on a new branch; push it for Sean's playtest.
+3. Do the next item in CLAUDE.md §Milestones (currently the writing session) on a new branch; push it for Sean's playtest.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.
@@ -121,4 +123,4 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 
 ---
 
-*Last updated: 2026-11-19 (Art pass A built on `art-pass-a`, awaiting playtest)*
+*Last updated: 2026-11-19 (Art pass A accepted and merged; next the writing session)*

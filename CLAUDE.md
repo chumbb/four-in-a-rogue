@@ -40,13 +40,13 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently Art pass A — palette, holes, font, Forest; M4 Decks & hands accepted and merged 2026-11-19). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently the writing session — lore seed + starter flavour text; Art pass A accepted and merged 2026-11-19). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅ (accepted by Sean and merged to `main` 2026-11-19) | **Art pass A** (palette, holes, font, Forest), then the writing session, then **M5** |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅ (both accepted and merged to `main` 2026-11-19) | **Writing session** (lore seed + starter flavour text), then **M5** |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -242,7 +242,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Test:** Hands visible; deck counts behave; both input styles play and cancel correctly; stalemate replays correctly.
 
-### Art pass A — palette, holes, font, Forest (own session, after M4 is accepted; Sean 2026-11-13) — built 2026-11-19 on `art-pass-a`, awaiting Sean's playtest
+### Art pass A — palette, holes, font, Forest (own session, after M4 is accepted; Sean 2026-11-13) ✅ (accepted by Sean and merged to `main` 2026-11-19)
 
 - [x] Re-quantise board + Vanilla Goob art to Resurrect 64 (`art/palette/resurrect64.py`; Goobs via ramps in `make_goob_flips.py`, board in `make_board.py`)
 - [x] Transparent board holes with a 1–2 px shaded rim (back layer = inner wall only)
@@ -324,4 +324,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-19 (M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-19 (Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
