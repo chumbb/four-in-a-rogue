@@ -242,12 +242,12 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Test:** Hands visible; deck counts behave; both input styles play and cancel correctly; stalemate replays correctly.
 
-### Art pass A — palette, holes, font, Forest (own session, after M4 is accepted; Sean 2026-11-13)
+### Art pass A — palette, holes, font, Forest (own session, after M4 is accepted; Sean 2026-11-13) — built 2026-11-19 on `art-pass-a`, awaiting Sean's playtest
 
-- [ ] Re-quantise board + Vanilla Goob art to Resurrect 64
-- [ ] Transparent board holes with a 1–2 px shaded rim
-- [ ] Monogram font for UI text
-- [ ] Forest painted background test (palette-graded, calm band behind the board)
+- [x] Re-quantise board + Vanilla Goob art to Resurrect 64 (`art/palette/resurrect64.py`; Goobs via ramps in `make_goob_flips.py`, board in `make_board.py`)
+- [x] Transparent board holes with a 1–2 px shaded rim (back layer = inner wall only)
+- [x] Monogram font for UI text (`scripts/ui/ui_theme.gd`: 1× default, `Mono2`, `Mono3`, `Mono1Italic` type variations on the board pixel unit; fonts in `resources/fonts/`)
+- [x] Forest painted background test (`art/backgrounds/make_forest.py`: local ComfyUI + Z-Image Turbo, then palette grade → `assets/backgrounds/forest.png`; scenario + coin flip)
 
 ### Writing session — lore seed + starter flavour text (own session, after M4; Sean 2026-11-13)
 
