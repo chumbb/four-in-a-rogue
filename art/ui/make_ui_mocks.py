@@ -30,7 +30,7 @@ UI = {name: Image.open(f"assets/ui/{name}.png").convert("RGBA") for name in (
     "button_disabled", "toast", "banner", "slider_track", "slider_fill", "slider_knob",
     "toggle_on", "toggle_off", "segment_normal", "segment_selected", "icon_pause",
     "icon_speaker", "icon_speaker_muted", "logo", "fuse_rope", "fuse_burnt", "fuse_spark",
-    "toast_error", "icon_error", "divider_h", "divider_v")}
+    "toast_error", "icon_error", "divider_h", "divider_v", "timer_emblem_forest")}
 SCRIM = (*kit.INK0[:3], 178)
 
 
@@ -162,33 +162,42 @@ def draw_fuse(s, x, y, w, burnt):
 
 
 def hud(s, top=8, timer="24", timer_red=False):
-    """One HUD block with sections (Sean, 2026-11-20 review): portrait | objective |
-    scenario on top, the turn timer centred in the lower section. Pause is bottom left."""
-    x0, w = 6, GW - 12
-    top_h, low_h = 40, 22
-    s.panel("panel", x0, top, w, top_h + low_h)
+    """One HUD block with thick section bars (Sean, 2026-11-20 round 2): big portrait |
+    objective (centred) | scenario. The turn timer sits in a round biome emblem just
+    below the block. Pause is bottom left."""
+    x0, w, h = 6, GW - 12, 56
+    s.panel("panel", x0, top, w, h)
     # Portrait section (Strange Man head crop comes in Art pass C).
-    s.put(Image.new("RGBA", (30, 30), hexc("45293f")), x0 + 5, top + 5)
-    s.text("?", x0 + 20, top + 7, kit.INK2, 2, centre=True, shadow=False)
-    vx1, vx2 = x0 + 39, x0 + w - 62
+    ps = 44
+    s.put(kit.frame(ps, ps, [kit.INK0], hexc("45293f"), radius=1), x0 + 6, top + 6)
+    s.text("?", x0 + 6 + ps // 2, top + 6 + 2, kit.INK2, 3, centre=True, shadow=False)
+    vx1, vx2 = x0 + 6 + ps + 3, x0 + w - 62
     for vx in (vx1, vx2):
-        s.put(UI["divider_v"].resize((3, top_h - 6)), vx, top + 3)
-    s.put(UI["divider_h"].resize((w - 6, 3)), x0 + 3, top + top_h - 1)
-    # Objective section.
-    s.text("Objective", vx1 + 8, top + 5, kit.GOLD_HI)
-    s.text("Get four in a row", vx1 + 8, top + 19, kit.CREAM)
+        s.put(UI["divider_v"].resize((5, h - 4)), vx, top + 2)
+    # Objective section, centred.
+    ocx = (vx1 + 5 + vx2) // 2
+    s.text("Objective", ocx, top + 12, kit.GOLD_HI, centre=True)
+    s.text("Get four in a row", ocx, top + 28, kit.CREAM, centre=True)
     # Scenario section (where Pause was).
-    cx = (vx2 + 3 + x0 + w) // 2
-    s.text("Scenario", cx, top + 5, kit.GOLD_HI, centre=True)
-    s.text("1/1", cx, top + 13, kit.CREAM, 2, centre=True)
-    # Lower section: the turn timer, centred ("—" on the opponent's turn).
-    s.text(timer, GW // 2, top + top_h - 4, hexc("e83b3b") if timer_red else kit.CREAM, 2, centre=True)
+    cx = (vx2 + 5 + x0 + w - 3) // 2
+    s.text("Scenario", cx, top + 8, kit.GOLD_HI, centre=True)
+    s.text("1/1", cx, top + 18, kit.CREAM, 2, centre=True)
+    # Turn timer: round Forest emblem just below the HUD ("—" on the opponent's turn).
+    em = UI["timer_emblem_forest"]
+    ex, ey = (GW - em.width) // 2, top + h + 1
+    s.put(em, ex, ey)
+    colour = hexc("e83b3b") if timer_red else kit.CREAM
+    tw = int(FONT.getlength(timer)) * 2
+    tx, ty = GW // 2 - tw // 2, ey + em.height // 2 - 19
+    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1), (0, 2)):
+        s.put(text_img(timer, kit.INK0, 2), tx + dx, ty + dy)
+    s.put(text_img(timer, colour, 2), tx, ty)
     # Pause button, bottom left of the safe area (36 game px = 96 px at the 720 base).
     s.panel("button_normal", 9, GH - 9 - 38, 40, 38)
     s.put(UI["icon_pause"], 9 + 16, GH - 9 - 38 + 13)
 
 
-def error_toast(s, msg, y=100):
+def error_toast(s, msg, y=114):
     """Error toast: red pill + warning badge, above the aim lane."""
     w = int(FONT.getlength(msg)) + 32
     x = (GW - w) // 2

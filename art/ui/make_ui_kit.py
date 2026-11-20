@@ -13,7 +13,8 @@ Outputs in assets/ui/ (9-slice margins = the `MARGINS` table below, in game px):
   dialogue_arrow.png   blinking "next page" triangle
   button_normal.png    honey button with a 2 px lip; _pressed sinks 2 px; _disabled greyed
   toast.png            toast pill; toast_error.png + icon_error.png for errors (Column full, Hand full)
-  divider_h.png / divider_v.png  section lines inside the one-block HUD
+  divider_h.png / divider_v.png  thick section bars inside the one-block HUD
+  timer_emblem_forest.png  round biome emblem under the HUD that holds the turn timer
   banner.png           end-overlay frame (double border, gold studs)
   slider_track.png     slider groove; slider_fill.png the filled part; slider_knob.png
   toggle_on.png / toggle_off.png
@@ -202,12 +203,64 @@ def icon_error():
 
 
 def divider_h():
-    """Tileable horizontal section divider for the one-block HUD (4x3)."""
-    return bitmap(["....", "####", "...."], {"#": GOLD_LO})
+    """Tileable horizontal section bar for the one-block HUD (4x5): as thick as the
+    gap between two panels, gold centre joins the panel's gold ring (Sean, round 2)."""
+    return bitmap(["####", "hhhh", "gggg", "llll", "####"],
+                  {"#": INK0, "h": GOLD_HI, "g": GOLD, "l": GOLD_LO})
 
 
 def divider_v():
-    return bitmap([".#."] * 4, {"#": GOLD_LO})
+    return bitmap(["#hgl#"] * 4, {"#": INK0, "h": GOLD_HI, "g": GOLD, "l": GOLD_LO})
+
+
+def timer_emblem_forest():
+    """Forest turn-timer emblem (44x44): a log slice with tree rings, bark rim and two
+    oak leaves; the countdown sits in the middle (Sean, 2026-11-20 round 2)."""
+    import math
+    n = 44
+    img = Image.new("RGBA", (n, n), CLEAR)
+    px = img.load()
+    c = (n - 1) / 2
+    R = n / 2 - 0.4
+    bark, bark_hi = hexc("4c3e24"), hexc("966c6c")
+    for y in range(n):
+        for x in range(n):
+            dx, dy = x - c, y - c
+            r = math.hypot(dx, dy)
+            if r > R:
+                continue
+            if r > R - 1:
+                px[x, y] = INK0
+            elif r > R - 4:  # bark, rough flecks, lit top-left
+                lit = dx + dy < -6
+                fleck = (x * 7 + y * 3) % 5 == 0
+                px[x, y] = (bark_hi if fleck else GOLD_SH) if lit else (GOLD_SH if fleck else bark)
+            elif r > R - 5:
+                px[x, y] = INK0
+            else:  # wood face: rings every 4 px, lit inner edge top-left
+                ring = int(r + 0.5)
+                col = GOLD
+                if ring % 4 == 1 and ring > 1:
+                    col = GOLD_LO
+                elif ring % 4 == 2 and dx + dy < -3:
+                    col = GOLD_HI
+                if r < 1.5:
+                    col = GOLD_LO
+                px[x, y] = col
+    leaf = bitmap([
+        "......##....",
+        "....##aa#...",
+        "..##aaaab#..",
+        ".#aaaabbbb#.",
+        "#vvvvvvvvvv#",
+        ".#bbbbdddd#.",
+        "..##bbddd#..",
+        "....##dd#...",
+        "......##....",
+    ], {"#": INK0, "a": hexc("91db69"), "b": hexc("1ebc73"), "d": hexc("239063"), "v": hexc("165a4c")})
+    img.alpha_composite(leaf, (0, 2))
+    img.alpha_composite(leaf.transpose(Image.FLIP_LEFT_RIGHT), (n - 12, n - 13))
+    return img
 
 
 def banner(w=20, h=20):
@@ -498,6 +551,7 @@ def build():
         "icon_error": icon_error(),
         "divider_h": divider_h(),
         "divider_v": divider_v(),
+        "timer_emblem_forest": timer_emblem_forest(),
         "banner": banner(),
         "slider_track": slider_track(),
         "slider_fill": slider_fill(),
