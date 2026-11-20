@@ -33,7 +33,7 @@ claude
 
 ---
 
-## Current focus — M5 Goob effects
+## Current focus — M6 AI & polish
 
 | Milestone | Status |
 |-----------|--------|
@@ -42,10 +42,11 @@ claude
 | **Art pass A** | **Accepted by Sean and merged to `main` 2026-11-19** |
 | **Hand stump** (follow-up) | Accepted and merged to `main` 2026-11-19: Forest oak stump under the hand (`art/hand/make_stump.py`; round top, flared base off the screen edges), board feet removed |
 | **Writing session** | Accepted and merged 2026-11-19 |
-| **M5 Goob effects** | **Built on `m5-goob-effects` (2026-11-19), awaiting Sean's F5 playtest** |
-| M6–M7 | Queued — see `CLAUDE.md` §Milestones |
+| **M5 Goob effects** | Accepted by Sean and merged to `main` 2026-11-20 |
+| **M6 AI & polish** | **Next** (see `CLAUDE.md` §Milestones) |
+| M7 | Queued — see `CLAUDE.md` §Milestones |
 
-### M5 (2026-11-19, branch `m5-goob-effects`)
+### M5 (accepted and merged 2026-11-20)
 
 - Rules: `TurnLoop._resolve_effect()` (targets picked before any animation), `last_effect` for the view, `scoring_cells()` = every Goob in any winning line. Tests inject an all-Vanilla deck (`TurnLoop.start(..., deck)`, `scenario.deck`) so specials don't make turn tests random.
 - View: `BoardView2D.play_flip/play_destroy/play_hop/play_draw_cue/play_fizzle/bounce_cell`; scenario `_play_effect()` and `_play_scoring()`.
@@ -67,7 +68,7 @@ claude
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m5-goob-effects`, 644 checks)
+### Tests (all pass on `main`, 644 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"

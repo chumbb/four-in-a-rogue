@@ -40,13 +40,13 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently M5 — Goob effects; writing session accepted and merged 2026-11-19). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently M6 — AI & polish; M5 accepted and merged 2026-11-20). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (all accepted and merged to `main` 2026-11-19) | **M5** Goob effects — built on `m5-goob-effects`, awaiting Sean's playtest |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20) | **M6** AI & polish |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -256,13 +256,13 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 - [x] Lore seed by effect family and legendary figures (e.g. Goobert the Brave, Gooberius); hints at an apocalyptic calamity that is **never specified anywhere**
 - [x] One flavour line (1–2 sentences) per starter type, Vanilla shared; FromSoftware + Pokédex voice (vault Research notes); Sean approves each. Done: vault `Design/Lore seed.md`; lines in `resources/goobs/*.tres` (`flavour_text`)
 
-### M5 — Goob effects (built on `m5-goob-effects` 2026-11-19; awaiting Sean's playtest)
+### M5 — Goob effects ✅ (accepted by Sean and merged to `main` 2026-11-20)
 
 - [x] Land → effect → win check; per-type impact animations
 - [x] Flip / destroy / extra vanilla / draw 2; scoring sequence (Balatro rhythm, ~0.6 s per Goob) on a one-sided four
 - [x] Effect sounds + scoring sounds (rising pitch ladder)
 
-**M5 rules (Sean, 2026-11-19):** no target → the effect **fizzles with a small cue** (wobble + grey + soft sound); scoring reveals **every Goob in any winning line** (each once); numbers **×1 / ×0.5**, sum a plain number (**3.5**).
+**M5 rules (Sean, 2026-11-19):** no target → the effect **fizzles with a small cue** (wobble + grey + soft sound); scoring reveals **every Goob in any winning line** (each once); numbers **×1 / ×0.5**, sum a plain number (**3.5**). Playtest (2026-11-19/20): every effect has its moment (wind-up → target blinks → impact → settle), 0.6 s pause after an effect, starting hand 2, and a recognition beat (gold outline + hop + sting) before the multipliers.
 
 **Test:** Each special once in a session; order land → effect → win.
 
@@ -328,4 +328,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-19 (Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-20 (M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
