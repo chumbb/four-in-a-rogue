@@ -42,7 +42,7 @@ alignment = 1
 
 [node name="Title" type="Label" parent="SafeArea/Gutter/Center"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 56
+theme_type_variation = &"Mono2"
 text = "Coin Flip"
 horizontal_alignment = 1
 
@@ -50,7 +50,6 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
 text = "Choose heads or tails."
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -65,7 +64,6 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 32
 text = "Heads"
 
 [node name="TailsButton" type="Button" parent="SafeArea/Gutter/Center/ChoiceRow"]
@@ -73,14 +71,12 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 32
 text = "Tails"
 
 [node name="FlipButton" type="Button" parent="SafeArea/Gutter/Center"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
-theme_override_font_sizes/font_size = 32
 text = "Flip (stub)"
 
 [connection signal="pressed" from="SafeArea/Gutter/Center/ChoiceRow/HeadsButton" to="." method="_on_heads_pressed"]
