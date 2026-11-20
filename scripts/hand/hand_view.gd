@@ -153,31 +153,46 @@ func remove(index: int) -> void:
 func reveal(goob: GoobDefinition) -> void:
 	var card := _make_card(goob)
 	_cards.append(card)
-	var index := _cards.size() - 1
 	if not animate:
 		layout(false)
 		return
 	_revealing = card
+	card.visible = false
+	# The first turn's draw runs from the scenario's _ready(), before the
+	# deferred table layout has sized the hand: wait a frame so the centre and
+	# the fan slots are measured on the real layout.
+	await get_tree().process_frame
+	if not is_instance_valid(card):
+		_revealing = null
+		return
+	card.visible = true
 	layout(true) # make room for it
 	card.z_index = 20
 	card.position = get_global_transform().affine_inverse() * (get_viewport_rect().size * 0.5)
 	card.rotation = 0.0
 	card.scale = Vector2(0.4, 0.4)
-	var target := _slot(index)
-	var tween := card.create_tween()
-	tween.tween_callback(hand_sound.emit.bind(&"draw_pop"))
-	tween.tween_property(card, "scale", Vector2.ONE * REVEAL_SCALE, REVEAL_POP_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_interval(REVEAL_HOLD_SEC)
-	tween.tween_callback(hand_sound.emit.bind(&"fly"))
-	tween.set_parallel()
-	tween.tween_property(card, "scale", Vector2.ONE, REVEAL_FLY_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(card, "position", target.origin, REVEAL_FLY_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(card, "rotation", target.get_rotation(), REVEAL_FLY_SEC)
-	card.set_meta("tween", tween)
-	await tween.finished
+	var pop := card.create_tween()
+	pop.tween_callback(hand_sound.emit.bind(&"draw_pop"))
+	pop.tween_property(card, "scale", Vector2.ONE * REVEAL_SCALE, REVEAL_POP_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	pop.tween_interval(REVEAL_HOLD_SEC)
+	card.set_meta("tween", pop)
+	await pop.finished
+	if not is_instance_valid(card):
+		_revealing = null
+		return
+	# Target measured now, not at pop time, in case the zone resized meanwhile.
+	hand_sound.emit(&"fly")
+	var target := _slot(_cards.find(card))
+	var fly := card.create_tween().set_parallel()
+	fly.tween_property(card, "scale", Vector2.ONE, REVEAL_FLY_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	fly.tween_property(card, "position", target.origin, REVEAL_FLY_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	fly.tween_property(card, "rotation", target.get_rotation(), REVEAL_FLY_SEC)
+	card.set_meta("tween", fly)
+	await fly.finished
+	_revealing = null
 	if is_instance_valid(card):
 		card.z_index = 0
-	_revealing = null
+	layout(false) # settle every card on the current layout
 
 
 ## Moves every card (except one being dragged) to its fan slot.
