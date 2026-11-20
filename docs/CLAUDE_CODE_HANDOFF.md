@@ -33,7 +33,7 @@ claude
 
 ---
 
-## Current focus — Writing session
+## Current focus — M5 Goob effects
 
 | Milestone | Status |
 |-----------|--------|
@@ -41,9 +41,15 @@ claude
 | **M4 Decks & hands** | **Accepted by Sean and merged to `main` 2026-11-19** (`dbb9446`) |
 | **Art pass A** | **Accepted by Sean and merged to `main` 2026-11-19** |
 | **Hand stump** (follow-up) | Accepted and merged to `main` 2026-11-19: Forest oak stump under the hand (`art/hand/make_stump.py`; round top, flared base off the screen edges), board feet removed |
-| **Writing session** | **Next** — lore seed + one flavour line per starter type (see `CLAUDE.md` §Milestones); Sean approves each |
-| Writing session | After Art pass A (lore seed + starter flavour text) |
-| M5–M7 | Queued — see `CLAUDE.md` §Milestones |
+| **Writing session** | Accepted and merged 2026-11-19 |
+| **M5 Goob effects** | **Built on `m5-goob-effects` (2026-11-19), awaiting Sean's F5 playtest** |
+| M6–M7 | Queued — see `CLAUDE.md` §Milestones |
+
+### M5 (2026-11-19, branch `m5-goob-effects`)
+
+- Rules: `TurnLoop._resolve_effect()` (targets picked before any animation), `last_effect` for the view, `scoring_cells()` = every Goob in any winning line. Tests inject an all-Vanilla deck (`TurnLoop.start(..., deck)`, `scenario.deck`) so specials don't make turn tests random.
+- View: `BoardView2D.play_flip/play_destroy/play_hop/play_draw_cue/play_fizzle/bounce_cell`; scenario `_play_effect()` and `_play_scoring()`.
+- Sounds: `python art/audio/make_effect_sounds.py <packs_dir>` (packs = the unpacked Godot Asset Store kits listed in `assets/audio/CREDITS.md`).
 
 ### Art pass A (2026-11-19, branch `art-pass-a`)
 
@@ -61,13 +67,13 @@ claude
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `main`, 557 checks)
+### Tests (all pass on `m5-goob-effects`, 644 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 289 checks
-& $g --headless -s res://tests/test_turn_loop.gd   # 93
+& $g --headless -s res://tests/test_scenario.gd    # 331 checks
+& $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
 & $g --headless -s res://tests/test_flow_m3.gd     # 15
 & $g --headless -s res://tests/test_opponent_ai.gd # 86

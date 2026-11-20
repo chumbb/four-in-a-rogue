@@ -46,7 +46,7 @@ Small diff, match existing GDScript style, no new scope. When done: what to pres
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (all accepted and merged to `main` 2026-11-19) | **M5** Goob effects |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (all accepted and merged to `main` 2026-11-19) | **M5** Goob effects — built on `m5-goob-effects`, awaiting Sean's playtest |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -256,11 +256,13 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 - [x] Lore seed by effect family and legendary figures (e.g. Goobert the Brave, Gooberius); hints at an apocalyptic calamity that is **never specified anywhere**
 - [x] One flavour line (1–2 sentences) per starter type, Vanilla shared; FromSoftware + Pokédex voice (vault Research notes); Sean approves each. Done: vault `Design/Lore seed.md`; lines in `resources/goobs/*.tres` (`flavour_text`)
 
-### M5 — Goob effects
+### M5 — Goob effects (built on `m5-goob-effects` 2026-11-19; awaiting Sean's playtest)
 
-- [ ] Land → effect → win check; per-type impact animations
-- [ ] Flip / destroy / extra vanilla / draw 2; scoring sequence (Balatro rhythm, ~0.6 s per Goob) on a one-sided four
-- [ ] Effect sounds + scoring sounds (rising pitch ladder)
+- [x] Land → effect → win check; per-type impact animations
+- [x] Flip / destroy / extra vanilla / draw 2; scoring sequence (Balatro rhythm, ~0.6 s per Goob) on a one-sided four
+- [x] Effect sounds + scoring sounds (rising pitch ladder)
+
+**M5 rules (Sean, 2026-11-19):** no target → the effect **fizzles with a small cue** (wobble + grey + soft sound); scoring reveals **every Goob in any winning line** (each once); numbers **×1 / ×0.5**, sum a plain number (**3.5**).
 
 **Test:** Each special once in a session; order land → effect → win.
 
