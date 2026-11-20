@@ -26,7 +26,7 @@ claude
 - Canonical v0.1 rules: `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md`
 - Full GDD: `Projects/Four-in-a-Rogue/Design/GDD.md`
 - Decision log: `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`
-- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-19 Claude - Art pass A.md`
+- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-20 Claude - Art pass C Strange Man.md`
 - Vault agent rules: `GameDev/CLAUDE.md`
 
 **Conflict rule:** Obsidian vault wins over repo `CLAUDE.md` for game design.
@@ -35,7 +35,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B accepted and merged (2026-11-20). Next session: Art pass C.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B accepted and merged (2026-11-20). Art pass C in progress (branch `art-c-strange-man`; see §Art pass C — HANDOFF below).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -60,6 +60,51 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **Art pass A** (+ Forest hand stump) | Accepted and merged 2026-11-19 |
 | **Writing session** | Accepted and merged 2026-11-19 |
 | **M5 Goob effects** | Accepted and merged 2026-11-20 |
+| **Art pass B** UI kit | Accepted and merged 2026-11-20 |
+| **Art pass C** Strange Man | **In progress** on branch `art-c-strange-man`; see below |
+
+### Art pass C — HANDOFF (2026-11-20, in progress, NOT merged)
+
+Branch **`art-c-strange-man`** (pushed, last commit `c430420`). Check it out to continue; do not merge until Sean approves everything.
+Build: `python art/strange_man/make_strange_man.py c_pro3` writes `assets/strange_man/*`, `art/strange_man/mock_intro.png` (intro mock) and `art/strange_man/sheet_portraits.png` (review sheet). The whole history is in the vault session log `2026-11-20 Claude - Art pass C Strange Man.md` and the Decision-Log.
+
+**Settled by Sean:**
+- **Still:** Pro 3 (`raw_c_pro3.png`) with the Goob patch removed (copy op in `EDITS`) → `full_body.png` 96×160, plus `light_pool.png`.
+- **Bust + 7 expressions** (64 px, PixelLab portrait + edits) → `portrait_<expr>.png`.
+  - Well played = `bust/raw_well_played2.png`: serious, with a slight bow.
+  - Happy stands in for Pro 2's warm smile.
+- **Crack + explode frames:** procedural. `portrait_explode.png` is 6 frames of 128×128.
+- **Blue intro Goob:** `goobs/raw_blue_edit.png`, upright with its rim showing. No complaints so far.
+
+Sean hasn't yet given an explicit OK on the bust, the expressions or the crack/explode frames. Ask him to review them before merging.
+
+**OPEN: red intro Goob.** Sean has rejected every try so far.
+- **What Sean wants:**
+  - lying flat, face up, eyes looking **up at the sky**, relaxing (not at the camera)
+  - lying **at an angle**, not straight on
+  - the **same size and sharpness** as the blue one
+  - a **black outline like the blue one** (2e222f, 1 px)
+- **Tries:**
+  1. `raw_red_0` (PixelLab Pro, straight on, looking at the camera)
+  2. sky gaze (hand-edited eyes; OK, but straight on)
+  3. `edit_image` angle variants; Sean **liked variant 4** (`raw_red_angle_3.png`, leaning the other way) but it was smaller and softer than the blue
+  4. variant 4 scaled ×1.24 and cleaned in code: "still doesn't look right, needs a black outline like the blue one"
+  5. current `goobs/raw_red_tipped.png` from `goobs/make_red_tipped.py` (blue recoloured, squashed flat, rim grown underneath): **"the worst one yet"**. **Replace it.**
+- The files for tries 2–4 were deleted in `c430420`. Get them back with `git show b33bf8d:art/strange_man/goobs/raw_red_angle_3.png` (and the same for `raw_red_sky.png`).
+- **Budget:** Sean said **don't spend so many PixelLab gens** on fixes. 170 of 2,000 used; resets 2026-12-20.
+- **Next approach:**
+  - Draw a proper lying-disc version by hand, pixel by pixel in Aseprite (`aseprite-win` MCP) or PIL, at the blue's scale (~34 px wide incl. rim).
+  - Use the blue's exact ramp and outline: Resurrect 64 red ramp e83b3b / ae2334 / 6e2727 / f57d4a, outline 2e222f, ink ground shadow.
+  - Copy variant 4's pose (tilted oval, rim visible on the lower edge), up-gazing eyes, relaxed smile.
+  - **Show Sean 2–3 small options on one sheet before wiring one in.**
+- **Wiring:** `intro_goob()` in `make_strange_man.py` maps `"red"` to the source file. Change it there, then rebuild.
+
+**After Sean approves:**
+- Tick the Art pass C items in `CLAUDE.md` and in the table above.
+- Log the acceptance in the vault.
+- Merge `art-c-strange-man` into `main` and push.
+
+**Note for M6b:** the bust is 64 px; the HUD portrait slot is 44 today and is meant to grow later.
 
 ### M5 (accepted and merged 2026-11-20)
 
