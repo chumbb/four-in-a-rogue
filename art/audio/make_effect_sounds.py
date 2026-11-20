@@ -13,6 +13,7 @@ Outputs (Ogg Vorbis, 44.1 kHz, via ffmpeg) in assets/audio/sfx/:
   effect_fizzle.ogg   no target: soft low "nothing happens" (Noah Kuehne BACKWARD, lowered, quieter)
   score_0..8.ogg      scoring ladder: chiptune square blips, one major-scale step each (C5 up)
   score_collapse.ogg  multipliers collapse into the sum: quick chiptune down-up sweep
+  score_recognise.ogg the scored Goobs light up: bright chiptune up-arpeggio (G4 C5 E5 G5 C6)
 Slice §2B Sound: effects are tactile, scoring is chiptune; ticks rise one note per Goob,
 the sum lands on the top note (the scenario plays the next ladder note for it).
 """
@@ -80,6 +81,8 @@ def main():
         write_ogg(square(hz, 0.16), f"score_{i}.ogg")
     sweep = np.concatenate([square(hz, 0.035, vol=0.2) for hz in [1046.5, 783.99, 659.25, 523.25, 659.25, 783.99]])
     write_ogg(sweep, "score_collapse.ogg")
+    arp = np.concatenate([square(hz, 0.06, duty=0.5, vol=0.22) for hz in [392.0, 523.25, 659.25, 783.99]] + [square(1046.5, 0.3, duty=0.5, vol=0.22)])
+    write_ogg(arp, "score_recognise.ogg")
     print("wrote effect + scoring sounds to", OUT_DIR)
 
 

@@ -719,8 +719,10 @@ func _test_scoring_sequence() -> void:
 	_check(scenario.score_labels.is_empty(), "scoring: multipliers collapsed into the sum")
 	var history: Array[StringName] = scenario._sfx.history
 	var ladder := history.filter(func(s: StringName) -> bool: return String(s).begins_with("score_"))
-	_check(ladder == [&"score_0", &"score_1", &"score_2", &"score_3", &"score_collapse", &"score_4"], "scoring: rising ladder, collapse, sum on the top note (got %s)" % str(ladder))
+	_check(ladder == [&"score_recognise", &"score_0", &"score_1", &"score_2", &"score_3", &"score_collapse", &"score_4"], "scoring: rising ladder, collapse, sum on the top note (got %s)" % str(ladder))
 	_check(scenario.get_node("%EndOverlay").visible, "scoring: then the result overlay")
+	for c in 4:
+		_check(_view(scenario).has_gold_outline(Vector2i(c, 0)), "scoring: scored Goob %d has the gold outline" % c)
 	_check(scenario.format_score(1.0) == "1" and scenario.format_score(0.5) == "0.5" and scenario.format_score(3.5) == "3.5", "scoring: number format")
 	await _free(scenario)
 	# A draw has no scoring sequence.

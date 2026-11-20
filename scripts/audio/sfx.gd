@@ -38,6 +38,7 @@ const STREAMS := {
 	&"score_7": preload("res://assets/audio/sfx/score_7.ogg"),
 	&"score_8": preload("res://assets/audio/sfx/score_8.ogg"),
 	&"score_collapse": preload("res://assets/audio/sfx/score_collapse.ogg"),
+	&"score_recognise": preload("res://assets/audio/sfx/score_recognise.ogg"),
 }
 ## Scoring ladder notes, lowest first; the ladder must stay in tune, so these
 ## get no random pitch.
@@ -77,7 +78,7 @@ func play(sound: StringName, opponent := false) -> void:
 	_next = (_next + 1) % POOL_SIZE
 	player.stream = STREAMS[sound]
 	var pitch: float = BASE_PITCH.get(sound, 1.0)
-	if not SCORE_LADDER.has(sound) and sound != &"score_collapse":
+	if not SCORE_LADDER.has(sound) and sound != &"score_collapse" and sound != &"score_recognise":
 		pitch *= _rng.randf_range(1.0 - PITCH_JITTER, 1.0 + PITCH_JITTER)
 	if opponent:
 		pitch *= OPPONENT_PITCH

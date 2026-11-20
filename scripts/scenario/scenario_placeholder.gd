@@ -50,6 +50,7 @@ const COLOR_LOSE := Color(1.0, 0.3, 0.3)
 const COLOR_DRAW := Color(0.75, 0.82, 1.0)
 const COLOR_SCORE_OUTLINE := Color(0.13, 0.08, 0.1)
 ## Scoring sequence timing (slice §4: ~0.6 s per Goob, short pause, collapse).
+const SCORE_RECOGNISE_SEC := 1.0
 const SCORE_STEP_SEC := 0.6
 const SCORE_PAUSE_SEC := 0.4
 const SCORE_COLLAPSE_SEC := 0.3
@@ -699,7 +700,8 @@ func _show_end() -> void:
 	_announce.call_deferred()
 
 
-## Scoring sequence (slice §4, Balatro rhythm): every Goob in `side`'s
+## Scoring sequence (slice §4, Balatro rhythm): first a moment of recognition
+## (gold outline, hop, sting); then every Goob in `side`'s
 ## winning lines, lowest column first and bottom to top, bounces and shows its
 ## multiplier (×1 / ×0.5) above it, one per SCORE_STEP_SEC on a rising note;
 ## after a pause they collapse into the sum, one big plain number at the board
@@ -707,6 +709,11 @@ func _show_end() -> void:
 func _play_scoring(side: BoardState.CellOwner) -> void:
 	var cells := _loop.scoring_cells(side)
 	var ladder := Sfx.SCORE_LADDER
+	# Recognition first (Sean, 2026-11-20): the scored Goobs light up in gold
+	# and hop together before any multiplier appears.
+	_board_view.recognise_cells(cells)
+	_sfx.play(&"score_recognise")
+	await _wait(SCORE_RECOGNISE_SEC)
 	var cell_px := _board_view.column_rect(0).size.x
 	var total := 0.0
 	for i in cells.size():

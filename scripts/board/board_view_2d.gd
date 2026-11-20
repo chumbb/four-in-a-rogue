@@ -121,6 +121,9 @@ const COLOR_SMOKE := Color("9babb2")
 const SMOKE_COUNT := 6
 const SMOKE_SPEED := 25.0
 const SMOKE_GRAVITY := -40.0
+## Scoring recognition: gold outline + a hop on the scored Goobs.
+const COLOR_GOLD := Color("f9c22b")
+const RECOGNISE_HOP_PX := 6
 
 ## Sound cues during play_drop(): &"rest" (on top of the board), &"roll" (each
 ## column rolled over), &"bounce" (off the edge), &"fall". The landing itself
@@ -146,6 +149,7 @@ var _tokens: Dictionary = {} ## Vector2i(column, row) -> Sprite2D
 var _token_owner: Dictionary = {} ## Vector2i -> BoardState.CellOwner
 var _highlight_tweens: Dictionary = {} ## Vector2i -> Tween
 var _outline: ShaderMaterial
+var _outline_gold: ShaderMaterial
 var _preview: Sprite2D
 var _preview_tween: Tween
 var _yaw: Dictionary = {} ## side -> Array of the 8 yaw frame textures
@@ -155,6 +159,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_outline = ShaderMaterial.new()
 	_outline.shader = OUTLINE_SHADER
+	_outline_gold = ShaderMaterial.new()
+	_outline_gold.shader = OUTLINE_SHADER
+	_outline_gold.set_shader_parameter("outline_color", COLOR_GOLD)
 	_pixel = Node2D.new()
 	_pixel.name = "PixelLayer"
 	_pixel.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -472,6 +479,31 @@ func highlight_cells(cells: Array[Vector2i]) -> void:
 		tween.tween_property(token, "modulate", Color(1.15, 1.15, 1.15), 0.35).set_trans(Tween.TRANS_SINE)
 		_highlight_tweens[cell] = tween
 		token.modulate = HIGHLIGHT_MODULATE
+
+
+## Scoring, before the multipliers (Sean, 2026-11-20): the scored Goobs get
+## the gold winning outline (GDD Art direction), hop together with a sparkle,
+## then keep pulsing (highlight_cells). Not awaited.
+func recognise_cells(cells: Array[Vector2i]) -> void:
+	for cell in cells:
+		var token: Sprite2D = _tokens.get(cell)
+		if token == null:
+			continue
+		token.material = _outline_gold
+		if not animate:
+			continue
+		var base_y := cell_position(cell.x, cell.y).y
+		var tween := create_tween()
+		tween.tween_method(_set_y.bind(token), base_y, base_y - RECOGNISE_HOP_PX, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_method(_set_y.bind(token), base_y - RECOGNISE_HOP_PX, base_y, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		_burst(_centre_px(cell), COLOR_GOLD, SPARKLE_COUNT, SPARKLE_SPEED, SPARKLE_GRAVITY)
+	highlight_cells(cells)
+	if animate:
+		shake(SHAKE_SMALL)
+
+
+func has_gold_outline(cell: Vector2i) -> bool:
+	return _tokens.has(cell) and _tokens[cell].material == _outline_gold
 
 
 func is_highlighted(cell: Vector2i) -> bool:
