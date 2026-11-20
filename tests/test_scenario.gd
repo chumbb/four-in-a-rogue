@@ -64,6 +64,10 @@ func _run() -> void:
 	await _test_stalemate_replay()
 	await _test_hand_fan_layout()
 	await _test_sounds()
+	await _test_effects_on_board()
+	await _test_effect_animations()
+	await _test_scoring_sequence()
+	await _test_scoring_animated()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -87,6 +91,7 @@ func _make(delay: float, player_first := true, flash := 0.0, turn := 30.0, anima
 	_flow().player_moves_first = player_first
 	var scenario: Control = load(SCENE).instantiate()
 	scenario.animate_drops = animate
+	scenario.deck = _vanilla_deck()
 	scenario.opponent_delay_sec = delay
 	scenario.opponent_flash_sec = flash
 	scenario.turn_seconds = turn
@@ -95,6 +100,14 @@ func _make(delay: float, player_first := true, flash := 0.0, turn := 30.0, anima
 	await process_frame
 	await process_frame
 	return scenario
+
+
+## 21 Vanilla Goobs: no effects, so turn tests stay deterministic.
+func _vanilla_deck() -> Array[GoobDefinition]:
+	var goobs: Array[GoobDefinition] = []
+	for i in 21:
+		goobs.append(TurnLoop.VANILLA)
+	return goobs
 
 
 func _free(scenario: Control) -> void:
@@ -573,6 +586,181 @@ func _test_roll_animation() -> void:
 	_check(rolled_on_top, "Goob rolls along the top before falling")
 	_check(token.position == view.cell_position(4, 0), "rolled Goob ends in its hole")
 	_touch(_col_pos(scenario, 6), false)
+	await _free(scenario)
+
+
+# --- M5 effects + scoring ------------------------------------------------------
+
+const CONVINCING := preload("res://resources/goobs/convincing_goob.tres")
+const FAT := preload("res://resources/goobs/fat_goob.tres")
+const POPULAR := preload("res://resources/goobs/popular_goob.tres")
+const PLENTIFUL := preload("res://resources/goobs/plentiful_goob.tres")
+
+
+## Puts `goob` in the player's hand at index 0 (model and fan).
+func _give(scenario: Control, goob: GoobDefinition) -> void:
+	scenario._loop.player_deck.hand[0] = goob
+	scenario.get_node("%PlayerHand").rebuild(scenario._loop.player_deck.hand)
+
+
+## Every board Goob has exactly one view token, sitting in its hole.
+func _view_matches(scenario: Control) -> bool:
+	var view := _view(scenario)
+	var board := _board(scenario)
+	var n := 0
+	for c in BoardState.COLUMNS:
+		for r in BoardState.ROWS:
+			var cell := Vector2i(c, r)
+			if board.is_empty(c, r):
+				continue
+			n += 1
+			if not view._tokens.has(cell) or view._token_owner[cell] != board.get_owner(c, r):
+				return false
+			var token: Sprite2D = view._tokens[cell]
+			if token.position != view.cell_position(c, r):
+				return false
+			if token.texture != (BoardView2D.TEX_PLAYER if board.get_owner(c, r) == P else BoardView2D.TEX_OPPONENT):
+				return false
+	return n == view._tokens.size()
+
+
+func _test_effects_on_board() -> void:
+	# Convincing: the only adjacent enemy turns blue.
+	var scenario := await _make(5.0)
+	var board := _board(scenario)
+	board.drop(2, O)
+	_view(scenario).sync_from_board(board)
+	_give(scenario, CONVINCING)
+	_play_col(scenario, 3)
+	await process_frame
+	_check(board.get_owner(2, 0) == P, "convincing (scenario): enemy flipped")
+	_check(_view_matches(scenario), "convincing: view matches the board")
+	await _free(scenario)
+	# Fat: a neighbour is destroyed and the one above falls.
+	scenario = await _make(5.0)
+	board = _board(scenario)
+	board.drop(2, O)
+	board.drop(2, O)
+	board.drop(2, O)
+	_view(scenario).sync_from_board(board)
+	_give(scenario, FAT)
+	_play_col(scenario, 3)
+	await process_frame
+	_check(_count(board, O) == 2, "fat (scenario): one enemy destroyed")
+	_check(board.lowest_empty_row(2) == 2, "fat (scenario): Goobs above fell")
+	_check(_view_matches(scenario), "fat: view matches the board")
+	await _free(scenario)
+	# Popular: a second blue Goob appears.
+	scenario = await _make(5.0)
+	board = _board(scenario)
+	_give(scenario, POPULAR)
+	_play_col(scenario, 3)
+	await process_frame
+	_check(_count(board, P) == 2, "popular (scenario): extra Vanilla dropped")
+	_check(_view_matches(scenario), "popular: view matches the board")
+	await _free(scenario)
+	# Plentiful: two more Goobs in the fan.
+	scenario = await _make(5.0)
+	var hand: HandView = scenario.get_node("%PlayerHand")
+	_give(scenario, PLENTIFUL)
+	_play_col(scenario, 3)
+	await process_frame
+	_check(scenario._loop.player_deck.hand.size() == 5, "plentiful (scenario): 4 - 1 + 2 in hand")
+	_check(hand.count() == 5, "plentiful: fan shows 5 (got %d)" % hand.count())
+	await _free(scenario)
+
+
+## With animation on, each effect plays its impact (sound) and the view ends
+## matching the board before the opponent's turn starts.
+func _test_effect_animations() -> void:
+	for setup in [[CONVINCING, &"flip"], [FAT, &"crunch"], [POPULAR, &"popular"], [PLENTIFUL, &"draw_pop"]]:
+		var goob: GoobDefinition = setup[0]
+		var sound: StringName = setup[1]
+		var scenario := await _make(5.0, true, 0.0, 30.0, true)
+		await _wait_input(scenario)
+		var board := _board(scenario)
+		board.drop(2, O)
+		board.drop(2, O)
+		board.drop(2, O)
+		_view(scenario).sync_from_board(board)
+		_give(scenario, goob)
+		_play_col(scenario, 3)
+		var deadline := Time.get_ticks_msec() + 4000
+		while scenario._opponent_timer.is_stopped() and Time.get_ticks_msec() < deadline:
+			await process_frame
+		_check(not scenario._opponent_timer.is_stopped(), "%s: play finishes, opponent's turn starts" % goob.id)
+		_check(scenario._sfx.history.has(sound), "%s: impact sound %s" % [goob.id, sound])
+		_check(_view_matches(scenario), "%s: animated view matches the board" % goob.id)
+		await _free(scenario)
+	# No target: fizzle cue.
+	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	await _wait_input(scenario)
+	_give(scenario, CONVINCING)
+	_play_col(scenario, 3)
+	var deadline := Time.get_ticks_msec() + 3000
+	while scenario._opponent_timer.is_stopped() and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(scenario._sfx.history.has(&"fizzle"), "no target: fizzle sound")
+	_check(_view(scenario)._tokens[Vector2i(3, 0)].modulate == Color.WHITE, "fizzle: Goob back to normal")
+	await _free(scenario)
+
+
+func _test_scoring_sequence() -> void:
+	var scenario := await _make(5.0)
+	var board := _board(scenario)
+	for c in 3:
+		board.drop(c, P)
+	_view(scenario).sync_from_board(board)
+	_give(scenario, PLENTIFUL) # ×0.5, no board change
+	_play_col(scenario, 3)
+	await process_frame
+	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "scoring: player wins")
+	_check(scenario.sum_label != null and scenario.sum_label.text == "3.5", "scoring: sum 1+1+1+0.5 = 3.5 (got %s)" % (scenario.sum_label.text if scenario.sum_label else "none"))
+	_check(scenario.score_labels.is_empty(), "scoring: multipliers collapsed into the sum")
+	var history: Array[StringName] = scenario._sfx.history
+	var ladder := history.filter(func(s: StringName) -> bool: return String(s).begins_with("score_"))
+	_check(ladder == [&"score_0", &"score_1", &"score_2", &"score_3", &"score_collapse", &"score_4"], "scoring: rising ladder, collapse, sum on the top note (got %s)" % str(ladder))
+	_check(scenario.get_node("%EndOverlay").visible, "scoring: then the result overlay")
+	_check(scenario.format_score(1.0) == "1" and scenario.format_score(0.5) == "0.5" and scenario.format_score(3.5) == "3.5", "scoring: number format")
+	await _free(scenario)
+	# A draw has no scoring sequence.
+	scenario = await _make(5.0)
+	board = _board(scenario)
+	for c in BoardState.COLUMNS:
+		for r in BoardState.ROWS:
+			if c == 6 and r == 5:
+				continue
+			board.drop(c, _fill_owner(c, r))
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 6)
+	await process_frame
+	_check(scenario._loop.result == TurnLoop.Result.DRAW, "scoring: full board draw")
+	_check(scenario.sum_label == null, "scoring: draws skip the sequence")
+	await _free(scenario)
+
+
+## Balatro rhythm: multipliers appear one by one before the sum and overlay.
+func _test_scoring_animated() -> void:
+	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	await _wait_input(scenario)
+	var board := _board(scenario)
+	for c in 3:
+		board.drop(c, P)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 3)
+	var overlay: Control = scenario.get_node("%EndOverlay")
+	var seen := 0
+	var sum_before_overlay := false
+	var deadline := Time.get_ticks_msec() + 6000
+	while not overlay.visible and Time.get_ticks_msec() < deadline:
+		seen = maxi(seen, scenario.score_labels.size())
+		if scenario.sum_label != null:
+			sum_before_overlay = true
+		await process_frame
+	_check(seen == 4, "animated scoring: four multipliers shown (max %d)" % seen)
+	_check(sum_before_overlay, "animated scoring: sum shown before the overlay")
+	_check(overlay.visible, "animated scoring: overlay arrives")
+	_check(scenario.sum_label.text == "4", "animated scoring: four Vanilla = 4")
 	await _free(scenario)
 
 

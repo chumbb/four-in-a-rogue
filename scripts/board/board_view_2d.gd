@@ -48,9 +48,45 @@ const TEX_PLAYER := preload("res://assets/goobs/vanilla/blue_yaw/frame_00.png")
 const TEX_OPPONENT := preload("res://assets/goobs/vanilla/red_yaw/frame_00.png")
 const OUTLINE_SHADER := preload("res://shaders/pixel_outline.gdshader")
 
+## M5 impact animations (placeholders until each type has its own art).
+## Convincing flip: the target spins about its vertical axis (baked yaw frames)
+## and comes round in the new colour.
+const YAW_DIR := {
+	BoardState.CellOwner.PLAYER: "res://assets/goobs/vanilla/blue_yaw/frame_%02d.png",
+	BoardState.CellOwner.OPPONENT: "res://assets/goobs/vanilla/red_yaw/frame_%02d.png",
+}
+const FLIP_OLD_FRAMES: Array[int] = [0, 1, 2] ## face → edge-on
+const FLIP_NEW_FRAMES: Array[int] = [6, 7, 0] ## edge-on → face
+const FLIP_FRAME_SEC := 0.06
+const HOP_PX := 4
+const HOP_SEC := 0.16
+## The effect's Goob leans toward its target before it acts.
+const NUDGE_PX := 3
+const NUDGE_SEC := 0.12
+## Fat destroy: the target flashes white, then bursts into pixel debris.
+const DESTROY_FLASH_SEC := 0.1
+const DEBRIS_COUNT := 8
+const DEBRIS_SEC := 0.4
+const DEBRIS_GRAVITY := 400.0
+const COLOR_DEBRIS := {
+	BoardState.CellOwner.PLAYER: Color("4d9be6"),
+	BoardState.CellOwner.OPPONENT: Color("e83b3b"),
+}
+## Plentiful: ghost Goobs rise off it and fade, one per Goob drawn (visible
+## even though the opponent's hand is hidden).
+const GHOST_RISE_PX := 24
+const GHOST_SEC := 0.4
+const GHOST_STAGGER_SEC := 0.12
+## Fizzle (no target, Sean 2026-11-19): a little shake while it greys out.
+const FIZZLE_PX: Array[int] = [1, -1, 1, -1, 0]
+const FIZZLE_STEP_SEC := 0.05
+const FIZZLE_MODULATE := Color(0.6, 0.6, 0.65)
+
 ## Sound cues during play_drop(): &"rest" (on top of the board), &"roll" (each
 ## column rolled over), &"bounce" (off the edge), &"fall". The landing itself
-## is the caller's (play_drop() returns then).
+## is the caller's (play_drop() returns then). Effects (M5) add &"flip",
+## &"crunch", &"popular", &"draw_pop", &"fizzle", and &"fall" + &"land" for
+## Goobs falling after a destroy.
 signal drop_sound(kind: StringName, side: BoardState.CellOwner)
 
 ## Tests set false: drops land at once and play_drop() returns immediately.
@@ -71,6 +107,7 @@ var _highlight_tweens: Dictionary = {} ## Vector2i -> Tween
 var _outline: ShaderMaterial
 var _preview: Sprite2D
 var _preview_tween: Tween
+var _yaw: Dictionary = {} ## side -> Array of the 8 yaw frame textures
 
 
 func _ready() -> void:
@@ -90,6 +127,11 @@ func _ready() -> void:
 	_preview.visible = false
 	_goobs.add_child(_preview)
 	_pixel.add_child(_make_sprite(TEX_FRONT, "Front"))
+	for side: BoardState.CellOwner in YAW_DIR:
+		var frames: Array[Texture2D] = []
+		for i in 8:
+			frames.append(load(YAW_DIR[side] % i) as Texture2D)
+		_yaw[side] = frames
 	get_viewport().size_changed.connect(_update_scale)
 	item_rect_changed.connect(_place_layer)
 	_update_scale()
@@ -138,6 +180,157 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 	tween.tween_callback(drop_sound.emit.bind(&"fall", side))
 	_queue_fall(tween, token, TOP_Y, target)
 	await tween.finished
+
+
+# --- Effects (M5) -------------------------------------------------------------
+# Each awaits its animation; with animate off it only updates the view state.
+
+## Convincing: the Goob at `source` leans toward `target`, which spins round
+## into `side`'s colour.
+func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -> void:
+	var token: Sprite2D = _tokens.get(target)
+	if token == null:
+		return
+	var old: BoardState.CellOwner = _token_owner[target]
+	_token_owner[target] = side
+	if not animate:
+		token.texture = _tex(side)
+		return
+	await _nudge(source, target)
+	drop_sound.emit(&"flip", side)
+	var base_y := cell_position(target.x, target.y).y
+	var hop := create_tween()
+	hop.tween_method(_set_y.bind(token), base_y, base_y - HOP_PX, FLIP_FRAME_SEC * 3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	hop.tween_method(_set_y.bind(token), base_y - HOP_PX, base_y, FLIP_FRAME_SEC * 3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	var frames := create_tween()
+	for i in FLIP_OLD_FRAMES:
+		frames.tween_callback(_set_texture.bind(token, (_yaw[old] as Array)[i]))
+		frames.tween_interval(FLIP_FRAME_SEC)
+	for i in FLIP_NEW_FRAMES:
+		frames.tween_callback(_set_texture.bind(token, (_yaw[side] as Array)[i]))
+		frames.tween_interval(FLIP_FRAME_SEC)
+	await frames.finished
+
+
+## Fat: the Goob at `source` leans toward `target`, which flashes and bursts;
+## the Goobs above it fall one row (BoardState.destroy_cell).
+func play_destroy(source: Vector2i, target: Vector2i) -> void:
+	var token: Sprite2D = _tokens.get(target)
+	if token == null:
+		return
+	var side: BoardState.CellOwner = _token_owner[target]
+	if animate:
+		await _nudge(source, target)
+	# Re-key: the target leaves, everything above moves down a row.
+	_tokens.erase(target)
+	_token_owner.erase(target)
+	var falling: Array[Sprite2D] = []
+	for r in range(target.y + 1, ROWS):
+		var cell := Vector2i(target.x, r)
+		if not _tokens.has(cell):
+			continue
+		var below := Vector2i(target.x, r - 1)
+		_tokens[below] = _tokens[cell]
+		_token_owner[below] = _token_owner[cell]
+		_tokens.erase(cell)
+		_token_owner.erase(cell)
+		falling.append(_tokens[below])
+	if not animate:
+		token.queue_free()
+		for t in falling:
+			t.position.y += CELL
+		return
+	drop_sound.emit(&"crunch", side)
+	token.modulate = Color(4.0, 4.0, 4.0)
+	var flash := create_tween()
+	flash.tween_interval(DESTROY_FLASH_SEC)
+	await flash.finished
+	_burst(token.position + Vector2(CELL, CELL) * 0.5, COLOR_DEBRIS[side])
+	token.queue_free()
+	if falling.is_empty():
+		var wait := create_tween()
+		wait.tween_interval(DEBRIS_SEC * 0.5)
+		await wait.finished
+		return
+	drop_sound.emit(&"fall", side)
+	# Every falling Goob drops the same distance, so they land together.
+	var last: Tween
+	for t in falling:
+		last = create_tween()
+		_queue_fall(last, t, t.position.y, t.position + Vector2(0, CELL))
+	await last.finished
+	drop_sound.emit(&"land", side)
+
+
+## Popular / Plentiful cue: the Goob at `cell` hops, with `sound`.
+func play_hop(cell: Vector2i, sound: StringName) -> void:
+	var token: Sprite2D = _tokens.get(cell)
+	if token == null or not animate:
+		return
+	drop_sound.emit(sound, _token_owner[cell])
+	var base_y := cell_position(cell.x, cell.y).y
+	var tween := create_tween()
+	tween.tween_method(_set_y.bind(token), base_y, base_y - HOP_PX, HOP_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_method(_set_y.bind(token), base_y - HOP_PX, base_y, HOP_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await tween.finished
+
+
+## Plentiful: `count` ghost Goobs rise off `cell` and fade, one pop each.
+func play_draw_cue(cell: Vector2i, side: BoardState.CellOwner, count: int) -> void:
+	if not animate or count <= 0:
+		return
+	var start := cell_position(cell.x, cell.y)
+	var tween := create_tween().set_parallel()
+	for i in count:
+		var ghost := _make_sprite(_tex(side), "Ghost")
+		ghost.position = start
+		ghost.modulate.a = 0.0
+		_goobs.add_child(ghost)
+		var delay := i * GHOST_STAGGER_SEC
+		tween.tween_callback(drop_sound.emit.bind(&"draw_pop", side)).set_delay(delay)
+		tween.tween_property(ghost, "modulate:a", 0.8, 0.05).set_delay(delay)
+		tween.tween_method(_set_y.bind(ghost), start.y, start.y - GHOST_RISE_PX, GHOST_SEC).set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(ghost, "modulate:a", 0.0, GHOST_SEC * 0.6).set_delay(delay + GHOST_SEC * 0.4)
+		tween.tween_callback(ghost.queue_free).set_delay(delay + GHOST_SEC)
+	await tween.finished
+
+
+## No target (Sean, 2026-11-19): the Goob at `cell` shakes a little and greys
+## out for a moment.
+func play_fizzle(cell: Vector2i) -> void:
+	var token: Sprite2D = _tokens.get(cell)
+	if token == null or not animate:
+		return
+	drop_sound.emit(&"fizzle", _token_owner[cell])
+	var base_x := cell_position(cell.x, cell.y).x
+	token.modulate = FIZZLE_MODULATE
+	var tween := create_tween()
+	for px in FIZZLE_PX:
+		tween.tween_callback(_set_x.bind(base_x + px, token))
+		tween.tween_interval(FIZZLE_STEP_SEC)
+	tween.tween_property(token, "modulate", Color.WHITE, 0.15)
+	await tween.finished
+
+
+## Scoring reveal: the Goob at `cell` bounces once (not awaited).
+func bounce_cell(cell: Vector2i) -> void:
+	var token: Sprite2D = _tokens.get(cell)
+	if token == null or not animate:
+		return
+	var base_y := cell_position(cell.x, cell.y).y
+	var tween := create_tween()
+	tween.tween_method(_set_y.bind(token), base_y, base_y - HOP_PX * 2, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_method(_set_y.bind(token), base_y - HOP_PX * 2, base_y, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+## Centre of the Goob in `cell`, in viewport coordinates (logical px).
+func cell_center(cell: Vector2i) -> Vector2:
+	return _to_global(cell_position(cell.x, cell.y) + Vector2(CELL, CELL) * 0.5)
+
+
+## Centre of the grid, in viewport coordinates (logical px).
+func grid_center() -> Vector2:
+	return _to_global(Vector2(GRID_ORIGIN) + Vector2(COLUMNS, ROWS) * CELL * 0.5)
 
 
 ## Floats a `side` Goob on top of the board over `column` (aim feedback). The
@@ -315,6 +508,54 @@ func _queue_roll(tween: Tween, token: Sprite2D, path: Array[int], side: BoardSta
 		tween.tween_callback(drop_sound.emit.bind(&"roll", side))
 		tween.tween_method(_set_x.bind(token), _column_x(at), _column_x(next), ROLL_SEC_PER_COLUMN)
 		at = next
+
+
+## The Goob at `source` leans NUDGE_PX toward `target` and back.
+func _nudge(source: Vector2i, target: Vector2i) -> void:
+	var token: Sprite2D = _tokens.get(source)
+	if token == null:
+		return
+	var base := cell_position(source.x, source.y)
+	var lean := base + Vector2(target - source) * Vector2(1, -1) * NUDGE_PX
+	var tween := create_tween()
+	tween.tween_method(_set_pos.bind(token), base, lean, NUDGE_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_method(_set_pos.bind(token), lean, base, NUDGE_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await tween.finished
+
+
+## Pixel debris flying out of `at` (game px) under gravity, then gone.
+func _burst(at: Vector2, color: Color) -> void:
+	for i in DEBRIS_COUNT:
+		var bit := ColorRect.new()
+		bit.color = color if i % 2 == 0 else Color.WHITE
+		bit.size = Vector2(2, 2)
+		bit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_goobs.add_child(bit)
+		var angle := TAU * i / DEBRIS_COUNT + randf_range(-0.3, 0.3)
+		var velocity := Vector2(cos(angle), sin(angle) - 0.6) * randf_range(60.0, 110.0)
+		var tween := bit.create_tween()
+		tween.tween_method(_set_debris.bind(bit, at, velocity), 0.0, DEBRIS_SEC, DEBRIS_SEC)
+		tween.parallel().tween_property(bit, "modulate:a", 0.0, DEBRIS_SEC).set_ease(Tween.EASE_IN)
+		tween.tween_callback(bit.queue_free)
+
+
+func _set_debris(t: float, bit: ColorRect, from: Vector2, velocity: Vector2) -> void:
+	if is_instance_valid(bit):
+		bit.position = (from + velocity * t + Vector2(0, 0.5 * DEBRIS_GRAVITY * t * t)).round()
+
+
+func _set_pos(pos: Vector2, token: Sprite2D) -> void:
+	if is_instance_valid(token):
+		token.position = pos.round()
+
+
+func _set_texture(token: Sprite2D, texture: Texture2D) -> void:
+	if is_instance_valid(token):
+		token.texture = texture
+
+
+func _tex(side: BoardState.CellOwner) -> Texture2D:
+	return TEX_PLAYER if side == BoardState.CellOwner.PLAYER else TEX_OPPONENT
 
 
 func _set_x(x: float, token: Sprite2D) -> void:
