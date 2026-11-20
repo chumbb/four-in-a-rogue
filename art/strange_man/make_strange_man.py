@@ -17,7 +17,9 @@ the other expressions are PixelLab edit_image text edits of it -> bust/raw_<expr
 
 Intro Goobs (painted, in his world; Sean 2026-11-20): PixelLab create_image_pro 48x48 with
 his still as the style reference -> goobs/raw_red_0.png (flat, face up; eyes hand-edited to
-gaze up at the sky, relaxing -> goobs/raw_red_sky.png; Sean 2026-11-20); the blue one is an
+gaze up at the sky, relaxing -> goobs/raw_red_sky.png; then an edit_image turning it to lie at
+an angle -> goobs/raw_red_angle_0..3.png, #0 with pupils re-drawn at the top of its eyes ->
+goobs/raw_red_angle_fix.png; Sean 2026-11-20); the blue one is an
 edit_image of that red one, stood on its edge -> goobs/raw_blue_edit.png.
 
 Outputs (final):
@@ -98,7 +100,7 @@ def bust(name):
 
 
 def intro_goob(colour):
-    src = {"blue": "raw_blue_edit.png", "red": "raw_red_sky.png"}[colour]
+    src = {"blue": "raw_blue_edit.png", "red": "raw_red_angle_fix.png"}[colour]
     return quantize(Image.open(os.path.join(HERE, "goobs", src)))
 
 
