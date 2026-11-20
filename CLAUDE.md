@@ -251,10 +251,10 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Follow-up ✅ (Sean, 2026-11-19; accepted and merged):** hand area per biome — Forest = pixel-art **oak stump** (`assets/hand/forest_stump.png`, `art/hand/make_stump.py`) at hand-Goob scale, narrower than the screen (forest visible at its edges), replacing the table strip; board **feet removed** (board just sits in the middle).
 
-### Writing session — lore seed + starter flavour text (own session, after M4; Sean 2026-11-13)
+### Writing session — lore seed + starter flavour text (own session, after M4; Sean 2026-11-13) — lines approved 2026-11-19, on branch `writing-flavour-text` awaiting Sean's F5 check
 
-- [ ] Lore seed by effect family and legendary figures (e.g. Goobert the Brave, Gooberius); hints at an apocalyptic calamity that is **never specified anywhere**
-- [ ] One flavour line (1–2 sentences) per starter type, Vanilla shared; FromSoftware + Pokédex voice (vault Research notes); Sean approves each
+- [x] Lore seed by effect family and legendary figures (e.g. Goobert the Brave, Gooberius); hints at an apocalyptic calamity that is **never specified anywhere**
+- [x] One flavour line (1–2 sentences) per starter type, Vanilla shared; FromSoftware + Pokédex voice (vault Research notes); Sean approves each. Done: vault `Design/Lore seed.md`; lines in `resources/goobs/*.tres` (`flavour_text`)
 
 ### M5 — Goob effects
 
