@@ -7,5 +7,5 @@ script = ExtResource("1")
 id = "vanilla"
 display_name = "Vanilla Goob"
 multiplier = 1.0
-effect_description = "None — column drop only."
+effect_description = ""
 effect_type = 0

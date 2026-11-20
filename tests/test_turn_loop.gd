@@ -22,6 +22,15 @@ func _initialize() -> void:
 	_test_full_board_draw()
 	_test_last_cell_win_beats_full_board()
 	_test_restart_resets()
+	_test_starter_deck()
+	_test_shuffle_deterministic()
+	_test_start_hands_and_turn_draw()
+	_test_play_uses_hand_goob()
+	_test_hand_cap_skips_draw()
+	_test_empty_deck_no_draw()
+	_test_side_out_of_goobs_skipped()
+	_test_stalemate_draw()
+	_test_restart_reshuffles()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -169,3 +178,139 @@ func _test_restart_resets() -> void:
 	_check(_board_empty(t.board), "restart: empty board")
 	_check(t.result == TurnLoop.Result.NONE, "restart: NONE")
 	_check(t.phase == TurnLoop.Phase.PLAYER_TURN, "restart: PLAYER_TURN")
+
+
+func _count_id(goobs: Array[GoobDefinition], id: String) -> int:
+	var n := 0
+	for g in goobs:
+		if g.id == id:
+			n += 1
+	return n
+
+
+func _seeded(seed_value: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	return rng
+
+
+func _test_starter_deck() -> void:
+	var goobs := StarterDeck.build()
+	_check(goobs.size() == 21, "starter: 21 Goobs")
+	_check(_count_id(goobs, "vanilla") == 17, "starter: 17 Vanilla")
+	for id in ["convincing", "fat", "popular", "plentiful"]:
+		_check(_count_id(goobs, id) == 1, "starter: 1 %s" % id)
+
+
+func _test_shuffle_deterministic() -> void:
+	var a := Deck.shuffled(StarterDeck.build(), _seeded(7))
+	var b := Deck.shuffled(StarterDeck.build(), _seeded(7))
+	_check(a.draw_pile.size() == 21 and a.hand.is_empty(), "shuffle: 21 in pile, empty hand")
+	_check(a.draw_pile == b.draw_pile, "shuffle: same seed, same order")
+	_check(_count_id(a.draw_pile, "vanilla") == 17, "shuffle: composition kept")
+
+
+func _test_start_hands_and_turn_draw() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(1))
+	_check(t.player_deck.hand.size() == 4, "start: player 3 + turn draw = 4")
+	_check(t.player_deck.draw_pile.size() == 17, "start: player pile 17")
+	_check(t.opponent_deck.hand.size() == 3, "start: opponent 3 (not its turn)")
+	_check(t.opponent_deck.draw_pile.size() == 18, "start: opponent pile 18")
+	_check(t.last_draw.size() == 1 and t.last_draw[0] == t.player_deck.hand[3], "start: last_draw is the turn draw")
+	_check(not t.last_draw_hand_full, "start: not hand full")
+	t.play(0)
+	_check(t.player_deck.hand.size() == 3, "turn: player plays 1")
+	_check(t.opponent_deck.hand.size() == 4, "turn: opponent drew 1")
+	_check(t.last_draw.size() == 1 and t.last_draw[0] == t.opponent_deck.hand[3], "turn: last_draw is opponent's")
+
+
+func _test_play_uses_hand_goob() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(2))
+	var chosen := t.player_deck.hand[2]
+	var others := t.player_deck.hand.duplicate()
+	others.remove_at(2)
+	_check(t.play(3, 2) == 0, "hand play: lands")
+	_check(t.goob_at(3, 0) == chosen, "hand play: cell remembers the Goob")
+	_check(t.goob_at(4, 0) == null, "hand play: empty cell has no Goob")
+	_check(t.player_deck.hand == others, "hand play: chosen Goob left the hand")
+	var before := t.opponent_deck.hand.size()
+	_check(t.play(1, 9) == -1, "hand play: bad index rejected")
+	_check(t.play(1, -1) == -1, "hand play: negative index rejected")
+	_check(t.opponent_deck.hand.size() == before and t.board.is_empty(1, 0), "hand play: rejection changes nothing")
+	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN, "hand play: turn kept on rejection")
+
+
+func _test_hand_cap_skips_draw() -> void:
+	var d := Deck.shuffled(StarterDeck.build(), _seeded(3))
+	d.draw(Deck.HAND_MAX)
+	var top: GoobDefinition = d.draw_pile.back()
+	_check(d.hand.size() == 5, "cap: hand 5")
+	_check(d.draw_blocked_by_hand(1), "cap: draw 1 blocked by hand")
+	_check(d.draw(1).is_empty(), "cap: draw skipped")
+	_check(d.hand.size() == 5 and d.draw_pile.size() == 16, "cap: nothing moved")
+	_check(d.draw_pile.back() == top, "cap: Goob stays on top")
+	d.take(0)
+	_check(d.draw_blocked_by_hand(2), "cap: draw 2 with 1 room is blocked")
+	_check(d.draw(2).size() == 1, "cap: draw 2 with 1 room draws 1")
+	# Through TurnLoop: a full hand at turn start flags the skip.
+	var t := TurnLoop.new()
+	t.start(false, _seeded(4))
+	t.player_deck.draw(1) # player hand 4
+	t.player_deck.hand.append(t.player_deck.hand[0]) # 5 (as after Plentiful)
+	var pile := t.player_deck.draw_pile.size()
+	t.play(0) # opponent plays; player's turn begins with a full hand
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN, "cap turn: player's turn")
+	_check(t.last_draw_hand_full and t.last_draw.is_empty(), "cap turn: hand full flagged, nothing drawn")
+	_check(t.player_deck.hand.size() == 5 and t.player_deck.draw_pile.size() == pile, "cap turn: hand and pile unchanged")
+
+
+func _test_empty_deck_no_draw() -> void:
+	var t := TurnLoop.new()
+	t.start(false, _seeded(5))
+	t.player_deck.draw_pile.clear()
+	t.play(0)
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN, "empty deck: player still plays")
+	_check(t.last_draw.is_empty() and not t.last_draw_hand_full, "empty deck: no draw, not 'hand full'")
+	_check(t.player_deck.hand.size() == 3, "empty deck: hand unchanged")
+	_check(not t.player_deck.draw_blocked_by_hand(1), "empty deck: not blocked by hand")
+
+
+func _test_side_out_of_goobs_skipped() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(6))
+	t.opponent_deck.hand.clear()
+	t.opponent_deck.draw_pile.clear()
+	t.play(0)
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN, "out of Goobs: opponent skipped, player again")
+	_check(t.last_draw.size() == 1, "out of Goobs: player draws for the new turn")
+	t.play(1)
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN, "out of Goobs: still player")
+	t.play(2)
+	t.play(3)
+	_check(t.result == TurnLoop.Result.PLAYER_WIN, "out of Goobs: a four still ends it")
+
+
+func _test_stalemate_draw() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(8))
+	t.opponent_deck.hand.clear()
+	t.opponent_deck.draw_pile.clear()
+	t.player_deck.draw_pile.clear()
+	t.player_deck.hand.resize(1)
+	t.play(0)
+	_check(t.result == TurnLoop.Result.DRAW, "stalemate: both out, no four = draw")
+	_check(t.phase == TurnLoop.Phase.OVER, "stalemate: over")
+	_check(not t.board.is_board_full(), "stalemate: board not full")
+
+
+func _test_restart_reshuffles() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(9))
+	t.play(0)
+	t.play(0)
+	t.start(true, _seeded(10))
+	_check(t.player_deck.hand.size() == 4 and t.player_deck.draw_pile.size() == 17, "restart: fresh player deck")
+	_check(t.opponent_deck.hand.size() == 3 and t.opponent_deck.draw_pile.size() == 18, "restart: fresh opponent deck")
+	_check(t.goob_at(0, 0) == null, "restart: cell Goobs cleared")

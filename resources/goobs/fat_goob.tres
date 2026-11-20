@@ -7,5 +7,5 @@ script = ExtResource("1")
 id = "fat"
 display_name = "Fat Goob"
 multiplier = 0.5
-effect_description = "Destroy — random adjacent Goob destroyed (8-way, from landed cell)."
+effect_description = "Destroy a random adjacent Goob."
 effect_type = 2
