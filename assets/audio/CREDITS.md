@@ -16,6 +16,10 @@ fallback credited here). Files in `sfx/` were trimmed / converted to Ogg Vorbis.
 | `sfx/drag_pickup.ogg` | Made for this project (ffmpeg sine sweep "pop", 2026-11-19) | — |
 | `sfx/fall.ogg` | Made for this project (`art/audio/make_drop_sounds.py`: air whoosh, 2026-11-19) | — |
 | `sfx/inspect_open.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookFlip2.ogg` |
+| `sfx/effect_flip.ogg` | Kenney — Starter Kits Match-3 + City Builder (`art/audio/make_effect_sounds.py`) | `sounds/tile-swap.ogg` + `sounds/placement-a.ogg` |
+| `sfx/effect_crunch.ogg` | Kenney — Starter Kit 3D Platformer | `sounds/break.ogg` |
+| `sfx/effect_popular.ogg` | Kenney — Starter Kit Match-3 | `sounds/tile-land.ogg` |
+| `sfx/score_0..8.ogg`, `sfx/score_collapse.ogg`, `sfx/score_recognise.ogg` | Made for this project (`art/audio/make_effect_sounds.py`: chiptune square blips, 2026-11-19) | — |
 | `sfx/inspect_close.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookClose.ogg` (low-passed, quieter, softened attack) |
 
 Kenney starter kits: code MIT, bundled assets CC0 (per each kit's README). Small Sound Kit: CC0 (store listing). Kenney RPG Audio: CC0 (pack `license.txt`).
@@ -32,4 +36,5 @@ The store listing says CC0, but the pack's own `License.txt` says CC-BY 4.0, so 
 | `sfx/land.ogg` | same CLICK, pitched down ~5 semitones (`art/audio/make_drop_sounds.py`) |
 | `sfx/hand_full.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_LOCKED.wav` |
 | `sfx/times_up.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_UP_MYSTERY.wav` |
+| `sfx/effect_fizzle.ogg` | `Minimalistic/Menu_Sounds_V2_Minimalistic_BACKWARD.wav` (lowered, low-passed, quieter) |
 | `sfx/error.ogg` | `Minimalistic/Menu_Sounds_V2_Minimalistic_ERROR.wav` |

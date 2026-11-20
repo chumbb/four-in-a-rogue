@@ -23,7 +23,26 @@ const STREAMS := {
 	&"inspect_open": preload("res://assets/audio/sfx/inspect_open.ogg"),
 	&"inspect_close": preload("res://assets/audio/sfx/inspect_close.ogg"),
 	&"times_up": preload("res://assets/audio/sfx/times_up.ogg"),
+	# M5 effects (tactile) and scoring (chiptune): art/audio/make_effect_sounds.py
+	&"flip": preload("res://assets/audio/sfx/effect_flip.ogg"),
+	&"crunch": preload("res://assets/audio/sfx/effect_crunch.ogg"),
+	&"popular": preload("res://assets/audio/sfx/effect_popular.ogg"),
+	&"fizzle": preload("res://assets/audio/sfx/effect_fizzle.ogg"),
+	&"score_0": preload("res://assets/audio/sfx/score_0.ogg"),
+	&"score_1": preload("res://assets/audio/sfx/score_1.ogg"),
+	&"score_2": preload("res://assets/audio/sfx/score_2.ogg"),
+	&"score_3": preload("res://assets/audio/sfx/score_3.ogg"),
+	&"score_4": preload("res://assets/audio/sfx/score_4.ogg"),
+	&"score_5": preload("res://assets/audio/sfx/score_5.ogg"),
+	&"score_6": preload("res://assets/audio/sfx/score_6.ogg"),
+	&"score_7": preload("res://assets/audio/sfx/score_7.ogg"),
+	&"score_8": preload("res://assets/audio/sfx/score_8.ogg"),
+	&"score_collapse": preload("res://assets/audio/sfx/score_collapse.ogg"),
+	&"score_recognise": preload("res://assets/audio/sfx/score_recognise.ogg"),
 }
+## Scoring ladder notes, lowest first; the ladder must stay in tune, so these
+## get no random pitch.
+const SCORE_LADDER: Array[StringName] = [&"score_0", &"score_1", &"score_2", &"score_3", &"score_4", &"score_5", &"score_6", &"score_7", &"score_8"]
 ## Base pitch per sound where the raw sample needs it (cancel = lower swish).
 const BASE_PITCH := {&"cancel": 0.8}
 const PITCH_JITTER := 0.05
@@ -58,7 +77,9 @@ func play(sound: StringName, opponent := false) -> void:
 	var player := _pool[_next]
 	_next = (_next + 1) % POOL_SIZE
 	player.stream = STREAMS[sound]
-	var pitch: float = BASE_PITCH.get(sound, 1.0) * _rng.randf_range(1.0 - PITCH_JITTER, 1.0 + PITCH_JITTER)
+	var pitch: float = BASE_PITCH.get(sound, 1.0)
+	if not SCORE_LADDER.has(sound) and sound != &"score_collapse" and sound != &"score_recognise":
+		pitch *= _rng.randf_range(1.0 - PITCH_JITTER, 1.0 + PITCH_JITTER)
 	if opponent:
 		pitch *= OPPONENT_PITCH
 	player.pitch_scale = pitch

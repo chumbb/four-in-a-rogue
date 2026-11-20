@@ -13,7 +13,9 @@ extends Control
 ## red flash on its column. Player turns are timed (slice §2B): at timeout the
 ## Goob goes into the column under the finger, else a random column, rolling
 ## off full columns. Goobs fall (or roll) into place before the next turn;
-## input stays locked until they land. The result is a big centred announcement: win/lose
+## input stays locked until they land. Each landed Goob's special effect then
+## plays (M5; fizzle cue when it has no target), then the win check. A four
+## plays the scoring sequence on the board first. The result is a big centred announcement: win/lose
 ## offers "Back to title", a draw "Replay" (straight back to the coin flip).
 
 const OPPONENT_DELAY_SEC := 0.6
@@ -46,6 +48,17 @@ const COLOR_FULL_GREY := Color(0.08, 0.08, 0.1, 0.55)
 const COLOR_WIN := Color(1.0, 0.85, 0.3)
 const COLOR_LOSE := Color(1.0, 0.3, 0.3)
 const COLOR_DRAW := Color(0.75, 0.82, 1.0)
+const COLOR_SCORE_OUTLINE := Color(0.13, 0.08, 0.1)
+## Scoring sequence timing (slice §4: ~0.6 s per Goob, short pause, collapse).
+const SCORE_RECOGNISE_SEC := 1.0
+const SCORE_STEP_SEC := 0.6
+const SCORE_PAUSE_SEC := 0.4
+const SCORE_COLLAPSE_SEC := 0.3
+const SCORE_HOLD_SEC := 1.0
+## Beat between a special's landing and its effect, and the pause after the
+## effect before the next turn (Sean, 2026-11-19).
+const EFFECT_LEAD_SEC := 0.2
+const EFFECT_HOLD_SEC := 0.6
 
 @onready var _turn_label: Label = %TurnLabel
 @onready var _timer_label: Label = %TimerLabel
@@ -66,8 +79,11 @@ var opponent_flash_sec := OPPONENT_FLASH_SEC
 var turn_seconds := TURN_SECONDS
 ## Tests set 0.0 to drop at once on timeout.
 var timeout_reveal_sec := TIMEOUT_REVEAL_SEC
-## Tests set false: Goobs land at once (no fall / roll animation).
+## Tests set false: Goobs land at once (no fall / roll animation), and the
+## scoring sequence runs without waits.
 var animate_drops := true
+## Tests set a deck (e.g. all Vanilla) to replace the starter deck.
+var deck: Array[GoobDefinition] = []
 
 var _loop := TurnLoop.new()
 var _rng := RandomNumberGenerator.new()
@@ -110,6 +126,10 @@ var _last_tap_msec := -100000
 var _inspect: InspectPanel
 var _grey: Array[ColorRect] = []
 var _shake_tween: Tween
+## Scoring sequence: the multiplier labels on show, then the sum (stays up
+## under the end overlay).
+var score_labels: Array[Label] = []
+var sum_label: Label
 
 
 func _ready() -> void:
@@ -124,7 +144,7 @@ func _ready() -> void:
 	_hand.animate = animate_drops
 	_board_view.item_rect_changed.connect(_layout_table.call_deferred)
 	_layout_table.call_deferred()
-	_loop.start(GameFlow.player_moves_first, _rng)
+	_loop.start(GameFlow.player_moves_first, _rng, deck)
 	_board_view.sync_from_board(_loop.board)
 	# The player's first-turn draw is revealed by _after_play(), so the fan
 	# starts without it.
@@ -460,13 +480,65 @@ func _play_player(column: int, hand_index: int, roll_path: Array[int] = []) -> i
 	return row
 
 
-## The Goob falls (or rolls) into place, then the next turn starts.
-## §4.2 order: land → special effect (M5) → win check last (in TurnLoop).
+## The Goob falls (or rolls) into place, its effect plays, then the next turn
+## starts. §4.2 order: land → special effect → win check last (TurnLoop has
+## already resolved all three; this shows them in that order).
 func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = []) -> void:
+	var effect := _loop.last_effect
 	await _board_view.play_drop(column, row, side, roll_path)
 	_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
+	await _play_effect(effect)
+	if not is_inside_tree():
+		return
 	_board_view.sync_from_board(_loop.board)
 	_after_play()
+
+
+## Shows what TurnLoop.last_effect did: the type's impact on its target (the
+## target was picked first, slice §4), or a fizzle when it had none.
+func _play_effect(effect: Dictionary) -> void:
+	var kind: GoobDefinition.EffectType = effect.get("kind", GoobDefinition.EffectType.NONE)
+	if kind == GoobDefinition.EffectType.NONE:
+		return
+	var cell: Vector2i = effect["cell"]
+	var side: BoardState.CellOwner = effect["side"]
+	# Let the landing register before the effect starts, and leave room after
+	# it before the next turn (Sean, 2026-11-19 playtest).
+	await _wait(EFFECT_LEAD_SEC)
+	await _play_effect_impact(effect, kind, cell, side)
+	await _wait(EFFECT_HOLD_SEC)
+
+
+func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> void:
+	if effect["fizzled"]:
+		await _board_view.play_fizzle(cell)
+		return
+	match kind:
+		GoobDefinition.EffectType.FLIP_ADJACENT:
+			await _board_view.play_flip(cell, effect["target"], side)
+		GoobDefinition.EffectType.DESTROY_ADJACENT:
+			await _board_view.play_destroy(cell, effect["target"])
+		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
+			var extra: Vector2i = effect["extra"]
+			await _board_view.play_summon(cell, extra.x, side)
+			await _board_view.play_drop(extra.x, extra.y, side)
+			_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
+			_board_view.sparkle(extra, side)
+		GoobDefinition.EffectType.DRAW_TWO:
+			var drawn: Array[GoobDefinition] = effect["drawn"]
+			if drawn.is_empty():
+				# Hand already full: nothing drawn.
+				if side == BoardState.CellOwner.PLAYER:
+					_show_hand_full()
+				else:
+					await _board_view.play_fizzle(cell)
+				return
+			await _board_view.play_draw_cue(cell, side, drawn.size())
+			if side == BoardState.CellOwner.PLAYER:
+				if effect["hand_full"]:
+					_show_hand_full()
+				for goob in drawn:
+					await _hand.reveal(goob)
 
 
 ## Timeout: the column under the finger, else a random one (full included).
@@ -541,12 +613,17 @@ func _after_play() -> void:
 ## the fan; a draw skipped by a full hand shows "Hand full" + a screen shake.
 func _show_turn_draw() -> void:
 	if _loop.last_draw_hand_full:
-		_toast.show_message(MSG_HAND_FULL)
-		_sfx.play(&"hand_full")
-		_place_toast()
-		_shake_screen()
+		_show_hand_full()
 	for goob in _loop.last_draw:
 		await _hand.reveal(goob)
+
+
+## A draw skipped by the hand cap (turn draw or Plentiful): toast + shake.
+func _show_hand_full() -> void:
+	_toast.show_message(MSG_HAND_FULL)
+	_sfx.play(&"hand_full")
+	_place_toast()
+	_shake_screen()
 
 
 func _on_drop_sound(kind: StringName, side: BoardState.CellOwner) -> void:
@@ -599,12 +676,18 @@ func _show_end() -> void:
 	var color := COLOR_DRAW
 	match _loop.result:
 		TurnLoop.Result.PLAYER_WIN:
-			_board_view.highlight_cells(_loop.board.find_winning_line(BoardState.CellOwner.PLAYER))
+			await _play_scoring(BoardState.CellOwner.PLAYER)
+			if not is_inside_tree():
+				return
+			_board_view.highlight_cells(_loop.scoring_cells(BoardState.CellOwner.PLAYER))
 			_result_label.text = "You Win!"
 			_end_button.text = "Back to title"
 			color = COLOR_WIN
 		TurnLoop.Result.OPPONENT_WIN:
-			_board_view.highlight_cells(_loop.board.find_winning_line(BoardState.CellOwner.OPPONENT))
+			await _play_scoring(BoardState.CellOwner.OPPONENT)
+			if not is_inside_tree():
+				return
+			_board_view.highlight_cells(_loop.scoring_cells(BoardState.CellOwner.OPPONENT))
 			_result_label.text = "You Lose"
 			_end_button.text = "Back to title"
 			color = COLOR_LOSE
@@ -615,6 +698,93 @@ func _show_end() -> void:
 	(_banner.get_theme_stylebox("panel") as StyleBoxFlat).border_color = color
 	_end_overlay.visible = true
 	_announce.call_deferred()
+
+
+## Scoring sequence (slice §4, Balatro rhythm): first a moment of recognition
+## (gold outline, hop, sting); then every Goob in `side`'s
+## winning lines, lowest column first and bottom to top, bounces and shows its
+## multiplier (×1 / ×0.5) above it, one per SCORE_STEP_SEC on a rising note;
+## after a pause they collapse into the sum, one big plain number at the board
+## centre on the top note (Sean, 2026-11-19). Draws never get here.
+func _play_scoring(side: BoardState.CellOwner) -> void:
+	var cells := _loop.scoring_cells(side)
+	var ladder := Sfx.SCORE_LADDER
+	# Recognition first (Sean, 2026-11-20): the scored Goobs light up in gold
+	# and hop together before any multiplier appears.
+	_board_view.recognise_cells(cells)
+	_sfx.play(&"score_recognise")
+	await _wait(SCORE_RECOGNISE_SEC)
+	var cell_px := _board_view.column_rect(0).size.x
+	var total := 0.0
+	for i in cells.size():
+		var cell := cells[i]
+		var goob := _loop.goob_at(cell.x, cell.y)
+		# Only tests place Goobs without a definition; count those as Vanilla.
+		var multiplier := goob.multiplier if goob != null else TurnLoop.VANILLA.multiplier
+		total += multiplier
+		_board_view.bounce_cell(cell)
+		var label := _make_score_label("×" + format_score(multiplier), &"Mono2", Color.WHITE)
+		_place_centered(label, _board_view.cell_center(cell) - Vector2(0.0, cell_px * 0.5 + label.size.y * 0.5))
+		score_labels.append(label)
+		_sfx.play(ladder[mini(i, ladder.size() - 1)])
+		await _wait(SCORE_STEP_SEC)
+	await _wait(SCORE_PAUSE_SEC)
+	var centre := _board_view.grid_center()
+	_sfx.play(&"score_collapse")
+	if animate_drops:
+		var collapse := create_tween().set_parallel()
+		for label in score_labels:
+			collapse.tween_property(label, "position", centre - label.size * 0.5, SCORE_COLLAPSE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			collapse.tween_property(label, "modulate:a", 0.0, SCORE_COLLAPSE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		await collapse.finished
+	for label in score_labels:
+		label.queue_free()
+	score_labels.clear()
+	sum_label = _make_score_label(format_score(total), &"Mono3", COLOR_WIN if side == BoardState.CellOwner.PLAYER else COLOR_LOSE)
+	_place_centered(sum_label, centre)
+	_sfx.play(ladder[mini(cells.size(), ladder.size() - 1)])
+	if animate_drops:
+		sum_label.pivot_offset = sum_label.size * 0.5
+		sum_label.scale = Vector2(0.3, 0.3)
+		create_tween().tween_property(sum_label, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await _wait(SCORE_HOLD_SEC)
+
+
+## 1 → "1", 0.5 → "0.5", 3.5 → "3.5".
+static func format_score(value: float) -> String:
+	var text := String.num(value, 1)
+	return text.trim_suffix(".0")
+
+
+func _make_score_label(text: String, variation: StringName, color: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.theme_type_variation = variation
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", COLOR_SCORE_OUTLINE)
+	label.add_theme_constant_override("outline_size", 8)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(label)
+	move_child(label, _end_overlay.get_index()) # under the end overlay
+	label.reset_size()
+	return label
+
+
+## Centres `control` on `pos`, on a whole physical pixel.
+func _place_centered(control: Control, pos: Vector2) -> void:
+	var ui_scale := float(get_window().size.x) / get_viewport_rect().size.x
+	control.global_position = ((pos - control.size * 0.5) * ui_scale).round() / ui_scale
+
+
+## Waits `sec` on a child timer (freed with the scene, so a pending wait just
+## stops). No wait when animations are off (tests).
+func _wait(sec: float) -> void:
+	if not animate_drops or sec <= 0.0:
+		return
+	var timer := _make_timer(func() -> void: pass)
+	timer.start(sec)
+	await timer.timeout
+	timer.queue_free()
 
 
 ## Placeholder juice: dim fades in, the banner slams in with overshoot and a

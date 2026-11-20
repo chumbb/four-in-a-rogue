@@ -46,7 +46,7 @@ Small diff, match existing GDScript style, no new scope. When done: what to pres
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (all accepted and merged to `main` 2026-11-19) | **M5** Goob effects |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (all accepted and merged to `main` 2026-11-19) | **M5** Goob effects — built on `m5-goob-effects`, awaiting Sean's playtest |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -73,7 +73,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 - **Coin flip (Sean, 2026-11-13; supersedes "player picks heads/tails"):** no pick. The coin is a Vanilla Goob with a blue face and a red face in the screen centre; the player **swipes up anywhere** (starting on the coin = stronger toss; a tap = gentle toss); **50/50 random**, the landed colour goes first (blue = player). Stronger toss = more spins/arc in the same ~0.6 s. Options **Auto-flip coin** (default Off) flips ~0.5 s after the screen appears. After a draw the board fades out, the flip happens over the forest, the board returns.
 - **Tapping the start screen counts as Press Start** (a mouse click on desktop). Strange Man plays **after every Press Start** (portrait: old man in Goob-land clothes holding one Goob). No separate tutorial.
 - Coin winner moves first (`GameFlow.player_moves_first`). The whole coin flip lasts **≤ 3 s** (Sean, 2026-11-11); M6 animation: coin pops in, ~0.6 s toss, ~0.5 s rest, full-screen flash in the **winner's colour** (blue player / red opponent) + "goes first" banner ~1 s. **Scenario begins as soon as the flip is decided** (no extra start button).
-- Win or lose → scoring sequence → **Title**. **Draw** (no four, or both sides four) → no scoring sequence, skip Strange Man (`GameFlow.replay_after_draw()` on `m3-turn-loop` goes straight to the coin flip), coin flip again, reshuffle decks, hand size 3, empty board.
+- Win or lose → scoring sequence → **Title**. **Draw** (no four, or both sides four) → no scoring sequence, skip Strange Man (`GameFlow.replay_after_draw()` on `m3-turn-loop` goes straight to the coin flip), coin flip again, reshuffle decks, starting hand 2, empty board.
 
 **Strange Man (exact):**
 
@@ -87,7 +87,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 | Drop | Column → lowest empty cell |
 | Win | 4 in a row (H/V/diag), either side |
 | Turn | Draw 1 (if deck not empty), play **exactly 1** Goob; no skip, no mana or cost — every Goob in hand is always playable |
-| Hand | Start 3 after shuffle; **max 5** (Sean, 2026-11-09; was 10). A draw that would make a 6th is **skipped** (also Plentiful's draw 2); those Goobs stay on top of the deck. Skipped draw → "Hand full" toast + short whole-screen shake (~0.25 s, even on Skip) |
+| Hand | Start **2** after shuffle, so the first turn draw makes 3 (Sean, 2026-11-19; was 3); **max 5** (Sean, 2026-11-09; was 10). A draw that would make a 6th is **skipped** (also Plentiful's draw 2); those Goobs stay on top of the deck. Skipped draw → "Hand full" toast + short whole-screen shake (~0.25 s, even on Skip) |
 | Deck | 21 Goobs each side, identical; shuffle once; **no reshuffle** |
 | Empty deck | No draws; may still play from hand |
 | Out of Goobs | A side with no Goobs (hand + deck) takes no more turns; the other side plays on until the board is full. A four during those turns still ends the scenario |
@@ -256,11 +256,13 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 - [x] Lore seed by effect family and legendary figures (e.g. Goobert the Brave, Gooberius); hints at an apocalyptic calamity that is **never specified anywhere**
 - [x] One flavour line (1–2 sentences) per starter type, Vanilla shared; FromSoftware + Pokédex voice (vault Research notes); Sean approves each. Done: vault `Design/Lore seed.md`; lines in `resources/goobs/*.tres` (`flavour_text`)
 
-### M5 — Goob effects
+### M5 — Goob effects (built on `m5-goob-effects` 2026-11-19; awaiting Sean's playtest)
 
-- [ ] Land → effect → win check; per-type impact animations
-- [ ] Flip / destroy / extra vanilla / draw 2; scoring sequence (Balatro rhythm, ~0.6 s per Goob) on a one-sided four
-- [ ] Effect sounds + scoring sounds (rising pitch ladder)
+- [x] Land → effect → win check; per-type impact animations
+- [x] Flip / destroy / extra vanilla / draw 2; scoring sequence (Balatro rhythm, ~0.6 s per Goob) on a one-sided four
+- [x] Effect sounds + scoring sounds (rising pitch ladder)
+
+**M5 rules (Sean, 2026-11-19):** no target → the effect **fizzles with a small cue** (wobble + grey + soft sound); scoring reveals **every Goob in any winning line** (each once); numbers **×1 / ×0.5**, sum a plain number (**3.5**).
 
 **Test:** Each special once in a session; order land → effect → win.
 
