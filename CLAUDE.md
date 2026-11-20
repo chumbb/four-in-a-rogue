@@ -46,7 +46,7 @@ Small diff, match existing GDScript style, no new scope. When done: what to pres
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20) | **M6** AI & polish |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20) | **M6** AI & polish — a split plan (Art B → Art C → M6a → M6b → Art D1/D2 → M6c → M6d) is **proposed** in vault `Design/Roadmap v0.1 - remaining art and code.md`; get Sean's OK first |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---

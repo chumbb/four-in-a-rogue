@@ -33,18 +33,33 @@ claude
 
 ---
 
-## Current focus — M6 AI & polish
+## Remaining plan to v0.1 (PROPOSED 2026-11-20 — awaiting Sean's OK)
+
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. Until Sean approves it, `CLAUDE.md` §Milestones is unchanged (M6 as one milestone). **Next session: get Sean's answers to the roadmap's open questions first.**
+
+| # | Session | Delivers | Needs |
+|---|---------|----------|-------|
+| 1 | **Art pass B** — UI kit | 9-slice pixel panels (HUD, dialogue box, buttons, toast, inspect, end banner, pause/options, scrim), Options widgets, pause + speaker icons, pixel logo, fuse strip art | — |
+| 2 | **Art pass C** — Strange Man | Full body ~96×160 + light pool; HUD head crop × 7 expressions; crack/explode frames | — |
+| 3 | **M6a** — Flow & screens | 0.3 s fades; title (logo, idle Goobs, Tap to start, Options); Strange Man 5-page intro with Skip + Goob pop-in; **coin flip rebuilt** (swipe up, 50/50, winner-colour flash + banner, draw replay over the forest) — today it is still the superseded heads/tails stub | B, C |
+| 4 | **M6b** — HUD, pause, options, speed | Pixel HUD + Pause (replaces Quit) with scrim + Quit confirm; Options panel + persisted settings + audio buses; Normal/Fast/Skip everywhere; haptics; turn banners | B |
+| 5 | **Art pass D1** — Goob type sheets | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
+| 6 | **Art pass D2** — Goob production | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
+| 7 | **M6c** — AI, play anims, reactions | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
+| 8 | **M6d** — Sound + smoke | Remaining sounds + ambience, audio rules; A1–A10 smoke, known gaps | all |
+| 9 | M7 (optional) | Android device check | — |
+
+Optional later: **Art pass E** (per-type pixel impact VFX replacing the M5 placeholders, vignette).
+
+### Status so far
 
 | Milestone | Status |
 |-----------|--------|
 | M1, M2, M3, M3.5, M3.6 | Done, merged to `main` |
-| **M4 Decks & hands** | **Accepted by Sean and merged to `main` 2026-11-19** (`dbb9446`) |
-| **Art pass A** | **Accepted by Sean and merged to `main` 2026-11-19** |
-| **Hand stump** (follow-up) | Accepted and merged to `main` 2026-11-19: Forest oak stump under the hand (`art/hand/make_stump.py`; round top, flared base off the screen edges), board feet removed |
+| **M4 Decks & hands** | Accepted and merged 2026-11-19 (`dbb9446`) |
+| **Art pass A** (+ Forest hand stump) | Accepted and merged 2026-11-19 |
 | **Writing session** | Accepted and merged 2026-11-19 |
-| **M5 Goob effects** | Accepted by Sean and merged to `main` 2026-11-20 |
-| **M6 AI & polish** | **Next** (see `CLAUDE.md` §Milestones) |
-| M7 | Queued — see `CLAUDE.md` §Milestones |
+| **M5 Goob effects** | Accepted and merged 2026-11-20 |
 
 ### M5 (accepted and merged 2026-11-20)
 
