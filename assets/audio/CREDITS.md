@@ -7,15 +7,14 @@ fallback credited here). Files in `sfx/` were trimmed / converted to Ogg Vorbis.
 
 | File | Source | Original |
 |------|--------|----------|
-| `sfx/land.ogg` | Kenney — Starter Kit Match-3 | `sounds/tile-land.ogg` |
 | `sfx/draw_pop.ogg` | Kenney — Starter Kit Match-3 | `sounds/tile-match.ogg` |
 | `sfx/fly_swish.ogg` | Kenney — Starter Kit Match-3 | `sounds/tile-swap.ogg` |
-| `sfx/fall.ogg` | Kenney — Starter Kit 3D Platformer | `sounds/fall.ogg` |
 | `sfx/roll_tick.ogg` | Kenney — Starter Kit City Builder | `sounds/rotate.ogg` |
 | `sfx/rest_tap.ogg` | Sound Work 12 — Small Sound Kit | `Footsteps/S_Wood_Mono_1.wav` |
 | `sfx/bounce.ogg` | Sound Work 12 — Small Sound Kit | `Footsteps/S_Wood_Mono_3.wav` |
 | `sfx/select.ogg` | Sound Work 12 — Small Sound Kit | `Clothes/Leather_001.wav` |
 | `sfx/drag_pickup.ogg` | Made for this project (ffmpeg sine sweep "pop", 2026-11-19) | — |
+| `sfx/fall.ogg`, `sfx/land.ogg` | Made for this project (`art/audio/make_drop_sounds.py`: air whoosh; wood knock + coin clink, 2026-11-19) | — |
 | `sfx/inspect_open.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookFlip2.ogg` |
 | `sfx/inspect_close.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookClose.ogg` (low-passed, quieter, softened attack) |
 
