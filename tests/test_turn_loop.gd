@@ -227,16 +227,16 @@ func _test_shuffle_deterministic() -> void:
 func _test_start_hands_and_turn_draw() -> void:
 	var t := TurnLoop.new()
 	t.start(true, _seeded(1), _vanilla())
-	_check(t.player_deck.hand.size() == 4, "start: player 3 + turn draw = 4")
-	_check(t.player_deck.draw_pile.size() == 17, "start: player pile 17")
-	_check(t.opponent_deck.hand.size() == 3, "start: opponent 3 (not its turn)")
-	_check(t.opponent_deck.draw_pile.size() == 18, "start: opponent pile 18")
-	_check(t.last_draw.size() == 1 and t.last_draw[0] == t.player_deck.hand[3], "start: last_draw is the turn draw")
+	_check(t.player_deck.hand.size() == 3, "start: player 2 + turn draw = 3")
+	_check(t.player_deck.draw_pile.size() == 18, "start: player pile 18")
+	_check(t.opponent_deck.hand.size() == 2, "start: opponent 2 (not its turn)")
+	_check(t.opponent_deck.draw_pile.size() == 19, "start: opponent pile 19")
+	_check(t.last_draw.size() == 1 and t.last_draw[0] == t.player_deck.hand[2], "start: last_draw is the turn draw")
 	_check(not t.last_draw_hand_full, "start: not hand full")
 	t.play(0)
-	_check(t.player_deck.hand.size() == 3, "turn: player plays 1")
-	_check(t.opponent_deck.hand.size() == 4, "turn: opponent drew 1")
-	_check(t.last_draw.size() == 1 and t.last_draw[0] == t.opponent_deck.hand[3], "turn: last_draw is opponent's")
+	_check(t.player_deck.hand.size() == 2, "turn: player plays 1")
+	_check(t.opponent_deck.hand.size() == 3, "turn: opponent drew 1")
+	_check(t.last_draw.size() == 1 and t.last_draw[0] == t.opponent_deck.hand[2], "turn: last_draw is opponent's")
 
 
 func _test_play_uses_hand_goob() -> void:
@@ -271,7 +271,7 @@ func _test_hand_cap_skips_draw() -> void:
 	# Through TurnLoop: a full hand at turn start flags the skip.
 	var t := TurnLoop.new()
 	t.start(false, _seeded(4), _vanilla())
-	t.player_deck.draw(1) # player hand 4
+	t.player_deck.draw(2) # player hand 4
 	t.player_deck.hand.append(t.player_deck.hand[0]) # 5 (as after Plentiful)
 	var pile := t.player_deck.draw_pile.size()
 	t.play(0) # opponent plays; player's turn begins with a full hand
@@ -287,7 +287,7 @@ func _test_empty_deck_no_draw() -> void:
 	t.play(0)
 	_check(t.phase == TurnLoop.Phase.PLAYER_TURN, "empty deck: player still plays")
 	_check(t.last_draw.is_empty() and not t.last_draw_hand_full, "empty deck: no draw, not 'hand full'")
-	_check(t.player_deck.hand.size() == 3, "empty deck: hand unchanged")
+	_check(t.player_deck.hand.size() == 2, "empty deck: hand unchanged")
 	_check(not t.player_deck.draw_blocked_by_hand(1), "empty deck: not blocked by hand")
 
 
@@ -325,8 +325,8 @@ func _test_restart_reshuffles() -> void:
 	t.play(0)
 	t.play(0)
 	t.start(true, _seeded(10), _vanilla())
-	_check(t.player_deck.hand.size() == 4 and t.player_deck.draw_pile.size() == 17, "restart: fresh player deck")
-	_check(t.opponent_deck.hand.size() == 3 and t.opponent_deck.draw_pile.size() == 18, "restart: fresh opponent deck")
+	_check(t.player_deck.hand.size() == 3 and t.player_deck.draw_pile.size() == 18, "restart: fresh player deck")
+	_check(t.opponent_deck.hand.size() == 2 and t.opponent_deck.draw_pile.size() == 19, "restart: fresh opponent deck")
 	_check(t.goob_at(0, 0) == null, "restart: cell Goobs cleared")
 
 
@@ -428,7 +428,7 @@ func _test_popular_extra_vanilla() -> void:
 
 func _test_plentiful_draws_two() -> void:
 	var t := _with_special(PLENTIFUL)
-	var hand := t.player_deck.hand.size() # 4 after the turn draw
+	var hand := t.player_deck.hand.size() # 3 after the turn draw
 	var pile := t.player_deck.draw_pile.size()
 	t.play(0, 0)
 	var drawn: Array[GoobDefinition] = t.last_effect["drawn"]
@@ -438,6 +438,7 @@ func _test_plentiful_draws_two() -> void:
 	_check(not t.last_effect["hand_full"] and not t.last_effect["fizzled"], "plentiful: not full, not fizzled")
 	# Hand cap: room for 1 → draws 1 and flags hand full.
 	t = _with_special(PLENTIFUL)
+	t.player_deck.hand.append(TurnLoop.VANILLA)
 	t.player_deck.hand.append(TurnLoop.VANILLA) # 5
 	t.play(0, 0) # 4 after playing
 	drawn = t.last_effect["drawn"]

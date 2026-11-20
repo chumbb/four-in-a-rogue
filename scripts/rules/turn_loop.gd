@@ -66,7 +66,7 @@ func _init() -> void:
 
 
 ## New scenario (or draw replay): empty board, both starter decks shuffled,
-## starting hands of 3, then the first side's turn begins (with its draw).
+## starting hands of Deck.START_HAND, then the first side's turn begins (with its draw).
 ## `deck` replaces the starter deck for both sides (tests).
 func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[GoobDefinition] = []) -> void:
 	if rng == null:

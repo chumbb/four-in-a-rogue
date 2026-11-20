@@ -54,6 +54,10 @@ const SCORE_STEP_SEC := 0.6
 const SCORE_PAUSE_SEC := 0.4
 const SCORE_COLLAPSE_SEC := 0.3
 const SCORE_HOLD_SEC := 1.0
+## Beat between a special's landing and its effect, and the pause after the
+## effect before the next turn (Sean, 2026-11-19).
+const EFFECT_LEAD_SEC := 0.2
+const EFFECT_HOLD_SEC := 0.6
 
 @onready var _turn_label: Label = %TurnLabel
 @onready var _timer_label: Label = %TimerLabel
@@ -497,6 +501,14 @@ func _play_effect(effect: Dictionary) -> void:
 		return
 	var cell: Vector2i = effect["cell"]
 	var side: BoardState.CellOwner = effect["side"]
+	# Let the landing register before the effect starts, and leave room after
+	# it before the next turn (Sean, 2026-11-19 playtest).
+	await _wait(EFFECT_LEAD_SEC)
+	await _play_effect_impact(effect, kind, cell, side)
+	await _wait(EFFECT_HOLD_SEC)
+
+
+func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> void:
 	if effect["fizzled"]:
 		await _board_view.play_fizzle(cell)
 		return
@@ -507,9 +519,10 @@ func _play_effect(effect: Dictionary) -> void:
 			await _board_view.play_destroy(cell, effect["target"])
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
 			var extra: Vector2i = effect["extra"]
-			await _board_view.play_hop(cell, &"popular")
+			await _board_view.play_summon(cell, extra.x, side)
 			await _board_view.play_drop(extra.x, extra.y, side)
 			_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
+			_board_view.sparkle(extra, side)
 		GoobDefinition.EffectType.DRAW_TWO:
 			var drawn: Array[GoobDefinition] = effect["drawn"]
 			if drawn.is_empty():

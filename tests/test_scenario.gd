@@ -665,8 +665,8 @@ func _test_effects_on_board() -> void:
 	_give(scenario, PLENTIFUL)
 	_play_col(scenario, 3)
 	await process_frame
-	_check(scenario._loop.player_deck.hand.size() == 5, "plentiful (scenario): 4 - 1 + 2 in hand")
-	_check(hand.count() == 5, "plentiful: fan shows 5 (got %d)" % hand.count())
+	_check(scenario._loop.player_deck.hand.size() == 4, "plentiful (scenario): 3 - 1 + 2 in hand")
+	_check(hand.count() == 4, "plentiful: fan shows 4 (got %d)" % hand.count())
 	await _free(scenario)
 
 
@@ -685,7 +685,7 @@ func _test_effect_animations() -> void:
 		_view(scenario).sync_from_board(board)
 		_give(scenario, goob)
 		_play_col(scenario, 3)
-		var deadline := Time.get_ticks_msec() + 4000
+		var deadline := Time.get_ticks_msec() + 8000
 		while scenario._opponent_timer.is_stopped() and Time.get_ticks_msec() < deadline:
 			await process_frame
 		_check(not scenario._opponent_timer.is_stopped(), "%s: play finishes, opponent's turn starts" % goob.id)
@@ -817,13 +817,13 @@ func _hand_view(scenario: Control) -> HandView:
 func _test_hand_at_start() -> void:
 	var scenario := await _make(0.0)
 	var hand := _hand_view(scenario)
-	_check(scenario._loop.player_deck.hand.size() == 4, "start: player holds 3 + turn draw")
-	_check(hand.count() == 4, "start: fan shows 4 (got %d)" % hand.count())
+	_check(scenario._loop.player_deck.hand.size() == 3, "start: player holds 2 + turn draw")
+	_check(hand.count() == 3, "start: fan shows 3 (got %d)" % hand.count())
 	_check(scenario._input_enabled, "start: input on after the draw reveal")
 	await _free(scenario)
 	scenario = await _make(0.0, false)
-	_check(_hand_view(scenario).count() == 4, "opp first: fan shows 4 after its opener")
-	_check(scenario._loop.opponent_deck.hand.size() == 3, "opp first: opponent played 1 of 4")
+	_check(_hand_view(scenario).count() == 3, "opp first: fan shows 3 after its opener")
+	_check(scenario._loop.opponent_deck.hand.size() == 2, "opp first: opponent played 1 of 3")
 	await _free(scenario)
 
 
@@ -856,7 +856,7 @@ func _test_tap_aims_then_drops() -> void:
 	_tap(_col_pos(scenario, 4))
 	_check(board.get_owner(4, 0) == P, "tapping the aimed column again drops")
 	_check(scenario._loop.goob_at(4, 0) == chosen, "the selected Goob was played")
-	_check(hand.count() == 3, "played Goob left the fan")
+	_check(hand.count() == 2, "played Goob left the fan")
 	_check(not scenario._flash.visible, "aim cleared after the drop")
 	await _free(scenario)
 
@@ -873,7 +873,7 @@ func _test_drag_drop_and_cancel() -> void:
 	_drag(_off_board(scenario))
 	_touch(_off_board(scenario), false)
 	_check(_count(board, P) == 0, "release off the board cancels")
-	_check(not hand.is_dragging() and hand.count() == 4, "Goob flies back to the hand")
+	_check(not hand.is_dragging() and hand.count() == 3, "Goob flies back to the hand")
 	_check(scenario._selected == -1, "cancel deselects")
 	scenario._last_tap_key = ""
 	var chosen: GoobDefinition = scenario._loop.player_deck.hand[0]
@@ -887,7 +887,7 @@ func _test_drag_drop_and_cancel() -> void:
 	_touch(_col_pos(scenario, 5), false)
 	_check(board.get_owner(5, 0) == P, "release over the board drops")
 	_check(scenario._loop.goob_at(5, 0) == chosen, "the dragged Goob was played")
-	_check(hand.count() == 3, "fan closes up")
+	_check(hand.count() == 2, "fan closes up")
 	await _free(scenario)
 
 
@@ -895,12 +895,12 @@ func _test_small_move_is_tap() -> void:
 	var scenario := await _make(5.0)
 	var hand := _hand_view(scenario)
 	scenario._last_tap_key = ""
-	var start := hand.slot_center(3)
+	var start := hand.slot_center(2)
 	_touch(start, true)
 	_drag(start + Vector2(5, -5))
 	_check(not hand.is_dragging(), "a 7 px move is not a drag")
 	_touch(start + Vector2(5, -5), false)
-	_check(scenario._selected == 3, "small move + release selects")
+	_check(scenario._selected == 2, "small move + release selects")
 	await _free(scenario)
 
 
@@ -980,15 +980,15 @@ func _test_hand_full_toast() -> void:
 
 func _test_timeout_plays_selected() -> void:
 	var scenario := await _make(5.0, true, 0.0, 0.2)
-	var chosen: GoobDefinition = scenario._loop.player_deck.hand[3]
-	_select_hand(scenario, 3)
+	var chosen: GoobDefinition = scenario._loop.player_deck.hand[2]
+	_select_hand(scenario, 2)
 	await create_timer(0.35).timeout
 	var played: GoobDefinition = null
 	for column in BoardState.COLUMNS:
 		if scenario._loop.goob_at(column, 0) != null:
 			played = scenario._loop.goob_at(column, 0)
 	_check(played == chosen, "timeout plays the selected Goob")
-	_check(_hand_view(scenario).count() == 3, "timeout Goob left the fan")
+	_check(_hand_view(scenario).count() == 2, "timeout Goob left the fan")
 	await _free(scenario)
 
 

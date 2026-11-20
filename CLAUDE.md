@@ -73,7 +73,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 - **Coin flip (Sean, 2026-11-13; supersedes "player picks heads/tails"):** no pick. The coin is a Vanilla Goob with a blue face and a red face in the screen centre; the player **swipes up anywhere** (starting on the coin = stronger toss; a tap = gentle toss); **50/50 random**, the landed colour goes first (blue = player). Stronger toss = more spins/arc in the same ~0.6 s. Options **Auto-flip coin** (default Off) flips ~0.5 s after the screen appears. After a draw the board fades out, the flip happens over the forest, the board returns.
 - **Tapping the start screen counts as Press Start** (a mouse click on desktop). Strange Man plays **after every Press Start** (portrait: old man in Goob-land clothes holding one Goob). No separate tutorial.
 - Coin winner moves first (`GameFlow.player_moves_first`). The whole coin flip lasts **≤ 3 s** (Sean, 2026-11-11); M6 animation: coin pops in, ~0.6 s toss, ~0.5 s rest, full-screen flash in the **winner's colour** (blue player / red opponent) + "goes first" banner ~1 s. **Scenario begins as soon as the flip is decided** (no extra start button).
-- Win or lose → scoring sequence → **Title**. **Draw** (no four, or both sides four) → no scoring sequence, skip Strange Man (`GameFlow.replay_after_draw()` on `m3-turn-loop` goes straight to the coin flip), coin flip again, reshuffle decks, hand size 3, empty board.
+- Win or lose → scoring sequence → **Title**. **Draw** (no four, or both sides four) → no scoring sequence, skip Strange Man (`GameFlow.replay_after_draw()` on `m3-turn-loop` goes straight to the coin flip), coin flip again, reshuffle decks, starting hand 2, empty board.
 
 **Strange Man (exact):**
 
@@ -87,7 +87,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 | Drop | Column → lowest empty cell |
 | Win | 4 in a row (H/V/diag), either side |
 | Turn | Draw 1 (if deck not empty), play **exactly 1** Goob; no skip, no mana or cost — every Goob in hand is always playable |
-| Hand | Start 3 after shuffle; **max 5** (Sean, 2026-11-09; was 10). A draw that would make a 6th is **skipped** (also Plentiful's draw 2); those Goobs stay on top of the deck. Skipped draw → "Hand full" toast + short whole-screen shake (~0.25 s, even on Skip) |
+| Hand | Start **2** after shuffle, so the first turn draw makes 3 (Sean, 2026-11-19; was 3); **max 5** (Sean, 2026-11-09; was 10). A draw that would make a 6th is **skipped** (also Plentiful's draw 2); those Goobs stay on top of the deck. Skipped draw → "Hand full" toast + short whole-screen shake (~0.25 s, even on Skip) |
 | Deck | 21 Goobs each side, identical; shuffle once; **no reshuffle** |
 | Empty deck | No draws; may still play from hand |
 | Out of Goobs | A side with no Goobs (hand + deck) takes no more turns; the other side plays on until the board is full. A four during those turns still ends the scenario |

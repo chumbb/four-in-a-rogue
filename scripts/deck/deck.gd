@@ -4,7 +4,8 @@ extends RefCounted
 ## Decks). Shuffled once when built; never reshuffled. No rendering.
 
 const HAND_MAX := 5
-const START_HAND := 3
+## Starting hand; the first turn draw makes 3 (Sean, 2026-11-19; was 3).
+const START_HAND := 2
 
 ## Draw pile; the top of the deck is the END of the array.
 var draw_pile: Array[GoobDefinition] = []
