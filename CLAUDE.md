@@ -280,10 +280,10 @@ Full plan + gap table: vault `Design/Roadmap v0.1 - remaining art and code.md`. 
 ### Art pass C — the Strange Man ← **next**
 
 - [ ] Full body ~96×160 game px + oval light pool, per the brief below → **stop for Sean's OK on the still**
-- [ ] Two **painted** intro Vanilla Goobs: blue upright, red lying flat **face up** (Sean, 2026-11-20)
-- [ ] HUD portrait **drawn separately** as a bust (not cropped from the full body; may grow in the HUD later; Sean, 2026-11-20) + 7 expressions: idle, thinking, happy, angry, surprised, celebrating, well played; crack + explode frames
+- [ ] Two **painted** intro Vanilla Goobs: blue upright, red lying flat **face up**; they must look like they **exist in the same world as the Strange Man** (same pixel scale, light and rendering as his sprite; Sean, 2026-11-20)
+- [ ] HUD portrait **drawn separately** as a bust (not cropped from the full body; may grow in the HUD later; Sean, 2026-11-20) + 7 expressions: idle, thinking, happy, angry, surprised, celebrating, well played (**more serious, with a slight bow**; Pro 2's warm smile is kept for another expression; Sean 2026-11-20); crack + explode frames
 
-**Brief (Sean, 2026-11-20):** an **original** older mentor: grey-haired, has seen too much, yet friendly and wise; dirty and unkempt like a wanderer; loves Goobs more than anything and wants the player to succeed. **Ragged beanie** with medium-long grey hair showing, long grey beard, patched threadbare long coat over layered rags (muted earthy colours), frayed scarf, small Goob patch/charm; tired kind eyes, warm smile. **No** lab coat, staff or pointed hat; holds nothing. Archetype-inspired only — never a likeness of an existing character.
+**Brief (Sean, 2026-11-20):** an **original** older mentor: grey-haired, has seen too much, yet friendly and wise; dirty and unkempt like a wanderer; loves Goobs more than anything and wants the player to succeed. **Ragged beanie** with medium-long grey hair showing, long grey beard, patched threadbare long coat over layered rags (muted earthy colours), frayed scarf, **no Goob patch** (Sean 2026-11-20, removed after the still review); tired kind eyes, warm smile. **No** lab coat, staff or pointed hat; holds nothing. Archetype-inspired only — never a likeness of an existing character.
 
 ### M6a — Flow and screens (needs Art B, C)
 

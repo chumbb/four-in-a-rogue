@@ -18,6 +18,7 @@ Outputs (final):
 """
 import os
 import sys
+import time
 
 from PIL import Image, ImageDraw
 
@@ -30,19 +31,30 @@ import make_ui_mocks as mocks  # noqa: E402
 OUT_DIR = "assets/strange_man"
 POOL_RINGS = ("2e222f", "3e3546", "625565")  # outer -> inner, same as the approved mock
 POOL_CX, POOL_Y = 135, 300  # pool centre in game px; his feet stand on it
-# Hand fixes after quantising: swap two same-size boxes (src box, dest top-left).
-# c_pro3 = the approved still (Sean, 2026-11-20): Goob patch moved up from the coat
-# onto his chest, under the lapel; the coat block from there fills the old spot.
-EDITS = {"c_pro3": [((64, 68, 72, 76), (64, 54))]}
+# Hand fixes after quantising: copy a box (src box -> dest top-left).
+# c_pro3 = the approved still (Sean, 2026-11-20): no Goob patch; the coat block
+# above it covers the patch.
+EDITS = {"c_pro3": [((64, 54, 72, 62), (64, 68))]}
+
+
+def save(img, path):
+    """Save, retrying while Windows holds the file (an open viewer); if it stays locked,
+    write <name>_new.png next to it instead."""
+    for _ in range(6):
+        try:
+            img.save(path)
+            return path
+        except OSError:
+            time.sleep(0.5)
+    alt = path[:-4] + "_new.png"
+    img.save(alt)
+    return alt
 
 
 def figure(pick):
     im = quantize(Image.open(os.path.join(HERE, f"raw_{pick}.png")))
     for (x0, y0, x1, y1), (dx, dy) in EDITS.get(pick, ()):
-        a = im.crop((x0, y0, x1, y1))
-        b = im.crop((dx, dy, dx + x1 - x0, dy + y1 - y0))
-        im.paste(b, (x0, y0))
-        im.paste(a, (dx, dy))
+        im.paste(im.crop((x0, y0, x1, y1)), (dx, dy))
     return im
 
 
@@ -86,8 +98,7 @@ def compare(picks=None):
         sheet.paste(c, (1080 * i, 0))
     sheet = sheet.resize((sheet.width // 2, sheet.height // 2), Image.NEAREST)
     name = "compare_pro.png" if any("_pro" in p for p in picks) else "compare.png"
-    sheet.save(os.path.join(HERE, name))
-    print("wrote art/strange_man/" + name)
+    print("wrote", save(sheet, os.path.join(HERE, name)))
 
 
 def final(pick):
@@ -95,8 +106,7 @@ def final(pick):
     fig = figure(pick)
     fig.save(os.path.join(OUT_DIR, "full_body.png"))
     light_pool().save(os.path.join(OUT_DIR, "light_pool.png"))
-    render(scene(fig)).save(os.path.join(HERE, "mock_intro.png"))
-    print("wrote", OUT_DIR, "and art/strange_man/mock_intro.png")
+    print("wrote", OUT_DIR, "and", save(render(scene(fig)), os.path.join(HERE, "mock_intro.png")))
 
 
 if __name__ == "__main__":
