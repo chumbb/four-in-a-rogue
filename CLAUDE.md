@@ -40,13 +40,13 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently M6 — AI & polish; M5 accepted and merged 2026-11-20). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently **Art pass B** — UI kit; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20) | **M6** AI & polish — a split plan (Art B → Art C → M6a → M6b → Art D1/D2 → M6c → M6d) is **proposed** in vault `Design/Roadmap v0.1 - remaining art and code.md`; get Sean's OK first |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20) | **Art pass B** (UI kit, logo, fuse, vignette), then Art C → M6a → M6b → Art D1/D2 → M6c → M6d → M7 (approved 2026-11-20) |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -156,7 +156,7 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 - Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_2d.tscn` / `scripts/board/board_view_2d.gd` (`BoardView2D`, upright **2D pixel board**, M3.6; replaced the 3D board). Outline shader: `shaders/pixel_outline.gdshader`.
 - **Presentation (all 2D, Sean 2026-11-09):** layers back to front: painted biome background → board back → Goobs → board front (hole mask) → effects → UI.
 - **Pixel layer:** board, Goobs and aim lane on a **270×480 game-pixel canvas**, **32 px Goobs/columns**, shown at the **largest whole-number scale that fits screen width in physical pixels** (4× at 1080 wide), nearest filtering; Goob positions snap to whole game pixels while moving. Background and Control UI stay on the 720 base.
-- **Art direction (Sean, 2026-11-13 grill; full list in vault GDD §Art direction):** per-biome board skin + painted background (honey wood = **Forest**, v0.1), same board geometry everywhere; **board holes transparent** with a 1–2 px shaded rim; master palette **Resurrect 64** (backgrounds palette-graded, calmer/darker band behind the board); team colour = whole coin body; types = face design + rim emblem; six 2–4 frame expressions per type: idle, **giggle** (selected/dragged/aim float until drop), happy, sad, celebrating, surprised; outline dark brown / gold on winning four / white-blue on selected hand Goob; **hand Goobs one integer step bigger than board** (5× at 1080), fixed size; pixel portraits; coin flip coin = Vanilla Goob with blue and red faces (heads = blue); pixel UI, one look across biomes, font **Monogram** (banners integer 2–3×); no CRT, vignette + pixel VFX on the canvas. Each Goob type gets a type sheet Sean approves before animation.
+- **Art direction (Sean, 2026-11-13 grill; full list in vault GDD §Art direction):** per-biome board skin + painted background (honey wood = **Forest**, v0.1), same board geometry everywhere; **board holes transparent** with a 1–2 px shaded rim; master palette **Resurrect 64** (backgrounds palette-graded, calmer/darker band behind the board); team colour = whole coin body; types = face design + rim emblem; seven 2–4 frame expressions per type: idle, **giggle** (selected/dragged/aim float until drop), happy, sad, celebrating, surprised, **worried** (low-time fuse; Sean 2026-11-20); Vanilla = current face + plain rim; outline dark brown / gold on winning four / white-blue on selected hand Goob; **hand Goobs one integer step bigger than board** (5× at 1080), fixed size; pixel portraits; coin flip coin = Vanilla Goob with blue and red faces (heads = blue); pixel UI, one look across biomes, font **Monogram** (banners integer 2–3×); no CRT, vignette + pixel VFX on the canvas. Each Goob type gets a type sheet Sean approves before animation.
 - **Goob art:** **faces only, no appendages or hands** (Sean, 2026-11-11); Goobs react to game events with **facial expressions**. Pixel sprites with a 3D look, made by Claude with PixelLab + Aseprite (see §Design source of truth, Art); **lighting baked into the sprites**; **outline from a runtime canvas shader**. Placeholders OK for v0.1. Import via `.aseprite`/sprite sheet → `SpriteFrames`.
 - Presentation direction: Goobs look visually interesting, with **real physics, 3D effects and play animations** (2D sprites with a 3D look) (Hearthstone / Marvel Snap); each Goob type has its own animation; the hand is a fan of up to 5 faces at the bottom; the opponent's hand is hidden.
 - Scenes via **`GameFlow`** autoload only (`scripts/core/game_flow.gd`).
@@ -266,18 +266,65 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 **Test:** Each special once in a session; order land → effect → win.
 
-### M6 — AI & polish
+### Remaining plan (approved by Sean, 2026-11-20 grill)
 
-- [ ] Real `OpponentAI`; flip/drop/impact/highlight animations; coin flip anim
-- [ ] Options menu: animation speed Normal / Fast / Skip; built-in haptics; Master / Music / SFX sliders with mutes (audio buses)
-- [ ] Sounds: coin flip, banners, fuse, opponent flip/red flash, win/lose/draw, portrait explode, UI, forest ambience; Fast/Skip/pause audio rules
-- [ ] Low-time turn-timer warning: burning fuse in the strip between board and hand (Sean, 2026-11-10/11)
-- [ ] Coin flip in winner's colour; red/blue turn banners; win/lose lead-ins (Sean, 2026-11-11)
-- [ ] Smoke **A1–A10**
+Full plan + gap table: vault `Design/Roadmap v0.1 - remaining art and code.md`. Order: **Art B → Art C → M6a → M6b → Art D1 → Art D2 → M6c → M6d → M7**, one per session, each playtested. **v0.1 art is "real but rough"**: every asset exists, polish after v0.1. Art passes are their own sessions (branch, Sean approves, merge).
 
-### M7 — On-device check (optional for v0.1)
+### Art pass B — UI kit, logo, fuse, vignette ← **next**
 
-- [ ] Android debug build (one-click deploy; Mobile renderer, then Compatibility on a low-end phone); iOS when a Mac is available
+- [ ] 9-slice pixel panels (dark ink + warm accent, board pixel unit, Resurrect 64): HUD panel, dialogue box (chunky border + ▼), button states, toast pill, inspect panel, end-banner frame, pause/options panel, scrim
+- [ ] Options widgets (slider + knob, On/Off toggle, Normal/Fast/Skip segmented control, speaker/muted icons), pause icon
+- [ ] Pixel logo "Four in a Rogue"; fuse strip (rope + burning spark, 24 px); subtle vignette
+- [ ] **Approval:** one mock set (title, HUD top bar, Strange Man dialogue box, pause + Options, vignette on), then final assets
+
+### Art pass C — the Strange Man
+
+- [ ] Full body ~96×160 game px + oval light pool, per the brief below → **stop for Sean's OK on the still**
+- [ ] Head-crop HUD portrait + 7 expressions: idle, thinking, happy, angry, surprised, celebrating, well played; crack + explode frames
+
+**Brief (Sean, 2026-11-20):** an **original** older mentor: grey-haired, has seen too much, yet friendly and wise; dirty and unkempt like a wanderer; loves Goobs more than anything and wants the player to succeed. **Ragged beanie** with medium-long grey hair showing, long grey beard, patched threadbare long coat over layered rags (muted earthy colours), frayed scarf, small Goob patch/charm; tired kind eyes, warm smile. **No** lab coat, staff or pointed hat; holds nothing. Archetype-inspired only — never a likeness of an existing character.
+
+### M6a — Flow and screens (needs Art B, C)
+
+- [ ] `GameFlow` ~0.3 s fades through black
+- [ ] Title: pixel logo over the Forest, a few idle **Vanilla** Goobs, pulsing "Tap to start", Options (stub until M6b), Quit on desktop only
+- [ ] Strange Man intro per §Flow: 5 pages, typing, ▼, Skip, blue + red Vanilla pop in on page 2, forest fade-in
+- [ ] **Coin flip rebuilt** per §Flow (still the superseded heads/tails stub today): swipe up / tap, 50/50, toss + rest, winner-colour flash + "goes first" banner, ≤ 3 s; draw replay over the forest
+- [ ] Sounds for what it builds (page click, coin, banner, UI tap)
+
+### M6b — HUD, pause, options, animation speed (needs Art B)
+
+- [ ] Pixel HUD (portrait idle), **Pause** replacing Quit; pause menu + scrim (stops timer, opponent, animations, SFX) + "Quit this scenario?" confirm
+- [ ] Options panel (title + pause): animation speed, haptics, screen shake, auto-flip coin, Master/Music/SFX sliders + mutes; settings file; audio buses
+- [ ] Haptics; red/blue turn banners
+- [ ] Normal / Fast / Skip on every animation + audio rules — **split into M6b-2 if the session overflows** (Sean, 2026-11-20)
+
+### Art pass D1 — Goob type sheets
+
+- [ ] Start by **interviewing Sean per type** (personality, mood, defining feature; Lore seed line as prompt); notes to the vault for his OK
+- [ ] Sheets (face, rim emblem, 7 expression keyframes, blue + red) for Convincing, Fat, Popular, Plentiful; **Vanilla keeps its current face, plain rim**; Sean approves each
+
+### Art pass D2 — Goob type production
+
+- [ ] Per type, blue + red: 7 expression loops (2–4 frames), board + hand stills, flip frames (PixelLab 8-dir Pro → `make_goob_flips.py`); `SpriteFrames`; `GoobDefinition` → its art; hand name labels removed
+
+### M6c — Opponent AI, play animations, reactions (needs Art C, D2)
+
+- [ ] Start with a **short AI grill** (heuristic, personality)
+- [ ] Hand-aware `OpponentAI`; player Goob flips from the hand, opponent's flips up from behind the board
+- [ ] Goob expressions wired (idle, giggle, surprised, worried, happy/sad/celebrating); portrait reactions per §Layout
+- [ ] Low-time fuse (last 10 s, 24 px strip, hand Goob worried); win/lose lead-ins; their sounds
+
+### M6d — Sound completion + smoke test
+
+- [ ] Remaining §Sound events + forest ambience; Fast/Skip/pause audio rules; mobile audio behaviour
+- [ ] Smoke **A1–A10**; known gaps documented
+
+### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)
+
+- [ ] Android debug build on the **Pixel 11** (Mobile renderer, then Compatibility); **Pixel 8** if available as the older phone; true low-end check = known gap; A9 on hardware. Retroid Pocket Nova (4:3) saved for the landscape version; iOS when a Mac is available
+
+**After v0.1:** Art pass E (per-type pixel impact VFX), polish of rough art, music, landscape/Steam, low-end device check.
 
 ---
 
@@ -298,7 +345,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 ## Out of scope (unless Sean asks)
 
-Music (after v0.1), multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types** (Sean, 2026-11-13: 17 more specials come after the starter four work, 21 special types in all; Sean specifies them later), balance changes beyond the starter five, final art (placeholders OK).
+Music (after v0.1), multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types** (Sean, 2026-11-13: 17 more specials come after the starter four work, 21 special types in all; Sean specifies them later), balance changes beyond the starter five, final art (v0.1 art is "real but rough", Sean 2026-11-20).
 
 Full-game vision: GameDev vault `Design/GDD.md` — **not v0.1 tasks**.
 
@@ -324,8 +371,11 @@ Everything else: implement from this file + existing scripts.
 | M3.6 | Same as M3.5 | 2D board; Goobs sit inside columns; even pixels at 1080×1920 and 1080×2340 |
 | M4 | Several turns, drag and tap | Draw/play limits; hand cap 5; cancel outside board; empty deck |
 | M5 | Play each special Goob | Effects match table; score on win line |
-| M6 | Let AI play | Blocks/wins when obvious; no softlock |
+| M6a | Title → Strange Man (+ Skip) → flip → scenario → draw replay | Fades, 5 pages, swipe flip ≤ 3 s |
+| M6b | Pause mid-turn/animation; every option | Pause freezes everything; options persist; Skip game has no stuck input |
+| M6c | Let AI play | Blocks/wins when obvious; reactions + fuse fire right; no softlock |
+| M6d / M7 | A1–A10 on desktop, then Pixel 11 | Ship checklist passes |
 
 ---
 
-*Last updated: 2026-11-20 (M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-20 (roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
