@@ -35,14 +35,14 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B and Art pass C accepted and merged (2026-11-20). Next: M6a.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B, Art pass C and M6a accepted and merged (2026-11-20). Next: M6b.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
 | 1 | **Art pass B** — UI kit ✅ | 9-slice pixel panels (HUD, dialogue box, buttons, toast, inspect, end banner, pause/options, scrim), Options widgets, pause + speaker icons, pixel logo, fuse strip art, vignette; approved as one mock set | — |
 | 2 | **Art pass C** — Strange Man ✅ | Full body ~96×160 + light pool (stop for Sean's OK) per the brief in `CLAUDE.md`; two painted intro Goobs (red flat, face up); HUD bust portrait drawn separately × 7 expressions; crack/explode frames | — |
-| 3 | **M6a** — Flow & screens ← **next** | 0.3 s fades; title (logo, idle Goobs, Tap to start, Options); Strange Man 5-page intro with Skip + Goob pop-in; **coin flip rebuilt** (swipe up, 50/50, winner-colour flash + banner, draw replay over the forest) — today it is still the superseded heads/tails stub | B, C |
-| 4 | **M6b** — HUD, pause, options, speed | Pixel HUD + Pause (replaces Quit) with scrim + Quit confirm; Options panel + persisted settings + audio buses; Normal/Fast/Skip everywhere; haptics; turn banners | B |
+| 3 | **M6a** — Flow & screens ✅ | 0.3 s fades; title (logo, idle Goobs, Tap to start, Options); Strange Man 5-page intro with Skip + Goob pop-in; **coin flip rebuilt** (swipe up, 50/50, winner-colour flash + banner, draw replay over the forest) | B, C |
+| 4 | **M6b** — HUD, pause, options, speed ← **next** | Pixel HUD + Pause (replaces Quit) with scrim + Quit confirm; Options panel + persisted settings + audio buses; Normal/Fast/Skip everywhere; haptics; turn banners | B |
 | 5 | **Art pass D1** — Goob type sheets | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
 | 6 | **Art pass D2** — Goob production | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
@@ -62,9 +62,9 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M5 Goob effects** | Accepted and merged 2026-11-20 |
 | **Art pass B** UI kit | Accepted and merged 2026-11-20 |
 | **Art pass C** Strange Man | Accepted and merged 2026-11-20 |
-| **M6a** Flow & screens | Built on `m6a-flow` 2026-11-20, playtest pending |
+| **M6a** Flow & screens | ✅ Accepted and merged 2026-11-20 |
 
-### M6a (built 2026-11-20, branch `m6a-flow`, waiting for Sean's playtest)
+### M6a (accepted by Sean and merged to `main` 2026-11-20)
 
 - `GameFlow.go_to(key, transition)`: `BLACK` (default), `FOREST` (cover = forest + vignette: the screen fades out leaving the forest; used for coin flip → scenario and draw replay), `CUT`. 0.3 s out + 0.3 s in; the old scene is `PROCESS_MODE_DISABLED` under the cover. `GameFlow.sfx` plays flow sounds so they survive the freeze. `GameFlow.fade_sec = 0` in tests. `GameFlow.auto_flip_coin` = M6b's Options row.
 - `PixelStage` (`scripts/ui/pixel_stage.gd`): canvas Control scaled to the board's pixel scale, children in game px (mock coordinates 1:1), canvas theme = Monogram 16/32/48 + kit buttons. `safe` = safe area in game px; screens re-place in `relayout`. Text is crisp at 4× (checked).
@@ -122,7 +122,7 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6a-flow`, 786 checks)
+### Tests (all pass on `main`, 786 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
@@ -153,7 +153,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently M6a playtest, then M6b) on a new branch; push it for Sean's playtest.
+3. Do the next item in CLAUDE.md §Milestones (currently M6b) on a new branch; push it for Sean's playtest.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.
