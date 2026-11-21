@@ -101,6 +101,10 @@ func _build() -> void:
 	_text.position = TEXT_INSET
 	_text.size = BOX.size - TEXT_INSET * 2.0
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Wrap the whole sentence first, then reveal it: a word being typed starts
+	# on the line it will end on (the default re-wraps per character, so long
+	# words jumped down mid-word; Sean 2026-11-20).
+	_text.visible_characters_behavior = TextServer.VC_CHARS_AFTER_SHAPING
 	_text.add_theme_color_override(&"font_shadow_color", PixelStage.INK0)
 	_text.add_theme_constant_override(&"shadow_offset_x", 0)
 	_text.add_theme_constant_override(&"shadow_offset_y", 1)

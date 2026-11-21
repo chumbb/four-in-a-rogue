@@ -294,6 +294,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 - [x] Strange Man intro per §Flow: 5 pages, typing (40 chars/s), blinking ▼, Skip, blue + red painted Goobs pop in on page 2, forest fade-in
 - [x] **Coin flip rebuilt** per §Flow: "Who goes first?" heading, swipe-up arrow under the coin (`assets/ui/swipe_arrow.png`, from `make_ui_kit.py`), swipe up / tap, 50/50, toss 0.6 s + rest 0.5 s, winner-colour flash + "You go first" / "Opponent goes first" banner 1.6 s, 0.5 s forest fades, release → board 3.7 s; `GameFlow.auto_flip_coin` hook for M6b's option
 - [x] Playtest 1 (Sean, 2026-11-20): "playtest works"; added the heading + arrow and slowed Strange Man → coin flip → scenario
+- [x] Playtest 2 fix: Strange Man typing wraps the whole sentence first (`VC_CHARS_AFTER_SHAPING`), so a word being typed starts on its final line instead of jumping down mid-word
 - [x] Sounds (`art/audio/make_flow_sounds.py`): press start, UI tap, page click, Goob pop, swipe, spin whirr (pitch rises with strength), coin clink, "goes first" sting
 - Pixel screens use `PixelStage` (`scripts/ui/pixel_stage.gd`): 270-wide game-pixel canvas at the board's whole-number scale, laid out 1:1 with the Art B/C mocks; vignette on title, Strange Man, coin flip, scenario
 

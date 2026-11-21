@@ -122,7 +122,7 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6a-flow`, 784 checks)
+### Tests (all pass on `m6a-flow`, 786 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
@@ -130,7 +130,7 @@ $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_
 & $g --headless -s res://tests/test_scenario.gd    # 331 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
-& $g --headless -s res://tests/test_flow_m3.gd     # 155
+& $g --headless -s res://tests/test_flow_m3.gd     # 157
 & $g --headless -s res://tests/test_opponent_ai.gd # 86
 ```
 

@@ -154,6 +154,15 @@ func _test_strange_man_pages() -> void:
 	_check(pages.size() == 5, "5 pages")
 	_check(" ".join(pages) == sm.OPENING_DIALOGUE, "pages = the locked text, one per sentence")
 	_check(sm.page == 0 and sm.is_typing(), "page 1 types")
+	_check(sm._text.visible_characters_behavior == TextServer.VC_CHARS_AFTER_SHAPING, "typing wraps the full sentence (no mid-word jumps)")
+	# Line breaks while typing match the finished page (long page 3, multi-line).
+	sm._text.text = pages[2]
+	sm._text.visible_characters = -1
+	var full_lines: int = sm._text.get_line_count()
+	sm._text.visible_characters = 30
+	_check(full_lines > 1 and sm._text.get_line_count() == full_lines, "half-typed page keeps its final line layout (%d lines)" % full_lines)
+	sm._text.text = pages[0]
+	sm._text.visible_characters = int(sm._shown)
 	_check(not sm._goobs.blue.visible and not sm._goobs.red.visible, "Goobs hidden on page 1")
 	sm.advance()
 	_check(sm.page == 0 and not sm.is_typing(), "first tap finishes typing")
