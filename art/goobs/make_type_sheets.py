@@ -48,6 +48,7 @@ EYE = {
     "side":    [".WW.", "WWWW", "WWKK", "WWKK", ".WW."],          # not mirrored
     "halflid": ["KKKK", "WKKW", ".WW."],                          # at y13
     "squint":  ["KKKK", "_KK_"],                                  # at y13
+    "puffed":  [".KK.", "K..K"],                                  # ^ pushed up by cheeks, at y13
     "sparkle": [".WW.", "WWKW", "WKKW", "WKKW", ".WW."],          # not mirrored (light top-left)
     "star":    ["..Y..", "YYYYY", ".YYY.", ".Y.Y."],              # 5 wide, x-1, y12
     "kind":    [".WW.", "WKKW", "KKKK"],                          # at y12
@@ -55,7 +56,7 @@ EYE = {
 # (shape, y, mirror_right, x_shift)
 EYE_POS = {"open": (11, 1, 0), "blink": (13, 1, 0), "arc": (12, 1, 0), "u": (13, 1, 0),
            "wide": (11, 1, -1), "down": (11, 1, 0), "side": (11, 0, 0), "halflid": (13, 1, 0),
-           "squint": (13, 1, 0), "sparkle": (11, 0, 0), "star": (12, 1, -1), "kind": (12, 1, 0)}
+           "squint": (13, 1, 0), "puffed": (13, 1, 0), "sparkle": (11, 0, 0), "star": (12, 1, -1), "kind": (12, 1, 0)}
 
 BROW = {  # left brow; right is mirrored
     "sad":    ["..KK", "KK.."],       # inner end up, at y9
@@ -91,8 +92,8 @@ EXTRA = {  # (shape, x, y, mirrored copy x or None)
     "fatblush":  (["PPP.", "PQQP", ".PP."], 8, 16, 21),
     "fatnose":   (["PQP"], 15, 16, None),
     "fatcheek":  (["H"], 9, 15, 23),
-    "chin":      (["S.........S", ".SSSSSSSSS."], 11, 22, None),
-    "scar":      (["H..", ".H.", "..H"], 9, 9, None),
+    "jowl":      (["S...............S", ".S.............S.", "..SS.........SS..", "....SSSSSSSSS...."], 8, 20, None),
+    "scar":      (["S.", "S.", ".S"], 9, 10, None),
     "sweat":     ([".W.", "TTT", ".T."], 23, 9, None),
     "tears":     (["T", "T"], 11, 16, 21),
     "joytear":   (["T", "T"], 23, 15, None),
@@ -104,6 +105,7 @@ EXTRA = {  # (shape, x, y, mirrored copy x or None)
 
 # ---------------------------------------------------------------- face design
 # Each expression: eyes, brows (or None), mouth, extras.
+FAT = ["jowl", "fatblush", "fatnose", "fatcheek", "scar"]  # chubby, drunk blush, old scar
 TYPES = {
     "vanilla": {
         "title": "Vanilla Goob", "tag": "ordinary, content - the plain baseline", "rim": None,
@@ -127,6 +129,18 @@ TYPES = {
             "celebrating": ("arc", None, "opensmile", []),
             "surprised":   ("wide", "raised", "o", []),
             "worried":     ("side", "sad", "tight", ["sweat"]),
+        },
+    },
+    "fat": {
+        "title": "Fat Goob", "tag": "Falstaff - jolly red-faced braggart", "rim": "shields",
+        "faces": {
+            "idle":        ("puffed", None, "fatsmile", FAT),
+            "giggle":      ("blink", None, "fatgrin", FAT),
+            "happy":       ("puffed", None, "fatgrin", FAT),
+            "sad":         ("down", "sad", "frown", FAT),
+            "celebrating": ("arc", None, "fatroar", FAT),
+            "surprised":   ("wide", "raised", "o", FAT),
+            "worried":     ("side", "sad", "wobbly", FAT + ["sweat"]),
         },
     },
 }
@@ -181,6 +195,7 @@ def rim_pixels(im, team):
 # (glyph, count, radius, start angle)
 RIM = {
     "eyes": ("LDL", 8, 13.0, 0.0),
+    "shields": ("DDD", 8, 13.0, math.pi / 8),
 }
 
 
