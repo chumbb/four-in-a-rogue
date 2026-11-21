@@ -35,13 +35,13 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B accepted and merged (2026-11-20). Art pass C in progress (branch `art-c-strange-man`; see §Art pass C — HANDOFF below).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B and Art pass C accepted and merged (2026-11-20). Next: M6a.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
 | 1 | **Art pass B** — UI kit ✅ | 9-slice pixel panels (HUD, dialogue box, buttons, toast, inspect, end banner, pause/options, scrim), Options widgets, pause + speaker icons, pixel logo, fuse strip art, vignette; approved as one mock set | — |
-| 2 | **Art pass C** — Strange Man ← **next** | Full body ~96×160 + light pool (stop for Sean's OK) per the brief in `CLAUDE.md`; two painted intro Goobs (red flat, face up); HUD bust portrait drawn separately × 7 expressions; crack/explode frames | — |
-| 3 | **M6a** — Flow & screens | 0.3 s fades; title (logo, idle Goobs, Tap to start, Options); Strange Man 5-page intro with Skip + Goob pop-in; **coin flip rebuilt** (swipe up, 50/50, winner-colour flash + banner, draw replay over the forest) — today it is still the superseded heads/tails stub | B, C |
+| 2 | **Art pass C** — Strange Man ✅ | Full body ~96×160 + light pool (stop for Sean's OK) per the brief in `CLAUDE.md`; two painted intro Goobs (red flat, face up); HUD bust portrait drawn separately × 7 expressions; crack/explode frames | — |
+| 3 | **M6a** — Flow & screens ← **next** | 0.3 s fades; title (logo, idle Goobs, Tap to start, Options); Strange Man 5-page intro with Skip + Goob pop-in; **coin flip rebuilt** (swipe up, 50/50, winner-colour flash + banner, draw replay over the forest) — today it is still the superseded heads/tails stub | B, C |
 | 4 | **M6b** — HUD, pause, options, speed | Pixel HUD + Pause (replaces Quit) with scrim + Quit confirm; Options panel + persisted settings + audio buses; Normal/Fast/Skip everywhere; haptics; turn banners | B |
 | 5 | **Art pass D1** — Goob type sheets | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
 | 6 | **Art pass D2** — Goob production | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
@@ -61,11 +61,10 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **Writing session** | Accepted and merged 2026-11-19 |
 | **M5 Goob effects** | Accepted and merged 2026-11-20 |
 | **Art pass B** UI kit | Accepted and merged 2026-11-20 |
-| **Art pass C** Strange Man | **In progress** on branch `art-c-strange-man`; see below |
+| **Art pass C** Strange Man | Accepted and merged 2026-11-20 |
 
-### Art pass C — HANDOFF (2026-11-20, in progress, NOT merged)
+### Art pass C (accepted and merged 2026-11-20)
 
-Branch **`art-c-strange-man`** (pushed). Check it out to continue; do not merge until Sean approves everything.
 Build: `python art/strange_man/make_strange_man.py c_pro3` writes `assets/strange_man/*`, `art/strange_man/mock_intro.png` (intro mock) and `art/strange_man/sheet_portraits.png` (review sheet). The whole history is in the vault session log `2026-11-20 Claude - Art pass C Strange Man.md` and the Decision-Log.
 
 **Settled by Sean:**
@@ -86,12 +85,7 @@ Sean hasn't yet given an explicit OK on the bust, the expressions or the crack/e
   - Wired via `RED_SRC` in `make_strange_man.py`.
   - Rejected along the way: PixelLab tries, the squash/tip hack, and the blue rotated 90° (no flat edges and no "on the ground" look). Sean: it must lie **flat on the ground** and be **perfectly circular**.
 
-**Still to do before merging:** Sean's explicit OK on the bust, the 7 expressions and the crack/explode frames. They are on `art/strange_man/sheet_portraits.png`.
-
-**After Sean approves:**
-- Tick the Art pass C items in `CLAUDE.md` and in the table above.
-- Log the acceptance in the vault.
-- Merge `art-c-strange-man` into `main` and push.
+Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-20, "portraits are good").
 
 **Note for M6b:** the bust is 64 px; the HUD portrait slot is 44 today and is meant to grow later.
 
