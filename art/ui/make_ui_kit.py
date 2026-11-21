@@ -11,6 +11,7 @@ Outputs in assets/ui/ (9-slice margins = the `MARGINS` table below, in game px):
   window.png           pause / options / inspect window (panel + gold corner studs)
   dialogue.png         Strange Man dialogue box (chunky 2 px gold border)
   dialogue_arrow.png   blinking "next page" triangle
+  swipe_arrow.png      coin flip "swipe up" hint: chunky up arrow under the coin (M6a)
   button_normal.png    honey button with a 2 px lip; _pressed sinks 2 px; _disabled greyed
   toast.png            toast pill; toast_error.png + icon_error.png for errors (Column full, Hand full)
   divider_h.png / divider_v.png  thick section bars inside the one-block HUD
@@ -161,6 +162,28 @@ def dialogue_arrow():
             elif ch == "o":
                 px[x, y] = GOLD_HI if y < 2 else GOLD
     return img
+
+
+def swipe_arrow():
+    """Up arrow for the coin flip's swipe hint: honey, ink outline, lit left side."""
+    rows = [
+        "......#......",
+        ".....#h#.....",
+        "....#hho#....",
+        "...#hhooo#...",
+        "..#hhooooo#..",
+        ".#hhooooooo#.",
+        "#hhooooooooo#",
+        "####hhooo####",
+        "...#hhooo#...",
+        "...#hhooo#...",
+        "...#hhooo#...",
+        "...#hhooo#...",
+        "...#hhooo#...",
+        "...#lllll#...",
+        "...#######...",
+    ]
+    return bitmap(rows, {"#": INK0, "h": GOLD_HI, "o": GOLD, "l": GOLD_LO})
 
 
 def button(state, w=12, h=16):
@@ -543,6 +566,7 @@ def build():
         "window": window(),
         "dialogue": dialogue(),
         "dialogue_arrow": dialogue_arrow(),
+        "swipe_arrow": swipe_arrow(),
         "button_normal": button("normal"),
         "button_pressed": button("pressed"),
         "button_disabled": button("disabled"),

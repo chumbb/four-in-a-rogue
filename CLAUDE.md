@@ -40,13 +40,13 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently **M6a** — flow and screens; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently **M6a** playtest, then **M6b** — HUD, pause, options; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20) | **M6a** (flow and screens), then M6b → Art D1/D2 → M6c → M6d → M7 (approved 2026-11-20) |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20) | **M6a** built (branch `m6a-flow`, playtest pending), then M6b → Art D1/D2 → M6c → M6d → M7 (approved 2026-11-20) |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -72,7 +72,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 - Boot → Title (painted **Goob kingdom vista** with painted Goobs scattered in it + pixel logo; Sean 2026-11-20) → **Strange Man** (dialogue below; full body ~96×160 game px on an oval light pool, the **forest barely visible behind** (fades into focus when the round starts; Sean 2026-11-20); bottom dialogue box, blinking ▼, 5 pages = one per sentence; a blue and a red Vanilla Goob, **painted, not the game-piece sprites** (Sean 2026-11-20), pop in beside him on "This is a land of Goobs." — blue upright, red flat; Skip button) → forest fades in → **Coin flip** → board transitions in → Scenario. Scenes change with ~0.3 s fades through black (not affected by animation speed).
 - **Coin flip (Sean, 2026-11-13; supersedes "player picks heads/tails"):** no pick. The coin is a Vanilla Goob with a blue face and a red face in the screen centre; the player **swipes up anywhere** (starting on the coin = stronger toss; a tap = gentle toss); **50/50 random**, the landed colour goes first (blue = player). Stronger toss = more spins/arc in the same ~0.6 s. Options **Auto-flip coin** (default Off) flips ~0.5 s after the screen appears. After a draw the board fades out, the flip happens over the forest, the board returns.
 - **Tapping the start screen counts as Press Start** (a mouse click on desktop). Strange Man plays **after every Press Start** (old man in Goob-land clothes; he holds nothing, his two Goobs pop in beside him — Sean 2026-11-13/20, was "holding one Goob" 2026-11-02). No separate tutorial.
-- Coin winner moves first (`GameFlow.player_moves_first`). The whole coin flip lasts **≤ 3 s** (Sean, 2026-11-11); M6 animation: coin pops in, ~0.6 s toss, ~0.5 s rest, full-screen flash in the **winner's colour** (blue player / red opponent) + "goes first" banner ~1 s. **Scenario begins as soon as the flip is decided** (no extra start button).
+- Coin winner moves first (`GameFlow.player_moves_first`). Release → board on screen **~4 s** (Sean, 2026-11-20, so the player can register the result; was ≤ 3 s, 2026-11-11); M6 animation: **"Who goes first?"** heading at the top, then the coin pops in with an **animated arrow under it pointing up at it** (swipe hint; Sean 2026-11-20), ~0.6 s toss, ~0.5 s rest, full-screen flash in the **winner's colour** (blue player / red opponent) + "goes first" banner ~1.6 s, then a slower (0.5 s) forest fade to the board. Strange Man → coin flip is also unhurried: he fades out, the forest comes into focus (~1 s), a short beat, then the coin flip (Sean 2026-11-20). **Scenario begins as soon as the flip is decided** (no extra start button).
 - Win or lose → scoring sequence → **Title**. **Draw** (no four, or both sides four) → no scoring sequence, skip Strange Man (`GameFlow.replay_after_draw()` on `m3-turn-loop` goes straight to the coin flip), coin flip again, reshuffle decks, starting hand 2, empty board.
 
 **Strange Man (exact):**
@@ -287,13 +287,16 @@ Full plan + gap table: vault `Design/Roadmap v0.1 - remaining art and code.md`. 
 
 Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man.py c_pro3`): `full_body.png` 96×160, `light_pool.png`, `intro_goob_blue|red.png` (red = flat on the ground, face up, perfect-circle top; `goobs/make_red_flat.py`), `portrait_<expression>.png` 64 px bust, `portrait_crack.png` (3 frames), `portrait_explode.png` (6 × 128 px). Mock `art/strange_man/mock_intro.png`.
 
-### M6a — Flow and screens (needs Art B, C) ← **next**
+### M6a — Flow and screens (needs Art B, C) ← **built on branch `m6a-flow`, waiting for Sean's playtest**
 
-- [ ] `GameFlow` ~0.3 s fades through black
-- [ ] Title: pixel logo over the Forest, a few idle **Vanilla** Goobs, pulsing "Tap to start", Options (stub until M6b), Quit on desktop only
-- [ ] Strange Man intro per §Flow: 5 pages, typing, ▼, Skip, blue + red Vanilla pop in on page 2, forest fade-in
-- [ ] **Coin flip rebuilt** per §Flow (still the superseded heads/tails stub today): swipe up / tap, 50/50, toss + rest, winner-colour flash + "goes first" banner, ≤ 3 s; draw replay over the forest
-- [ ] Sounds for what it builds (page click, coin, banner, UI tap)
+- [x] `GameFlow` fades (`go_to(key, Transition.BLACK|FOREST|CUT)`, 0.3 s out + 0.3 s in): black for title ↔ play; **forest cover** for coin flip → board and the draw replay (board fades out leaving the forest); Strange Man fades his own forest in, then cuts
+- [x] Title: pixel logo over the painted Goob kingdom vista (its painted Goobs are the idle Goobs, per Decision-Log 2026-11-20), pulsing "Tap to start", Options (stub toast until M6b), Quit on desktop only; taps on buttons don't start
+- [x] Strange Man intro per §Flow: 5 pages, typing (40 chars/s), blinking ▼, Skip, blue + red painted Goobs pop in on page 2, forest fade-in
+- [x] **Coin flip rebuilt** per §Flow: "Who goes first?" heading, swipe-up arrow under the coin (`assets/ui/swipe_arrow.png`, from `make_ui_kit.py`), swipe up / tap, 50/50, toss 0.6 s + rest 0.5 s, winner-colour flash + "You go first" / "Opponent goes first" banner 1.6 s, 0.5 s forest fades, release → board 3.7 s; `GameFlow.auto_flip_coin` hook for M6b's option
+- [x] Playtest 1 (Sean, 2026-11-20): "playtest works"; added the heading + arrow and slowed Strange Man → coin flip → scenario
+- [x] Playtest 2 fix: Strange Man typing wraps the whole sentence first (`VC_CHARS_AFTER_SHAPING`), so a word being typed starts on its final line instead of jumping down mid-word
+- [x] Sounds (`art/audio/make_flow_sounds.py`): press start, UI tap, page click, Goob pop, swipe, spin whirr (pitch rises with strength), coin clink, "goes first" sting
+- Pixel screens use `PixelStage` (`scripts/ui/pixel_stage.gd`): 270-wide game-pixel canvas at the board's whole-number scale, laid out 1:1 with the Art B/C mocks; vignette on title, Strange Man, coin flip, scenario
 
 ### M6b — HUD, pause, options, animation speed (needs Art B)
 
@@ -374,11 +377,11 @@ Everything else: implement from this file + existing scripts.
 | M3.6 | Same as M3.5 | 2D board; Goobs sit inside columns; even pixels at 1080×1920 and 1080×2340 |
 | M4 | Several turns, drag and tap | Draw/play limits; hand cap 5; cancel outside board; empty deck |
 | M5 | Play each special Goob | Effects match table; score on win line |
-| M6a | Title → Strange Man (+ Skip) → flip → scenario → draw replay | Fades, 5 pages, swipe flip ≤ 3 s |
+| M6a | Title → Strange Man (+ Skip) → flip → scenario → draw replay | Fades, 5 pages, swipe flip ~4 s to the board |
 | M6b | Pause mid-turn/animation; every option | Pause freezes everything; options persist; Skip game has no stuck input |
 | M6c | Let AI play | Blocks/wins when obvious; reactions + fuse fire right; no softlock |
 | M6d / M7 | A1–A10 on desktop, then Pixel 11 | Ship checklist passes |
 
 ---
 
-*Last updated: 2026-11-20 (Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-20 (M6a built on `m6a-flow`: fades, title, Strange Man intro, swipe coin flip, flow sounds; playtest pending; Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*

@@ -26,7 +26,7 @@ claude
 - Canonical v0.1 rules: `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md`
 - Full GDD: `Projects/Four-in-a-Rogue/Design/GDD.md`
 - Decision log: `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`
-- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-20 Claude - Art pass C Strange Man.md`
+- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-20 Claude - M6a flow and screens.md`
 - Vault agent rules: `GameDev/CLAUDE.md`
 
 **Conflict rule:** Obsidian vault wins over repo `CLAUDE.md` for game design.
@@ -62,6 +62,17 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M5 Goob effects** | Accepted and merged 2026-11-20 |
 | **Art pass B** UI kit | Accepted and merged 2026-11-20 |
 | **Art pass C** Strange Man | Accepted and merged 2026-11-20 |
+| **M6a** Flow & screens | Built on `m6a-flow` 2026-11-20, playtest pending |
+
+### M6a (built 2026-11-20, branch `m6a-flow`, waiting for Sean's playtest)
+
+- `GameFlow.go_to(key, transition)`: `BLACK` (default), `FOREST` (cover = forest + vignette: the screen fades out leaving the forest; used for coin flip → scenario and draw replay), `CUT`. 0.3 s out + 0.3 s in; the old scene is `PROCESS_MODE_DISABLED` under the cover. `GameFlow.sfx` plays flow sounds so they survive the freeze. `GameFlow.fade_sec = 0` in tests. `GameFlow.auto_flip_coin` = M6b's Options row.
+- `PixelStage` (`scripts/ui/pixel_stage.gd`): canvas Control scaled to the board's pixel scale, children in game px (mock coordinates 1:1), canvas theme = Monogram 16/32/48 + kit buttons. `safe` = safe area in game px; screens re-place in `relayout`. Text is crisp at 4× (checked).
+- Title `scripts/app/title.gd`, Strange Man `scripts/app/strange_man.gd` (`PAGES`, `advance()`, `finish()`), coin flip `scripts/ui/coin_flip.gd` (`strength_for()`, `toss()`, `frame_at()`; pitch frames: half turn = A 0,1,2 → B 6,7 → B 0).
+- Sounds: `python art/audio/make_flow_sounds.py` (no packs needed).
+- Dev screenshot tools (not tests): `tests/capture_flow.gd -- <dir> <w> <h> [insets]`, `tests/capture_e2e.gd -- <dir>` (run windowed with `--path .`).
+- Gotcha: use `set_anchors_and_offsets_preset` for full-rect nodes built in code; `set_anchors_preset` on a node already in the tree keeps its 0×0 size.
+- Gotcha: `root.push_input(ev, true)` in tests when positions are in viewport (720-base) coordinates; the test window is 1080×1920.
 
 ### Art pass C (accepted and merged 2026-11-20)
 
@@ -111,7 +122,7 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `main`, 644 checks)
+### Tests (all pass on `m6a-flow`, 786 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
@@ -119,7 +130,7 @@ $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_
 & $g --headless -s res://tests/test_scenario.gd    # 331 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
-& $g --headless -s res://tests/test_flow_m3.gd     # 15
+& $g --headless -s res://tests/test_flow_m3.gd     # 157
 & $g --headless -s res://tests/test_opponent_ai.gd # 86
 ```
 
@@ -142,7 +153,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently the writing session) on a new branch; push it for Sean's playtest.
+3. Do the next item in CLAUDE.md §Milestones (currently M6a playtest, then M6b) on a new branch; push it for Sean's playtest.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.
