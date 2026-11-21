@@ -52,7 +52,7 @@ EYE = {
     "small":   [".WW.", "WKKW", "WKKW"],                          # Fat: cheeks squeeze the eyes, y12
     "smalldown": [".WW.", "WWWW", "WKKW"],
     "smallside": [".WW.", "WWKK", "WWKK"],                        # not mirrored
-    "sparkle": [".WW.", "WWKW", "WKKW", "WKKW", ".WW."],          # not mirrored (light top-left)
+    "sparkle": [".KK.", "KWKK", "KKKK", "KKWK", ".KK."],          # Popular: dark eyes, two glints; not mirrored (light top-left)
     "star":    ["..Y..", "YYYYY", ".YYY.", ".Y.Y."],              # 5 wide, x-1, y12
     "kind":    [".WW.", "WKKW", "KKKK"],                          # at y12
 }
@@ -156,6 +156,18 @@ TYPES = {
             "worried":     ("side", "sad", "fat_wobble", FAT + ["sweat"]),
         },
     },
+    "popular": {
+        "title": "Popular Goob", "tag": "beaming court favourite", "rim": "stars",
+        "faces": {
+            "idle":        ("sparkle", None, "opensmile", ["blush"]),
+            "giggle":      ("arc", None, "laugh", ["blush", "twinkle"]),
+            "happy":       ("star", None, "opensmile", ["blush"]),
+            "sad":         ("sparkle", "sad", "wobbly", ["tears"]),
+            "celebrating": ("star", None, "bigopen", ["blush", "twinkle", "twinkle2"]),
+            "surprised":   ("wide", "raised", "o", ["blush"]),
+            "worried":     ("side", "sad", "grimace", ["sweat"]),
+        },
+    },
 }
 
 
@@ -209,6 +221,7 @@ def rim_pixels(im, team):
 RIM = {
     "eyes": ("LDL", 8, 13.0, 0.0),
     "shields": ("DDD", 8, 13.0, math.pi / 8),
+    "stars": ("L", 12, 13.0, 0.0),
 }
 
 
