@@ -520,6 +520,19 @@ def logo():
     return img.crop(img.getbbox())
 
 
+def heading_who_goes_first():
+    """Coin flip heading in the logo's gold letters (no Goobs; Sean 2026-11-21).
+    Caps only: the glyph crop keeps the cap height, so descenders would be cut."""
+    ramp = [GOLD_HI, GOLD_HI, GOLD, GOLD, GOLD_LO]
+    lines = [shade_letters(glyph_mask(t, 3), ramp) for t in ("WHO GOES", "FIRST?")]
+    gap = -4  # the drop-shadow rows overlap, like the logo's lines
+    w = max(p.width for p in lines)
+    img = Image.new("RGBA", (w, sum(p.height for p in lines) + gap), CLEAR)
+    img.alpha_composite(lines[0], ((w - lines[0].width) // 2, 0))
+    img.alpha_composite(lines[1], ((w - lines[1].width) // 2, lines[0].height + gap))
+    return img.crop(img.getbbox())
+
+
 # --- fuse ------------------------------------------------------------------------
 
 ROPE_LIGHT = hexc("ab947a")
@@ -612,6 +625,7 @@ def build():
         "icon_speaker": icon_speaker(False),
         "icon_speaker_muted": icon_speaker(True),
         "logo": logo(),
+        "heading_who_goes_first": heading_who_goes_first(),
         "fuse_rope": fuse_rope(),
         "fuse_burnt": fuse_burnt(),
         "fuse_spark": fuse_spark(),
