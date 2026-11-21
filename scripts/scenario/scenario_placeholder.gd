@@ -163,6 +163,7 @@ func _ready() -> void:
 	_board_view.item_rect_changed.connect(_layout_table.call_deferred)
 	_layout_table.call_deferred()
 	_loop.start(GameFlow.player_moves_first, _rng, deck)
+	_board_view.goob_lookup = _loop.goob_at
 	_board_view.sync_from_board(_loop.board)
 	# The player's first-turn draw is revealed by _after_play(), so the fan
 	# starts without it.
@@ -523,10 +524,13 @@ func _hide_flash() -> void:
 
 
 ## Player aim feedback: blue column flash + their Goob floating on top of the
-## board over that column.
-func _show_aim(column: int) -> void:
+## board over that column. `goob` defaults to the selected hand Goob.
+func _show_aim(column: int, goob: GoobDefinition = null) -> void:
+	var hand := _loop.player_deck.hand
+	if goob == null and _selected >= 0 and _selected < hand.size():
+		goob = hand[_selected]
 	_show_flash(column, COLOR_FLASH_PLAYER)
-	_board_view.show_preview(column, BoardState.CellOwner.PLAYER)
+	_board_view.show_preview(column, BoardState.CellOwner.PLAYER, goob)
 
 
 func _hide_aim() -> void:
@@ -576,17 +580,18 @@ func _play_selected(column: int) -> void:
 func _play_player(column: int, hand_index: int, roll_path: Array[int] = []) -> int:
 	_set_input_enabled(false) # locked until the drop finishes
 	_hand.remove(hand_index)
+	var goob: GoobDefinition = _loop.player_deck.hand[hand_index]
 	var row := _loop.play(column, hand_index)
-	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path)
+	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path, goob)
 	return row
 
 
 ## The Goob falls (or rolls) into place, its effect plays, then the next turn
 ## starts. §4.2 order: land → special effect → win check last (TurnLoop has
 ## already resolved all three; this shows them in that order).
-func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = []) -> void:
+func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null) -> void:
 	var effect := _loop.last_effect
-	await _board_view.play_drop(column, row, side, roll_path)
+	await _board_view.play_drop(column, row, side, roll_path, goob)
 	_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 	if side == BoardState.CellOwner.PLAYER:
 		Settings.vibrate() # one pulse when your Goob lands (slice §2B)
@@ -670,7 +675,7 @@ func _on_turn_timeout() -> void:
 	_timeout_column = _loop.board.roll_target(column, rightward)
 	_timeout_path = _roll_path(column, rightward)
 	if timeout_reveal_sec > 0.0:
-		_show_aim(column)
+		_show_aim(column, _loop.player_deck.hand[_timeout_hand_index])
 		_timeout_timer.start(timeout_reveal_sec)
 	else:
 		_finish_timeout()
@@ -777,11 +782,12 @@ func _on_opponent_flash_done() -> void:
 func _play_opponent_move() -> void:
 	# Until the M6 AI: a random Goob from its hidden hand (Sean, 2026-11-13).
 	var hand_index := _rng.randi_range(0, _loop.opponent_deck.hand.size() - 1)
+	var goob: GoobDefinition = _loop.opponent_deck.hand[hand_index]
 	var row := _loop.play(_opponent_column, hand_index)
 	if row == -1:
 		push_error("Scenario: opponent chose illegal column %d" % _opponent_column)
 		return
-	_land_then_continue(_opponent_column, row, BoardState.CellOwner.OPPONENT)
+	_land_then_continue(_opponent_column, row, BoardState.CellOwner.OPPONENT, [], goob)
 
 
 func _show_end() -> void:

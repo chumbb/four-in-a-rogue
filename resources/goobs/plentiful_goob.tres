@@ -9,4 +9,5 @@ display_name = "Plentiful Goob"
 multiplier = 0.5
 effect_description = "Draw 2 Goobs."
 effect_type = 4
+art_id = "plentiful"
 flavour_text = "Once there were granaries full of them. Not since the calamity..."

@@ -44,8 +44,7 @@ const FLOAT_BOB_SEC := 0.4
 
 const TEX_BACK := preload("res://assets/board/board_back.png")
 const TEX_FRONT := preload("res://assets/board/board_front.png")
-const TEX_PLAYER := preload("res://assets/goobs/vanilla/blue_yaw/frame_00.png")
-const TEX_OPPONENT := preload("res://assets/goobs/vanilla/red_yaw/frame_00.png")
+const VANILLA := preload("res://resources/goobs/vanilla_goob.tres")
 const OUTLINE_SHADER := preload("res://shaders/pixel_outline.gdshader")
 
 ## M5 impact animations (placeholders until each type has its own art). Every
@@ -71,10 +70,6 @@ const SHAKE_SMALL: Array[int] = [2, -2, 1, -1, 0]
 const SHAKE_BIG: Array[int] = [6, -6, 5, -5, 3, -3, 2, -2, 1, -1, 0]
 ## Convincing flip: the target is knocked up and spins about its vertical
 ## axis (baked yaw frames, back face included) into the new colour.
-const YAW_DIR := {
-	BoardState.CellOwner.PLAYER: "res://assets/goobs/vanilla/blue_yaw/frame_%02d.png",
-	BoardState.CellOwner.OPPONENT: "res://assets/goobs/vanilla/red_yaw/frame_%02d.png",
-}
 const FLIP_OLD_FRAMES: Array[int] = [0, 1, 2, 3, 4, 5] ## face → edge → back → edge
 const FLIP_NEW_FRAMES: Array[int] = [6, 7, 0] ## edge → face, new colour
 const FLIP_FRAME_SEC := 0.06
@@ -157,7 +152,10 @@ var _outline: ShaderMaterial
 var _outline_gold: ShaderMaterial
 var _preview: Sprite2D
 var _preview_tween: Tween
-var _yaw: Dictionary = {} ## side -> Array of the 8 yaw frame textures
+var _token_goob: Dictionary = {} ## Vector2i -> GoobDefinition (its art)
+## Which Goob sits in a cell, for sync_from_board: (column, row) -> GoobDefinition
+## or null (Vanilla). The scenario sets TurnLoop.goob_at.
+var goob_lookup: Callable
 
 
 func _ready() -> void:
@@ -175,7 +173,7 @@ func _ready() -> void:
 	_goobs = Node2D.new()
 	_goobs.name = "Goobs"
 	_pixel.add_child(_goobs)
-	_preview = _make_sprite(TEX_PLAYER, "Preview")
+	_preview = _make_sprite(VANILLA.still(BoardState.CellOwner.PLAYER), "Preview")
 	_preview.material = _outline
 	_preview.visible = false
 	_goobs.add_child(_preview)
@@ -183,11 +181,6 @@ func _ready() -> void:
 	_fx = Node2D.new()
 	_fx.name = "Effects"
 	_pixel.add_child(_fx)
-	for side: BoardState.CellOwner in YAW_DIR:
-		var frames: Array[Texture2D] = []
-		for i in 8:
-			frames.append(load(YAW_DIR[side] % i) as Texture2D)
-		_yaw[side] = frames
 	get_viewport().size_changed.connect(_update_scale)
 	item_rect_changed.connect(_place_layer)
 	_update_scale()
@@ -203,11 +196,12 @@ func sync_from_board(board: BoardState) -> void:
 			var cell := Vector2i(column, row)
 			var side := board.get_owner(column, row)
 			var had: BoardState.CellOwner = _token_owner.get(cell, BoardState.CellOwner.EMPTY)
-			if side == had:
+			var goob := _lookup(cell) if side != BoardState.CellOwner.EMPTY else null
+			if side == had and (side == BoardState.CellOwner.EMPTY or goob == _token_goob.get(cell)):
 				continue
 			_remove_token(cell)
 			if side != BoardState.CellOwner.EMPTY:
-				_add_token(cell, side).position = cell_position(column, row)
+				_add_token(cell, side, goob).position = cell_position(column, row)
 	clear_highlight()
 
 
@@ -216,12 +210,13 @@ func sync_from_board(board: BoardState) -> void:
 ## column) it appears over roll_path[0], rolls along the path and falls into
 ## its last column. An off-board entry in the path (-1 or COLUMNS) is a bounce
 ## off that edge. The Goob counts as on the board at once, so a sync during
-## the animation does not duplicate it. Await this to know when it has landed.
-func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = []) -> void:
+## the animation does not duplicate it. `goob` picks its art (null = Vanilla).
+## Await this to know when it has landed.
+func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null) -> void:
 	hide_preview()
 	var cell := Vector2i(column, row)
 	_remove_token(cell)
-	var token := _add_token(cell, side)
+	var token := _add_token(cell, side, goob)
 	var target := cell_position(column, row)
 	if not animate:
 		token.position = target
@@ -252,8 +247,9 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 		return
 	var old: BoardState.CellOwner = _token_owner[target]
 	_token_owner[target] = side
+	var goob: GoobDefinition = _token_goob.get(target, VANILLA)
 	if not animate:
-		token.texture = _tex(side)
+		token.texture = goob.still(side)
 		drop_sound.emit(&"flip", side) # Skip keeps the impact sound
 		return
 	await _charge(source)
@@ -268,18 +264,20 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	hop.tween_method(_set_y.bind(token), base_y, base_y - FLIP_HOP_PX, spin_sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	hop.tween_method(_set_y.bind(token), base_y - FLIP_HOP_PX, base_y, spin_sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	var frames := _tween()
+	var old_yaw := goob.yaw_frames(old)
+	var new_yaw := goob.yaw_frames(side)
 	for i in FLIP_OLD_FRAMES:
-		frames.tween_callback(_set_texture.bind(token, (_yaw[old] as Array)[i]))
+		frames.tween_callback(_set_texture.bind(token, old_yaw[i]))
 		frames.tween_interval(FLIP_FRAME_SEC)
 	for i in FLIP_NEW_FRAMES:
-		frames.tween_callback(_set_texture.bind(token, (_yaw[side] as Array)[i]))
+		frames.tween_callback(_set_texture.bind(token, new_yaw[i]))
 		frames.tween_interval(FLIP_FRAME_SEC)
 	token.reparent(_fx, false) # knocked out of its hole, in front of the board
 	await hop.finished
 	token.reparent(_goobs, false)
 	token.position = cell_position(target.x, target.y)
 	drop_sound.emit(&"rest", side)
-	token.texture = _tex(side)
+	token.texture = goob.still(side)
 	shake(SHAKE_SMALL)
 	_burst(_centre_px(target), COLOR_DEBRIS[side], SPARKLE_COUNT, SPARKLE_SPEED, SPARKLE_GRAVITY)
 	await _glow(token)
@@ -304,6 +302,7 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 	# Re-key: the target leaves, everything above moves down a row.
 	_tokens.erase(target)
 	_token_owner.erase(target)
+	_token_goob.erase(target)
 	var falling: Array[Sprite2D] = []
 	for r in range(target.y + 1, ROWS):
 		var cell := Vector2i(target.x, r)
@@ -312,8 +311,10 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 		var below := Vector2i(target.x, r - 1)
 		_tokens[below] = _tokens[cell]
 		_token_owner[below] = _token_owner[cell]
+		_token_goob[below] = _token_goob[cell]
 		_tokens.erase(cell)
 		_token_owner.erase(cell)
+		_token_goob.erase(cell)
 		falling.append(_tokens[below])
 	if not animate:
 		drop_sound.emit(&"crunch", side)
@@ -460,9 +461,9 @@ func grid_center() -> Vector2:
 
 ## Floats a `side` Goob on top of the board over `column` (aim feedback). The
 ## drop that follows starts from the same spot, so the Goob seems to fall from
-## here.
-func show_preview(column: int, side: BoardState.CellOwner) -> void:
-	_preview.texture = TEX_PLAYER if side == BoardState.CellOwner.PLAYER else TEX_OPPONENT
+## here. `goob` picks its art (null = Vanilla).
+func show_preview(column: int, side: BoardState.CellOwner, goob: GoobDefinition = null) -> void:
+	_preview.texture = (goob if goob else VANILLA).still(side)
 	_preview.position = Vector2(_column_x(column), TOP_Y)
 	if _preview.visible:
 		return
@@ -616,12 +617,15 @@ func _to_global(game_px: Vector2) -> Vector2:
 
 # --- Goobs -----------------------------------------------------------------
 
-func _add_token(cell: Vector2i, side: BoardState.CellOwner) -> Sprite2D:
-	var token := _make_sprite(TEX_PLAYER if side == BoardState.CellOwner.PLAYER else TEX_OPPONENT, "Goob")
+func _add_token(cell: Vector2i, side: BoardState.CellOwner, goob: GoobDefinition = null) -> Sprite2D:
+	if goob == null:
+		goob = VANILLA
+	var token := _make_sprite(goob.still(side), "Goob")
 	token.material = _outline
 	_goobs.add_child(token)
 	_tokens[cell] = token
 	_token_owner[cell] = side
+	_token_goob[cell] = goob
 	return token
 
 
@@ -634,6 +638,7 @@ func _remove_token(cell: Vector2i) -> void:
 	_tokens[cell].queue_free()
 	_tokens.erase(cell)
 	_token_owner.erase(cell)
+	_token_goob.erase(cell)
 
 
 ## Gravity fall from y `from_y` to `target` (same x), snapped to whole game px,
@@ -774,8 +779,14 @@ func _set_texture(token: Sprite2D, texture: Texture2D) -> void:
 		token.texture = texture
 
 
+## Vanilla still (Popular's summoned Goob, Plentiful's drawn ghosts).
 func _tex(side: BoardState.CellOwner) -> Texture2D:
-	return TEX_PLAYER if side == BoardState.CellOwner.PLAYER else TEX_OPPONENT
+	return VANILLA.still(side)
+
+
+func _lookup(cell: Vector2i) -> GoobDefinition:
+	var goob: GoobDefinition = goob_lookup.call(cell.x, cell.y) if goob_lookup.is_valid() else null
+	return goob if goob else VANILLA
 
 
 func _set_x(x: float, token: Sprite2D) -> void:
