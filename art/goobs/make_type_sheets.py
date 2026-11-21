@@ -117,6 +117,18 @@ TYPES = {
             "worried":     ("side", "sad", "wobbly", ["sweat"]),
         },
     },
+    "convincing": {
+        "title": "Convincing Goob", "tag": "smug Gooberius persuader", "rim": "eyes",
+        "faces": {
+            "idle":        ("halflid", ("low", "raised"), "smirk", []),
+            "giggle":      ("arc", (None, "raised"), "snicker", []),
+            "happy":       ("halflid", "raised", "smirk", []),
+            "sad":         ("side", "sad", "pout", []),
+            "celebrating": (("arc", "halflid"), "raised", "opensmile", []),
+            "surprised":   ("wide", "raised", "o", []),
+            "worried":     ("side", "sad", "tight", ["sweat"]),
+        },
+    },
 }
 
 
@@ -163,31 +175,34 @@ def rim_pixels(im, team):
     return out
 
 
-# Rim motifs: one tile, repeated around the rim. Rows = (outer, inner); columns =
-# angle steps. 'L' = two ramp steps lighter, 'D' = one step darker, '.' = as is.
+# Rim motifs: a small glyph stamped at n even spots around the rim, laid along
+# the rim's tangent (a 2 px rim can't hold a drawn emblem; an angle-tiled
+# pattern read as speckle). 'L' = two ramp steps lighter, 'D' = two darker.
+# (glyph, count, radius, start angle)
 RIM = {
-    "eyes":    (["..D..", ".DLD."], 5),
-    "shields": (["DDD..", ".D..."], 5),
-    "stars":   ([".L...", "LLL.."], 5),
-    "wheat":   (["L..", ".L."], 3),
+    "eyes": ("LDL", 8, 13.0, 0.0),
 }
-RIM_STEPS = 64
 
 
 def engrave(im, team, motif):
     if not motif:
         return
-    tile, w = RIM[motif]
+    glyph, n, r, off = RIM[motif]
     px = im.load()
     inv = {rgb(TEAM[team][s]): s for s in RAMP}
-    for x, y, a, outer in rim_pixels(im, team):
-        col = int(round((a + math.pi) / (2 * math.pi) * RIM_STEPS)) % RIM_STEPS
-        ch = tile[0 if outer else 1][col % w]
-        if ch == ".":
-            continue
-        i = RAMP.index(inv[px[x, y]])
-        i = min(i + 2, len(RAMP) - 2) if ch == "L" else max(i - 1, 0)
-        px[x, y] = rgb(TEAM[team][RAMP[i]])
+    rim = {(x, y) for x, y, _a, _o in rim_pixels(im, team)}
+    half = len(glyph) // 2
+    for k in range(n):
+        a = off + 2 * math.pi * k / n
+        cx, cy = 15.5 + r * math.cos(a), 16.0 + r * math.sin(a)
+        tx, ty = -math.sin(a), math.cos(a)
+        for j, ch in enumerate(glyph):
+            x, y = int(round(cx + (j - half) * tx - 0.5)), int(round(cy + (j - half) * ty))
+            if ch == "." or (x, y) not in rim or px[x, y] not in inv:
+                continue
+            i = RAMP.index(inv[px[x, y]])
+            i = min(i + 2, RAMP.index("H")) if ch == "L" else max(i - 2, 0)
+            px[x, y] = rgb(TEAM[team][RAMP[i]])
 
 
 def make_face(gtype, team, expr):

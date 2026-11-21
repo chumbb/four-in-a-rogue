@@ -311,8 +311,8 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 
 ### Art pass D1 — Goob type sheets
 
-- [x] Start by **interviewing Sean per type** (personality, mood, defining feature; Lore seed line as prompt); notes to the vault for his OK (grill 2026-11-21 → vault `Design/Goob type sheets.md`: Convincing smug persuader / eyes rim, Fat = Falstaff with a chubby drunk-blush face / shields, Popular sparkle court favourite / stars, Plentiful motherly provider / wheat; expression table awaiting OK)
-- [ ] Sheets (face, rim pattern, 7 expression keyframes, blue + red, board + stump mocks; `art/goobs/make_type_sheets.py` → `art/goobs/sheets/`), one at a time: **Vanilla** (current face, plain rim, the plain expression baseline) → Convincing → Fat → Popular → Plentiful; faces hand-pixelled on the Vanilla body, no PixelLab; Sean approves each
+- [x] Start by **interviewing Sean per type** (personality, mood, defining feature; Lore seed line as prompt); notes to the vault for his OK (grill 2026-11-21 → vault `Design/Goob type sheets.md`: Convincing smug persuader / eyes rim, Fat = Falstaff with a chubby drunk-blush face / shields, Popular sparkle court favourite / stars, Plentiful motherly provider / wheat; expression table approved 2026-11-21)
+- [ ] Sheets (face, rim pattern, 7 expression keyframes, blue + red, board + stump mocks; `art/goobs/make_type_sheets.py` → `art/goobs/sheets/`), one at a time: **Vanilla** ✅ (current face, plain rim, the plain expression baseline; approved 2026-11-21) → Convincing → Fat → Popular → Plentiful; faces hand-pixelled on the Vanilla body, no PixelLab; Sean approves each
 
 ### Art pass D2 — Goob type production
 
