@@ -21,6 +21,10 @@ func _ready() -> void:
 
 ## Top/left/right/bottom insets in viewport units.
 func current_insets() -> Dictionary:
+	return insets_for(get_viewport())
+
+
+static func insets_for(viewport: Viewport) -> Dictionary:
 	var insets := {"top": 0, "left": 0, "right": 0, "bottom": 0}
 	if simulate_insets:
 		insets.top = SIM_TOP
@@ -29,7 +33,7 @@ func current_insets() -> Dictionary:
 		var window := DisplayServer.window_get_size()
 		var safe := DisplayServer.get_display_safe_area()
 		if window.x > 0 and window.y > 0:
-			var scale := get_viewport().get_visible_rect().size / Vector2(window)
+			var scale := viewport.get_visible_rect().size / Vector2(window)
 			insets.top = maxi(0, int(safe.position.y * scale.y))
 			insets.left = maxi(0, int(safe.position.x * scale.x))
 			insets.right = maxi(0, int((window.x - safe.end.x) * scale.x))

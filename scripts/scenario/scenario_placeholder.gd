@@ -134,6 +134,11 @@ var sum_label: Label
 
 func _ready() -> void:
 	_rng.randomize()
+	# Art B vignette over the forest + stump, under the board and UI (it matches
+	# GameFlow's forest cover, so the board fades cleanly over the forest).
+	var vignette := GameFlow.make_vignette()
+	add_child(vignette)
+	move_child(vignette, _stump.get_index() + 1)
 	_build_feedback_nodes()
 	_opponent_timer = _make_timer(_choose_opponent_move)
 	_flash_timer = _make_timer(_on_opponent_flash_done)

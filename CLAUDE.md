@@ -40,13 +40,13 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently **M6a** — flow and screens; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently **M6a** playtest, then **M6b** — HUD, pause, options; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20) | **M6a** (flow and screens), then M6b → Art D1/D2 → M6c → M6d → M7 (approved 2026-11-20) |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20) | **M6a** built (branch `m6a-flow`, playtest pending), then M6b → Art D1/D2 → M6c → M6d → M7 (approved 2026-11-20) |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -287,13 +287,14 @@ Full plan + gap table: vault `Design/Roadmap v0.1 - remaining art and code.md`. 
 
 Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man.py c_pro3`): `full_body.png` 96×160, `light_pool.png`, `intro_goob_blue|red.png` (red = flat on the ground, face up, perfect-circle top; `goobs/make_red_flat.py`), `portrait_<expression>.png` 64 px bust, `portrait_crack.png` (3 frames), `portrait_explode.png` (6 × 128 px). Mock `art/strange_man/mock_intro.png`.
 
-### M6a — Flow and screens (needs Art B, C) ← **next**
+### M6a — Flow and screens (needs Art B, C) ← **built on branch `m6a-flow`, waiting for Sean's playtest**
 
-- [ ] `GameFlow` ~0.3 s fades through black
-- [ ] Title: pixel logo over the Forest, a few idle **Vanilla** Goobs, pulsing "Tap to start", Options (stub until M6b), Quit on desktop only
-- [ ] Strange Man intro per §Flow: 5 pages, typing, ▼, Skip, blue + red Vanilla pop in on page 2, forest fade-in
-- [ ] **Coin flip rebuilt** per §Flow (still the superseded heads/tails stub today): swipe up / tap, 50/50, toss + rest, winner-colour flash + "goes first" banner, ≤ 3 s; draw replay over the forest
-- [ ] Sounds for what it builds (page click, coin, banner, UI tap)
+- [x] `GameFlow` fades (`go_to(key, Transition.BLACK|FOREST|CUT)`, 0.3 s out + 0.3 s in): black for title ↔ play; **forest cover** for coin flip → board and the draw replay (board fades out leaving the forest); Strange Man fades his own forest in, then cuts
+- [x] Title: pixel logo over the painted Goob kingdom vista (its painted Goobs are the idle Goobs, per Decision-Log 2026-11-20), pulsing "Tap to start", Options (stub toast until M6b), Quit on desktop only; taps on buttons don't start
+- [x] Strange Man intro per §Flow: 5 pages, typing (40 chars/s), blinking ▼, Skip, blue + red painted Goobs pop in on page 2, forest fade-in
+- [x] **Coin flip rebuilt** per §Flow: swipe up / tap, 50/50, toss 0.6 s + rest 0.5 s, winner-colour flash + "You go first" / "Opponent goes first" banner 1 s, release → board 2.7 s; `GameFlow.auto_flip_coin` hook for M6b's option
+- [x] Sounds (`art/audio/make_flow_sounds.py`): press start, UI tap, page click, Goob pop, swipe, spin whirr (pitch rises with strength), coin clink, "goes first" sting
+- Pixel screens use `PixelStage` (`scripts/ui/pixel_stage.gd`): 270-wide game-pixel canvas at the board's whole-number scale, laid out 1:1 with the Art B/C mocks; vignette on title, Strange Man, coin flip, scenario
 
 ### M6b — HUD, pause, options, animation speed (needs Art B)
 
@@ -381,4 +382,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-20 (Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-20 (M6a built on `m6a-flow`: fades, title, Strange Man intro, swipe coin flip, flow sounds; playtest pending; Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
