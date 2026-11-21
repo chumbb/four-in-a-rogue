@@ -247,11 +247,11 @@ func _test_tap_drops_then_opponent() -> void:
 	_check(view._tokens.size() == 2, "view shows 2 tokens (got %d)" % view._tokens.size())
 	_check(scenario._input_enabled, "input re-enabled for player")
 	_check(not scenario._flash.visible, "no flash after the drop")
-	_check(view._tokens[Vector2i(3, 0)].texture == BoardView2D.TEX_PLAYER, "player Goob is blue")
+	_check(view._tokens[Vector2i(3, 0)].texture == BoardView2D.VANILLA.still(BoardState.CellOwner.PLAYER), "player Goob is blue")
 	_check(view._tokens[Vector2i(3, 0)].position == view.cell_position(3, 0), "player Goob sits in its hole")
 	for cell in view._tokens:
 		if board.get_owner(cell.x, cell.y) == O:
-			_check(view._tokens[cell].texture == BoardView2D.TEX_OPPONENT, "opponent Goob is red")
+			_check(view._tokens[cell].texture == BoardView2D.VANILLA.still(BoardState.CellOwner.OPPONENT), "opponent Goob is red")
 	await _free(scenario)
 
 
@@ -270,7 +270,7 @@ func _test_hold_slide_release() -> void:
 	_check(_count(board, P) == 0, "holding does not drop")
 	var view := _view(scenario)
 	_check(view.is_preview_visible(), "held Goob floats over the column")
-	_check(view._preview.texture == BoardView2D.TEX_PLAYER, "floating Goob is blue")
+	_check(view._preview.texture == BoardView2D.VANILLA.still(BoardState.CellOwner.PLAYER), "floating Goob is blue")
 	_check(view._preview.position == Vector2(view.cell_position(1, 0).x, BoardView2D.TOP_Y), "floats on top of column 1")
 	_drag(_col_pos(scenario, 5))
 	_check(flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(5)), "flash follows to column 5")
@@ -632,7 +632,11 @@ func _view_matches(scenario: Control) -> bool:
 			var token: Sprite2D = view._tokens[cell]
 			if token.position != view.cell_position(c, r):
 				return false
-			if token.texture != (BoardView2D.TEX_PLAYER if board.get_owner(c, r) == P else BoardView2D.TEX_OPPONENT):
+			# Each Goob shows its own type's still (Art pass D2); unknown = Vanilla
+			var goob: GoobDefinition = scenario._loop.goob_at(c, r)
+			if goob == null:
+				goob = BoardView2D.VANILLA
+			if token.texture != goob.still(board.get_owner(c, r)):
 				return false
 	return n == view._tokens.size()
 

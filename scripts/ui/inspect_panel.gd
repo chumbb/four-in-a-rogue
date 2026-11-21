@@ -6,8 +6,6 @@ extends Control
 ## only. The scenario opens it on a double tap and closes it on the next tap.
 
 const COLOR_NAME := Color(1.0, 0.85, 0.3)
-const TEX_PLAYER := preload("res://assets/goobs/vanilla/blue_yaw/frame_00.png")
-const TEX_OPPONENT := preload("res://assets/goobs/vanilla/red_yaw/frame_00.png")
 
 var _goob_rect: TextureRect
 var _name_label: Label
@@ -71,7 +69,7 @@ func _ready() -> void:
 ## Shows `goob` in its side's colour. `size_px`: the big Goob's edge length
 ## (2× the hand Goob, slice §2B).
 func open(goob: GoobDefinition, side: BoardState.CellOwner, size_px: float) -> void:
-	_goob_rect.texture = TEX_PLAYER if side == BoardState.CellOwner.PLAYER else TEX_OPPONENT
+	_goob_rect.texture = goob.still(side)
 	_goob_rect.custom_minimum_size = Vector2(size_px, size_px)
 	_name_label.text = goob.display_name
 	_effect_label.text = goob.effect_description

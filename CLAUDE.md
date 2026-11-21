@@ -314,9 +314,12 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 - [x] Start by **interviewing Sean per type** (personality, mood, defining feature; Lore seed line as prompt); notes to the vault for his OK (grill 2026-11-21 → vault `Design/Goob type sheets.md`: Convincing smug persuader / eyes rim, Fat = Falstaff, cheeks implied by ")(" mouth creases + drunk blush (Sean ref `References/fat-emoji.jpg`) / shields, Popular sparkle court favourite / stars, Plentiful motherly provider / wheat; expression table approved 2026-11-21)
 - [x] Sheets (face, rim pattern, 7 expression keyframes, blue + red, board + stump mocks; `art/goobs/make_type_sheets.py` → `art/goobs/sheets/`), one at a time: **Vanilla** ✅ (current face, plain rim, the plain expression baseline; approved 2026-11-21) → Convincing ✅ → Fat ✅ → Popular ✅ → Plentiful ✅; faces hand-pixelled on the Vanilla body, no PixelLab; Sean approves each
 
-### Art pass D2 — Goob type production
+### Art pass D2 — Goob type production (built on `art-d2-goob-production`, loops in review)
 
-- [ ] Per type, blue + red: 7 expression loops (2–4 frames), board + hand stills, flip frames (PixelLab 8-dir Pro → `make_goob_flips.py`); `SpriteFrames`; `GoobDefinition` → its art; hand name labels removed
+- [x] Per type, blue + red: 7 expression loops (2–4 frames), board + hand stills, flip frames; `SpriteFrames`; `GoobDefinition` → its art; hand name labels removed. Build: `python art/goobs/make_goob_production.py` → `assets/goobs/<type>/` (`<team>_expressions.png` + `<team>_frames.tres`, `<team>_yaw|pitch/`); review `art/goobs/production/review.gif`
+- **Flips (Sean, 2026-11-21):** no PixelLab per type. Only frames 0/1/7 show the face, so every type reuses Vanilla's back/edge frames; yaw 1/7 = the type face remapped onto Vanilla's 3/4 body, pitch 1/7 = the same squash pipeline that made Vanilla's (reproduces it pixel for pixel)
+- `GoobDefinition.art_id` + `still(side)`, `yaw_frames(side)`, `sprite_frames(side)`; board tokens, aim preview, hand and inspect show each type's still; Convincing's flip spins with the target's own type. Expressions are played from M6c
+- [ ] Sean approves the loops (all types in one review, Sean 2026-11-21) → merge
 
 ### Special Goobs design grill (design only; Sean, 2026-11-21)
 

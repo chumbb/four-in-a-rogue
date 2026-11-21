@@ -7,7 +7,6 @@ extends Control
 ## Cards are kept in the same order as Deck.hand. Hand Goobs are one whole
 ## pixel step bigger than board Goobs (set_pixel_size()).
 
-const TEX_GOOB := preload("res://assets/goobs/vanilla/blue_yaw/frame_00.png")
 const OUTLINE_SHADER := preload("res://shaders/pixel_outline.gdshader")
 const GOOB_PX := 32 ## game px
 const FAN_STEP_DEG := 4.0 ## tilt per card away from the centre
@@ -63,7 +62,6 @@ func set_pixel_size(px: float) -> void:
 	_px = px
 	for card in _cards:
 		(card.get_node("Sprite") as Sprite2D).scale = Vector2(_px, _px)
-		_place_label(card)
 	layout(false)
 
 
@@ -255,33 +253,12 @@ func _make_card(goob: GoobDefinition) -> Node2D:
 	card.set_meta("goob", goob)
 	var sprite := Sprite2D.new()
 	sprite.name = "Sprite"
-	sprite.texture = TEX_GOOB
+	sprite.texture = goob.still(BoardState.CellOwner.PLAYER)
 	sprite.material = _outline
 	sprite.scale = Vector2(_px, _px)
 	card.add_child(sprite)
-	# Placeholder until each type has its own face: specials carry their name.
-	if goob.effect_type != GoobDefinition.EffectType.NONE:
-		var label := Label.new()
-		label.name = "Name"
-		label.text = goob.display_name.trim_suffix(" Goob")
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.add_theme_color_override("font_outline_color", Color.BLACK)
-		label.add_theme_constant_override("outline_size", 6)
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(label)
-		_place_label(card)
 	add_child(card)
 	return card
-
-
-func _place_label(card: Node2D) -> void:
-	var label: Label = card.get_node_or_null("Name")
-	if label == null:
-		return
-	var half := GOOB_PX * _px * 0.5
-	var line := label.get_minimum_size().y
-	label.size = Vector2(half * 2.0 + 24.0, line)
-	label.position = Vector2(-half - 12.0, half - line * 0.5)
 
 
 func _kill_tween(card: Node2D) -> void:
