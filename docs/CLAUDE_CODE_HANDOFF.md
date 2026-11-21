@@ -26,7 +26,7 @@ claude
 - Canonical v0.1 rules: `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md`
 - Full GDD: `Projects/Four-in-a-Rogue/Design/GDD.md`
 - Decision log: `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`
-- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-20 Claude - M6a flow and screens.md`
+- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-20 Claude - M6b HUD pause options.md`
 - Vault agent rules: `GameDev/CLAUDE.md`
 
 **Conflict rule:** Obsidian vault wins over repo `CLAUDE.md` for game design.
@@ -35,14 +35,14 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B, Art pass C and M6a accepted and merged (2026-11-20). Next: M6b.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B, Art pass C and M6a accepted and merged (2026-11-20). M6b built on `m6b-hud-pause-options`, playtest pending.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
 | 1 | **Art pass B** — UI kit ✅ | 9-slice pixel panels (HUD, dialogue box, buttons, toast, inspect, end banner, pause/options, scrim), Options widgets, pause + speaker icons, pixel logo, fuse strip art, vignette; approved as one mock set | — |
 | 2 | **Art pass C** — Strange Man ✅ | Full body ~96×160 + light pool (stop for Sean's OK) per the brief in `CLAUDE.md`; two painted intro Goobs (red flat, face up); HUD bust portrait drawn separately × 7 expressions; crack/explode frames | — |
 | 3 | **M6a** — Flow & screens ✅ | 0.3 s fades; title (logo, idle Goobs, Tap to start, Options); Strange Man 5-page intro with Skip + Goob pop-in; **coin flip rebuilt** (swipe up, 50/50, winner-colour flash + banner, draw replay over the forest) | B, C |
-| 4 | **M6b** — HUD, pause, options, speed ← **next** | Pixel HUD + Pause (replaces Quit) with scrim + Quit confirm; Options panel + persisted settings + audio buses; Normal/Fast/Skip everywhere; haptics; turn banners | B |
+| 4 | **M6b** — HUD, pause, options, speed ← **built, playtest pending** | Pixel HUD + Pause (replaces Quit) with scrim + Quit confirm; Options panel + persisted settings + audio buses; Normal/Fast/Skip everywhere; haptics; turn banners | B |
 | 5 | **Art pass D1** — Goob type sheets | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
 | 6 | **Art pass D2** — Goob production | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
@@ -63,6 +63,18 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **Art pass B** UI kit | Accepted and merged 2026-11-20 |
 | **Art pass C** Strange Man | Accepted and merged 2026-11-20 |
 | **M6a** Flow & screens | ✅ Accepted and merged 2026-11-20 |
+| **M6b** HUD, pause, options, speed | Built on `m6b-hud-pause-options` 2026-11-20, playtest pending |
+
+### M6b (built 2026-11-20, branch `m6b-hud-pause-options`, waiting for Sean's playtest)
+
+- `Settings` autoload (`scripts/core/settings.gd`): `speed` (Normal/Fast/Skip), `haptics`, `screen_shake`, `auto_flip`, `volume` / `muted` per bus; setters save `user://settings.cfg` and emit `changed`. `anim_sec()`, `anim_scale()`, `is_skip()`, `vibrate()`. Tests set `Settings.path = "user://test_settings.cfg"` then `reset()`, so they never touch the player's file.
+- **Gotcha:** autoload names (`Settings`, `GameFlow`) are not compile-time identifiers when a `-s` test script compiles a class it names (e.g. `BoardView2D`). Keep autoload references out of class_name scripts that tests type against (the board gets `shake_enabled` from the scenario instead), and leave `PauseMenu` / `OptionsPanel` untyped in tests.
+- `ScenarioHud` (`scripts/ui/scenario_hud.gd`): own `PixelStage`; `set_seconds()`, `set_timer("—")`, `show_turn_banner(player, sec)`, `bottom()` (the scenario sizes `%HudSlot` from it), `set_banner_band(top, bottom)` (banners centred between HUD and board). Playtest 1: emblem inside the block, no Objective heading, scenario "1", whoosh `turn_whoosh.ogg`.
+- `PauseMenu` pauses the tree (it and its `OptionsPanel` are `PROCESS_MODE_ALWAYS`); scenario timers, tweens and sounds pause with it.
+- Speed: `BoardView2D.speed_scale` / `HandView.speed_scale` (Fast = 2) on play tweens via `_tween()`; Skip = `animate = false` (same path tests use), and the board then emits only impact sounds.
+- **Gotcha:** set a Button's size after it gets the pixel theme. Built before entering the tree, it measures the default font and grows (the Options speed segments are re-sized in `_layout`).
+- Dev screenshots: `tests/capture_m6b.gd -- <dir> [w h [insets]]` (windowed).
+- Sounds: `python art/audio/make_menu_sounds.py`. Ribbons: `make_ui_kit.py` (`ribbon()`).
 
 ### M6a (accepted by Sean and merged to `main` 2026-11-20)
 
@@ -98,7 +110,7 @@ Sean hasn't yet given an explicit OK on the bust, the expressions or the crack/e
 
 Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-20, "portraits are good").
 
-**Note for M6b:** the bust is 64 px; the HUD portrait slot is 44 today and is meant to grow later.
+**M6b:** the HUD now shows the 64 px bust at 1:1 (block 76 px; Sean 2026-11-20).
 
 ### M5 (accepted and merged 2026-11-20)
 
@@ -122,15 +134,15 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `main`, 786 checks)
+### Tests (all pass on `m6b-hud-pause-options`, 863 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 331 checks
+& $g --headless -s res://tests/test_scenario.gd    # 383 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
-& $g --headless -s res://tests/test_flow_m3.gd     # 157
+& $g --headless -s res://tests/test_flow_m3.gd     # 182
 & $g --headless -s res://tests/test_opponent_ai.gd # 86
 ```
 
@@ -153,7 +165,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently M6b) on a new branch; push it for Sean's playtest.
+3. Do the next item in CLAUDE.md §Milestones (currently M6b playtest, then Art D1) on a new branch; push it for Sean's playtest.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.

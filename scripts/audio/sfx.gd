@@ -4,7 +4,8 @@ extends Node
 ## play(&"name"). Sounds come from CC0 / credited packs (assets/audio/CREDITS.md).
 ##
 ## Repeats get ±5 % random pitch; opponent sounds are ~10 % lower; each sound
-## plays at most once per frame. Buses and volume options come in M6.
+## plays at most once per frame. Everything plays on the SFX bus (volume and
+## mute from Settings, M6b).
 
 const STREAMS := {
 	&"land": preload("res://assets/audio/sfx/land.ogg"),
@@ -48,6 +49,12 @@ const STREAMS := {
 	&"coin_whirr": preload("res://assets/audio/sfx/coin_whirr.ogg"),
 	&"coin_land": preload("res://assets/audio/sfx/coin_clink.ogg"),
 	&"first_sting": preload("res://assets/audio/sfx/first_sting.ogg"),
+	# M6b menus and turn banners (art/audio/make_menu_sounds.py): chiptune.
+	&"pause_open": preload("res://assets/audio/sfx/pause_open.ogg"),
+	&"pause_close": preload("res://assets/audio/sfx/pause_close.ogg"),
+	&"slider_tick": preload("res://assets/audio/sfx/slider_tick.ogg"),
+	# Turn banners: a soft whoosh, not a chiptune beep (Sean, 2026-11-20).
+	&"turn_whoosh": preload("res://assets/audio/sfx/turn_whoosh.ogg"),
 }
 ## Scoring ladder notes, lowest first; the ladder must stay in tune, so these
 ## get no random pitch.
@@ -70,6 +77,7 @@ func _ready() -> void:
 	_rng.randomize()
 	for i in POOL_SIZE:
 		var player := AudioStreamPlayer.new()
+		player.bus = &"SFX"
 		add_child(player)
 		_pool.append(player)
 

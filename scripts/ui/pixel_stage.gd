@@ -96,9 +96,11 @@ func add_label(text: String, colour := CREAM, variation := &"", parent: Node = n
 func add_button(text: String, width: float, parent: Node = null) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.size = Vector2(width, 36)
 	button.focus_mode = Control.FOCUS_NONE
 	(parent if parent else canvas).add_child(button)
+	# Size after adding: before the canvas theme applies, the default font's
+	# larger minimum size would stretch it.
+	button.size = Vector2(width, 36)
 	return button
 
 

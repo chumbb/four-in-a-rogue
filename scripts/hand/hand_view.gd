@@ -29,6 +29,8 @@ signal hand_sound(kind: StringName)
 
 ## Tests set false: everything snaps into place at once.
 var animate := true
+## Play-animation speed (Settings: Fast = 2): draw reveal, fly-in, re-layout.
+var speed_scale := 1.0
 
 var _cards: Array[Node2D] = []
 var _px := 1.0 ## logical px per game px
@@ -179,7 +181,7 @@ func reveal(goob: GoobDefinition) -> void:
 	card.position = get_global_transform().affine_inverse() * (get_viewport_rect().size * 0.5)
 	card.rotation = 0.0
 	card.scale = Vector2(0.4, 0.4)
-	var pop := card.create_tween()
+	var pop := card.create_tween().set_speed_scale(speed_scale)
 	pop.tween_callback(hand_sound.emit.bind(&"draw_pop"))
 	pop.tween_property(card, "scale", Vector2.ONE * REVEAL_SCALE, REVEAL_POP_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	pop.tween_interval(REVEAL_HOLD_SEC)
@@ -191,7 +193,7 @@ func reveal(goob: GoobDefinition) -> void:
 	# Target measured now, not at pop time, in case the zone resized meanwhile.
 	hand_sound.emit(&"fly")
 	var target := _slot(_cards.find(card))
-	var fly := card.create_tween().set_parallel()
+	var fly := card.create_tween().set_speed_scale(speed_scale).set_parallel()
 	fly.tween_property(card, "scale", Vector2.ONE, REVEAL_FLY_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	fly.tween_property(card, "position", target.origin, REVEAL_FLY_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	fly.tween_property(card, "rotation", target.get_rotation(), REVEAL_FLY_SEC)
@@ -213,7 +215,7 @@ func layout(animated: bool) -> void:
 		_kill_tween(card)
 		card.scale = Vector2.ONE
 		if animated and animate and is_inside_tree():
-			var tween := card.create_tween().set_parallel()
+			var tween := card.create_tween().set_speed_scale(speed_scale).set_parallel()
 			tween.tween_property(card, "position", slot.origin, LAYOUT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			tween.tween_property(card, "rotation", slot.get_rotation(), LAYOUT_SEC)
 			card.set_meta("tween", tween)

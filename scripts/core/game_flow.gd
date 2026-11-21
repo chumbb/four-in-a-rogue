@@ -33,7 +33,7 @@ const VIGNETTE := preload("res://shaders/vignette.gdshader")
 
 ## Set by the coin flip; true = player moves first.
 var player_moves_first: bool = true
-## Options "Auto-flip coin" (default Off; the Options row comes in M6b).
+## Tests force an auto-flip; players use Options "Auto-flip coin" (Settings).
 var auto_flip_coin := false
 ## Tests set 0 to change scenes at once.
 var fade_sec := FADE_SEC
@@ -80,8 +80,11 @@ func go_to(key: SceneKey, transition := Transition.BLACK, sec := -1.0) -> void:
 		return
 	if _fading:
 		return
-	if transition == Transition.CUT or fade_sec <= 0.0:
+	if fade_sec <= 0.0:
 		get_tree().change_scene_to_file(path)
+		return
+	if transition == Transition.CUT:
+		_cut_under_forest(path)
 		return
 	var half := fade_sec if sec < 0.0 else sec
 	_fading = true
@@ -101,6 +104,22 @@ func go_to(key: SceneKey, transition := Transition.BLACK, sec := -1.0) -> void:
 	back.tween_property(cover, "modulate:a", 0.0, half)
 	await back.finished
 	cover.visible = false
+	_fading = false
+
+
+## A cut between two forest screens (Strange Man → coin flip). Godot draws a
+## frame with no scene between the old and the new one (the clear colour
+## flickered through; Sean 2026-11-21), so the forest cover, drawn exactly like
+## both screens' background, holds the picture until the new scene has drawn.
+func _cut_under_forest(path: String) -> void:
+	_fading = true
+	_forest.modulate.a = 1.0
+	_forest.visible = true
+	get_tree().change_scene_to_file(path)
+	await get_tree().scene_changed
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_forest.visible = false
 	_fading = false
 
 

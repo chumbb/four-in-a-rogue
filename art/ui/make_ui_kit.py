@@ -24,6 +24,8 @@ Outputs in assets/ui/ (9-slice margins = the `MARGINS` table below, in game px):
   logo.png             "Four in a Rogue" (blue + red Vanilla Goobs as the O's)
   fuse_rope.png        tileable rope (8 px wide) for the 24 px timer strip; fuse_burnt.png
   fuse_spark.png       4-frame strip of the burning end (11x11 frames)
+  ribbon_blue.png / ribbon_red.png  turn banner band (8 px wide, tiles across the screen;
+                       blue "Your turn", red "Opponent's turn"; M6b)
 Also art/ui/ui_kit_sheet4x.png: every piece at 4x for review.
 
 The scrim colour and text colours live in scripts/ui/ui_theme.gd (no texture needed).
@@ -293,6 +295,26 @@ def banner(w=20, h=20):
     return img
 
 
+# Team colours (coin flip / turn banners): player blue, opponent red.
+TEAM = {
+    "blue": (hexc("8fd3ff"), hexc("4d9be6"), hexc("4d65b4")),
+    "red": (hexc("f68181"), RED, RED_LO),
+}
+
+
+def ribbon(team, w=8, h=36):
+    """Turn banner band: tiles horizontally edge to edge. Gold trim + ink edges top and
+    bottom, team body with a lit top row and a shaded bottom row."""
+    hi, body, lo = TEAM[team]
+    rows = [INK0, GOLD_HI, GOLD_LO, INK0, hi] + [body] * (h - 10) + [lo, INK0, GOLD, GOLD_SH, INK0]
+    img = Image.new("RGBA", (w, h), CLEAR)
+    px = img.load()
+    for y, colour in enumerate(rows):
+        for x in range(w):
+            px[x, y] = colour
+    return img
+
+
 def slider_track(w=8, h=7):
     return frame(w, h, [INK0, (INK0, INK2)], INK0, radius=1)
 
@@ -498,6 +520,19 @@ def logo():
     return img.crop(img.getbbox())
 
 
+def heading_who_goes_first():
+    """Coin flip heading in the logo's gold letters (no Goobs; Sean 2026-11-21).
+    Caps only: the glyph crop keeps the cap height, so descenders would be cut."""
+    ramp = [GOLD_HI, GOLD_HI, GOLD, GOLD, GOLD_LO]
+    lines = [shade_letters(glyph_mask(t, 3), ramp) for t in ("WHO GOES", "FIRST?")]
+    gap = -4  # the drop-shadow rows overlap, like the logo's lines
+    w = max(p.width for p in lines)
+    img = Image.new("RGBA", (w, sum(p.height for p in lines) + gap), CLEAR)
+    img.alpha_composite(lines[0], ((w - lines[0].width) // 2, 0))
+    img.alpha_composite(lines[1], ((w - lines[1].width) // 2, lines[0].height + gap))
+    return img.crop(img.getbbox())
+
+
 # --- fuse ------------------------------------------------------------------------
 
 ROPE_LIGHT = hexc("ab947a")
@@ -590,9 +625,12 @@ def build():
         "icon_speaker": icon_speaker(False),
         "icon_speaker_muted": icon_speaker(True),
         "logo": logo(),
+        "heading_who_goes_first": heading_who_goes_first(),
         "fuse_rope": fuse_rope(),
         "fuse_burnt": fuse_burnt(),
         "fuse_spark": fuse_spark(),
+        "ribbon_blue": ribbon("blue"),
+        "ribbon_red": ribbon("red"),
     }
     return pieces
 

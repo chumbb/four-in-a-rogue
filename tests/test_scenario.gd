@@ -3,7 +3,8 @@ extends SceneTree
 ## column hit areas, press/hold/release with the blue flash, cancel,
 ## full-column entry error, red opponent flash, turn timer + timeout roll, drop
 ## and roll animations, end overlay, draw replay, and the portrait layout with
-## simulated safe-area insets. Window sizes are physical (project stretch maps
+## simulated safe-area insets; M6b pixel HUD, turn banners, pause menu,
+## Normal / Fast / Skip, haptics + screen shake options. Window sizes are physical (project stretch maps
 ## 1080x1920 to the 720x1280 base).
 ## Run: godot --headless -s res://tests/test_scenario.gd
 
@@ -30,6 +31,9 @@ func _initialize() -> void:
 
 func _run() -> void:
 	root.size = PHONE # 720×1280 base at 1.5×; headless root defaults to 64×64
+	# Never touch the player's settings file; start from the defaults.
+	_settings().path = "user://test_settings.cfg"
+	_settings().reset()
 	var saved_first: bool = _flow().player_moves_first
 
 	await _test_hit_areas()
@@ -68,6 +72,12 @@ func _run() -> void:
 	await _test_effect_animations()
 	await _test_scoring_sequence()
 	await _test_scoring_animated()
+	await _test_hud()
+	await _test_turn_banners()
+	await _test_pause_menu()
+	await _test_speed_settings()
+	await _test_skip_scoring_sounds()
+	await _test_screen_shake_option()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -85,6 +95,10 @@ func _run() -> void:
 ## GameFlow is an autoload; its name is not a compile-time identifier in -s scripts.
 func _flow() -> Node:
 	return root.get_node("GameFlow")
+
+
+func _settings() -> Node:
+	return root.get_node("Settings")
 
 
 func _make(delay: float, player_first := true, flash := 0.0, turn := 30.0, animate := false) -> Control:
@@ -157,7 +171,7 @@ func _col_pos(scenario: Control, column: int) -> Vector2:
 
 
 func _off_board(scenario: Control) -> Vector2:
-	return scenario.get_node("%HUD").get_global_rect().get_center()
+	return scenario.get_node("%HudSlot").get_global_rect().get_center()
 
 
 func _touch(pos: Vector2, pressed: bool, index := 0) -> void:
@@ -335,7 +349,7 @@ func _test_touch_during_opponent_turn() -> void:
 	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "phase is opponent turn")
 	_check(not scenario._input_enabled, "input disabled during opponent turn")
 	_check(scenario._turn_timer.is_stopped(), "turn timer stopped while input is locked")
-	_check(not scenario._timer_label.visible, "no countdown on the opponent's turn")
+	_check(scenario._hud.timer_text() == "—", "no countdown on the opponent's turn (got '%s')" % scenario._hud.timer_text())
 	_check(scenario._toast.modulate.a < 0.1, "no toast for out-of-turn tap")
 	_check(scenario.try_drop(2) == -1, "try_drop refused during opponent turn")
 	await _free(scenario)
@@ -385,11 +399,10 @@ func _test_red_opponent_flash() -> void:
 
 func _test_turn_timer_hud() -> void:
 	var scenario := await _make(5.0)
-	var label: Label = scenario._timer_label
+	var hud: ScenarioHud = scenario._hud
 	_check(scenario.TURN_SECONDS == 30.0, "slice turn limit is 30 s")
-	_check(label.visible and label.text == "30s", "countdown shows 30s (got '%s')" % label.text)
+	_check(hud.timer_text() == "30" and not hud.is_timer_red(), "countdown shows 30 (got '%s')" % hud.timer_text())
 	_check(not scenario._turn_timer.is_stopped(), "timer runs on the player turn")
-	_check(scenario.get_node("%TurnLabel").text == "Your turn", "turn label")
 	await _free(scenario)
 
 
@@ -422,7 +435,7 @@ func _test_timeout_is_obvious() -> void:
 	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(4)), "flash on the held column")
 	_check(_view(scenario).is_preview_visible(), "Goob floats over the timeout column")
 	_check(not scenario._input_enabled, "input locked during the reveal")
-	_check(scenario._timer_label.text == "0s", "timer reads 0s")
+	_check(scenario._hud.timer_text() == "0" and scenario._hud.is_timer_red(), "timer reads a red 0")
 	_check(_count(board, P) == 0, "Goob not dropped yet during the reveal")
 	_drag(_col_pos(scenario, 1))
 	_touch(_col_pos(scenario, 1), false)
@@ -791,10 +804,13 @@ func _test_layout(size: Vector2i, insets: bool) -> void:
 	if top_area.size.y > scenario.get_node("%TopArea").get_combined_minimum_size().y + 0.5:
 		var mid := (top + bottom) * 0.5
 		_check(absf(board.get_center().y - mid) < 1.0, "%s: board centred (%.0f vs %.0f)" % [tag, board.get_center().y, mid])
-	var quit_btn: Button = scenario.get_node("%QuitButton")
-	var quit_rect := quit_btn.get_global_rect()
-	_check(quit_rect.end.x >= view_size.x - 16.5 and quit_rect.position.y <= top + 10.0, "%s: Quit top right" % tag)
-	_check(quit_btn.text == "Quit" and quit_rect.size.y >= 96.0, "%s: Quit button ≥ 96 px" % tag)
+	var hud: ScenarioHud = scenario._hud
+	var pause_rect := hud.pause_button().get_global_rect()
+	_check(pause_rect.position.x <= 30.0 and pause_rect.end.y <= bottom + 0.5 and pause_rect.end.y >= bottom - 40.0, "%s: Pause bottom left in the safe area (%s)" % [tag, pause_rect])
+	_check(pause_rect.size.x >= 96.0 and pause_rect.size.y >= 96.0, "%s: Pause button ≥ 96 px (%s)" % [tag, pause_rect.size])
+	_check(hud.bottom() <= lane.position.y + 0.5, "%s: HUD above the aim lane (%.0f ≤ %.0f)" % [tag, hud.bottom(), lane.position.y])
+	var block: Rect2 = hud._block.get_global_rect()
+	_check(block.position.y >= top - 0.5, "%s: HUD block under the top inset" % tag)
 	_check(scenario.column_hit_rect(3).size.x >= 85.0, "%s: columns ≥ 85 px" % tag)
 	var view := _view(scenario)
 	_check(view.pixel_scale == 4, "%s: board at 4× physical (got %d)" % [tag, view.pixel_scale])
@@ -1084,4 +1100,149 @@ func _test_sounds() -> void:
 	await create_timer(1.2).timeout
 	_check(_heard(scenario, &"roll"), "sound: roll")
 	_touch(_col_pos(scenario, 6), false)
+	await _free(scenario)
+
+
+# --- M6b: HUD, banners, pause, options ------------------------------------------
+
+func _test_hud() -> void:
+	var scenario := await _make(5.0)
+	var hud: ScenarioHud = scenario._hud
+	_check(hud.objective() == "Get four in a row", "HUD: objective text")
+	_check(hud._block.find_children("*", "Label", true, false).all(func(l: Label) -> bool: return l.text != "Objective"), "HUD: no Objective heading")
+	_check(hud._scenario.text == "1", "HUD: scenario shows 1")
+	await process_frame
+	var emblem: Rect2 = hud._emblem.get_global_rect()
+	var block: Rect2 = hud._block.get_global_rect()
+	_check(block.encloses(emblem) and absf(emblem.get_center().x - block.get_center().x) < 30.0, "HUD: timer emblem inside the block, centre section")
+	_check(hud._objective.get_global_rect().position.y >= emblem.end.y - 0.5, "HUD: objective under the emblem")
+	var ribbon: Rect2 = hud._ribbon.get_global_rect()
+	var board_top: float = scenario.get_node("%BoardView").get_global_rect().position.y
+	_check(ribbon.position.y >= hud.bottom() - 0.5 and ribbon.end.y <= board_top + 0.5, "HUD: banner band between the HUD and the board (%s, %.0f..%.0f)" % [ribbon, hud.bottom(), board_top])
+	_check(hud.stage.k > 0.0 and hud._block.size == Vector2(258, 76), "HUD: one 76 px block across the screen (%s)" % hud._block.size)
+	var portrait: TextureRect = hud._block.get_child(0)
+	_check(portrait.texture == ScenarioHud.PORTRAIT and portrait.size == Vector2(64, 64), "HUD: Strange Man bust at 1:1 (64 px)")
+	hud.set_seconds(11)
+	_check(not hud.is_timer_red(), "HUD: 11 s not red")
+	hud.set_seconds(10)
+	_check(hud.is_timer_red() and hud.timer_text() == "10", "HUD: last 10 s red")
+	# A touch on the Pause button never starts a gesture (or selects a Goob).
+	await process_frame
+	var centre := hud.pause_button().get_global_rect().get_center()
+	_touch(centre, true)
+	_check(scenario._touch_index == -1 and scenario._selected == -1, "HUD: touch on Pause is not gameplay input")
+	_touch(centre, false)
+	await _free(scenario)
+
+
+func _test_turn_banners() -> void:
+	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	var hud: ScenarioHud = scenario._hud
+	_check(hud.is_banner_visible() and hud.banner_text() == "Your turn", "banner: blue Your turn at the start")
+	_check(hud._ribbon.texture == ScenarioHud.RIBBON_BLUE, "banner: blue ribbon")
+	_check(_heard(scenario, &"turn_whoosh"), "banner: soft whoosh")
+	_check(not scenario._input_enabled, "banner: input waits for the banner + draw")
+	await _wait_input(scenario)
+	_check(not hud.is_banner_visible(), "banner: gone when input unlocks")
+	await _free(scenario)
+	scenario = await _make(5.0, false, 0.0, 30.0, true)
+	hud = scenario._hud
+	_check(hud.is_banner_visible() and hud.banner_text() == "Opponent's turn", "banner: red Opponent's turn")
+	_check(hud._ribbon.texture == ScenarioHud.RIBBON_RED, "banner: red ribbon")
+	_check(_heard(scenario, &"turn_whoosh"), "banner: whoosh on the opponent's turn too")
+	await _free(scenario)
+
+
+func _test_pause_menu() -> void:
+	var scenario := await _make(5.0)
+	var pause = scenario._pause # untyped: PauseMenu names autoloads
+	_check(not pause.is_open() and not paused, "pause: closed at start")
+	var left_before: float = scenario._turn_timer.time_left
+	scenario._hud.pause_button().pressed.emit()
+	_check(pause.is_open() and paused, "pause: Pause opens the menu and pauses the tree")
+	_check(pause.button("Resume").get_global_rect().size.y >= 96.0, "pause: buttons ≥ 96 px")
+	await create_timer(0.3, true).timeout
+	_check(is_equal_approx(scenario._turn_timer.time_left, left_before), "pause: turn timer stopped (%.2f vs %.2f)" % [scenario._turn_timer.time_left, left_before])
+	var board := _board(scenario)
+	_tap(_col_pos(scenario, 3))
+	_check(_count(board, P) == 0, "pause: no gameplay input while paused")
+	pause.button("Options").pressed.emit()
+	_check(pause.options().is_open() and not pause.options()._scrim.visible, "pause: Options opens over the pause scrim")
+	pause.options()._back.pressed.emit()
+	_check(not pause.options().is_open() and pause._menu.visible, "pause: Back returns to the pause menu")
+	pause.button("Quit").pressed.emit()
+	_check(pause.is_confirming() and pause._confirm.get_child(0).text == "Quit this scenario?", "pause: Quit asks to confirm")
+	pause.button("ConfirmCancel").pressed.emit()
+	_check(not pause.is_confirming() and pause._menu.visible and paused, "pause: Cancel goes back, still paused")
+	pause.button("Resume").pressed.emit()
+	_check(not pause.is_open() and not paused, "pause: Resume unpauses")
+	await create_timer(0.2).timeout
+	_check(scenario._turn_timer.time_left < left_before - 0.1, "pause: timer runs again")
+	# The end overlay has no Pause.
+	scenario._show_end()
+	await process_frame
+	_check(not scenario._hud.pause_button().visible, "pause: hidden at the end")
+	await _free(scenario)
+	_check(not paused, "pause: never left paused")
+
+
+func _test_speed_settings() -> void:
+	var settings := _settings()
+	var scenario := await _make(0.0, true, 0.2, 30.0, true)
+	await _wait_input(scenario)
+	var view := _view(scenario)
+	var hand := _hand_view(scenario)
+	_check(view.animate and view.speed_scale == 1.0, "speed: Normal animates at 1×")
+	settings.set_speed(1) # Fast
+	_check(view.animate and view.speed_scale == 2.0 and hand.speed_scale == 2.0, "speed: Fast doubles the play animations")
+	_check(is_equal_approx(settings.anim_sec(0.6), 0.3), "speed: Fast halves waits")
+	settings.set_speed(2) # Skip
+	_check(not view.animate and not hand.animate, "speed: Skip turns play animations off")
+	_check(settings.anim_sec(0.6) == 0.0, "speed: Skip has no waits")
+	# Skip: no red flash, the opponent goes straight after its think delay.
+	_play_col(scenario, 3)
+	await process_frame
+	_check(not scenario._flash.visible, "speed: Skip removes the opponent flash")
+	var deadline := Time.get_ticks_msec() + 3000
+	while _count(_board(scenario), O) == 0 and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(_count(_board(scenario), O) == 1, "speed: Skip opponent still plays")
+	_check(view._tokens[Vector2i(3, 0)].position == view.cell_position(3, 0), "speed: Skip lands at once")
+	settings.reset()
+	_check(view.animate and view.speed_scale == 1.0, "speed: back to Normal applies live")
+	await _free(scenario)
+
+
+## Skip plays only result sounds: the scoring sequence keeps just the sum note.
+func _test_skip_scoring_sounds() -> void:
+	_settings().set_speed(2)
+	var scenario := await _make(5.0)
+	var board := _board(scenario)
+	for c in 3:
+		board.drop(c, P)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 3)
+	await process_frame
+	var history: Array[StringName] = scenario._sfx.history
+	var ladder := history.filter(func(s: StringName) -> bool: return String(s).begins_with("score_"))
+	_check(ladder == [&"score_4"], "skip: scoring plays only the sum note (got %s)" % str(ladder))
+	_check(scenario.sum_label != null and scenario.sum_label.text == "4", "skip: sum still shown")
+	_settings().reset()
+	await _free(scenario)
+
+
+func _test_screen_shake_option() -> void:
+	var scenario := await _make(5.0)
+	var view := _view(scenario)
+	_settings().set_screen_shake(false)
+	_check(not view.shake_enabled, "shake: option reaches the board")
+	_fill_column(scenario, 2)
+	scenario._reject_placement("Column full")
+	_check(view._shake_tween == null or not view._shake_tween.is_valid(), "shake: Off = no board shake")
+	scenario._shake_screen()
+	_check(scenario._shake_tween == null or not scenario._shake_tween.is_valid(), "shake: Off = no screen shake")
+	_check(scenario._toast._label.text == "Column full" and _heard(scenario, &"error"), "shake: Off keeps toast + error sound")
+	_settings().set_screen_shake(true)
+	scenario._reject_placement("Column full")
+	_check(view._shake_tween != null and view._shake_tween.is_valid(), "shake: On shakes again")
 	await _free(scenario)
