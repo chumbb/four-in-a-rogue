@@ -98,7 +98,7 @@ def bust(name):
     return quantize(Image.open(os.path.join(HERE, "bust", f"raw_{EXPRESSIONS[name]}.png")))
 
 
-RED_SRC = "raw_red_tipped.png"  # options: goobs/make_red_flat.py -> raw_red_flat_<a|b>.png
+RED_SRC = "raw_red_flat_b.png"  # Sean 2026-11-20: flat B (goobs/make_red_flat.py)
 
 
 def intro_goob(colour):
