@@ -121,10 +121,10 @@ TYPES = {
         "title": "Convincing Goob", "tag": "smug Gooberius persuader", "rim": "eyes",
         "faces": {
             "idle":        ("halflid", ("low", "raised"), "smirk", []),
-            "giggle":      ("arc", (None, "raised"), "snicker", []),
+            "giggle":      ("arc", None, "snicker", []),
             "happy":       ("halflid", "raised", "smirk", []),
             "sad":         ("side", "sad", "pout", []),
-            "celebrating": (("arc", "halflid"), "raised", "opensmile", []),
+            "celebrating": ("arc", None, "opensmile", []),
             "surprised":   ("wide", "raised", "o", []),
             "worried":     ("side", "sad", "tight", ["sweat"]),
         },
@@ -337,7 +337,14 @@ def build(gtype):
     text(sheet, (x, y), "hand on stump (5x)", 2, DIM)
     sheet.alpha_composite(hand, (x, y + 40))
     path = os.path.join(OUT, gtype + "_sheet.png")
-    sheet.convert("RGB").save(path)
+    try:
+        sheet.convert("RGB").save(path)
+    except OSError:  # open in an image viewer on Windows
+        n = 2
+        while os.path.exists(path.replace("_sheet.png", "_sheet_v%d.png" % n)):
+            n += 1
+        path = path.replace("_sheet.png", "_sheet_v%d.png" % n)
+        sheet.convert("RGB").save(path)
     print(path)
 
 
