@@ -132,8 +132,13 @@ const RECOGNISE_HOP_PX := 6
 ## Goobs falling after a destroy.
 signal drop_sound(kind: StringName, side: BoardState.CellOwner)
 
-## Tests set false: drops land at once and play_drop() returns immediately.
+## Tests (and the Skip animation speed) set false: drops land at once and
+## play_drop() returns immediately; effects only play their impact sound.
 var animate := true
+## Play-animation speed (Settings: Fast = 2). Idle loops and shakes ignore it.
+var speed_scale := 1.0
+## Options "Screen shake" (the scenario sets it from Settings).
+var shake_enabled := true
 
 ## Physical pixels per game pixel (whole number) and logical px per game px.
 var pixel_scale := 1
@@ -223,7 +228,7 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 		return
 	var start := roll_path[0] if roll_path.size() > 1 else column
 	token.position = Vector2(_column_x(start), TOP_Y)
-	var tween := create_tween()
+	var tween := _tween()
 	tween.tween_callback(drop_sound.emit.bind(&"rest", side))
 	tween.tween_interval(TOP_PAUSE_SEC)
 	if roll_path.size() > 1:
@@ -249,6 +254,7 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	_token_owner[target] = side
 	if not animate:
 		token.texture = _tex(side)
+		drop_sound.emit(&"flip", side) # Skip keeps the impact sound
 		return
 	await _charge(source)
 	await _telegraph(target)
@@ -258,10 +264,10 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	_settle(source)
 	var base_y := cell_position(target.x, target.y).y
 	var spin_sec := FLIP_FRAME_SEC * (FLIP_OLD_FRAMES.size() + FLIP_NEW_FRAMES.size())
-	var hop := create_tween()
+	var hop := _tween()
 	hop.tween_method(_set_y.bind(token), base_y, base_y - FLIP_HOP_PX, spin_sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	hop.tween_method(_set_y.bind(token), base_y - FLIP_HOP_PX, base_y, spin_sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	var frames := create_tween()
+	var frames := _tween()
 	for i in FLIP_OLD_FRAMES:
 		frames.tween_callback(_set_texture.bind(token, (_yaw[old] as Array)[i]))
 		frames.tween_interval(FLIP_FRAME_SEC)
@@ -310,6 +316,7 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 		_token_owner.erase(cell)
 		falling.append(_tokens[below])
 	if not animate:
+		drop_sound.emit(&"crunch", side)
 		token.queue_free()
 		for t in falling:
 			t.position.y += CELL
@@ -329,7 +336,7 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 	# Every falling Goob drops the same distance, so they land together.
 	var last: Tween
 	for t in falling:
-		last = create_tween()
+		last = _tween()
 		_queue_fall(last, t, t.position.y, t.position + Vector2(0, CELL))
 	await last.finished
 	drop_sound.emit(&"land", side)
@@ -341,12 +348,15 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 ## play_drop(), which starts from that same spot.
 func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner) -> void:
 	var token: Sprite2D = _tokens.get(source)
-	if token == null or not animate:
+	if token == null:
+		return
+	if not animate:
+		drop_sound.emit(&"popular", side)
 		return
 	await _charge(source)
 	var base := cell_position(source.x, source.y)
 	drop_sound.emit(&"popular", side)
-	var cheer := create_tween()
+	var cheer := _tween()
 	for i in 2:
 		cheer.tween_method(_set_y.bind(token), base.y, base.y - CHEER_PX, CHEER_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		cheer.tween_method(_set_y.bind(token), base.y - CHEER_PX, base.y, CHEER_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -359,7 +369,7 @@ func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner) -> v
 	_fx.add_child(ghost)
 	_burst(_centre_px(source), COLOR_DEBRIS[side], SPARKLE_COUNT, SPARKLE_SPEED, SPARKLE_GRAVITY)
 	var to := Vector2(_column_x(column), TOP_Y)
-	var arc := create_tween()
+	var arc := _tween()
 	arc.tween_method(_set_arc.bind(ghost, base, to), 0.0, 1.0, SUMMON_ARC_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await arc.finished
 	ghost.queue_free()
@@ -375,13 +385,16 @@ func sparkle(cell: Vector2i, side: BoardState.CellOwner) -> void:
 ## a beat, and shoot off toward their hand: down to the player's fan, up to
 ## the hidden opponent.
 func play_draw_cue(cell: Vector2i, side: BoardState.CellOwner, count: int) -> void:
-	if not animate or count <= 0:
+	if count <= 0:
+		return
+	if not animate:
+		drop_sound.emit(&"draw_pop", side)
 		return
 	await _charge(cell)
 	_settle(cell)
 	var start := cell_position(cell.x, cell.y)
 	var away := GHOST_FLY_PX if side == BoardState.CellOwner.PLAYER else -GHOST_FLY_PX
-	var tween := create_tween().set_parallel()
+	var tween := _tween().set_parallel()
 	for i in count:
 		var ghost := _make_sprite(_tex(side), "Ghost")
 		ghost.material = _outline
@@ -404,7 +417,10 @@ func play_draw_cue(cell: Vector2i, side: BoardState.CellOwner, count: int) -> vo
 ## back, greys out, shakes its head and puffs a little grey smoke.
 func play_fizzle(cell: Vector2i) -> void:
 	var token: Sprite2D = _tokens.get(cell)
-	if token == null or not animate:
+	if token == null:
+		return
+	if not animate:
+		drop_sound.emit(&"fizzle", _token_owner[cell])
 		return
 	await _charge(cell)
 	var base := cell_position(cell.x, cell.y)
@@ -412,7 +428,7 @@ func play_fizzle(cell: Vector2i) -> void:
 	token.position = base
 	token.modulate = FIZZLE_MODULATE
 	_burst(_centre_px(cell) - Vector2(0, CELL * 0.5), COLOR_SMOKE, SMOKE_COUNT, SMOKE_SPEED, SMOKE_GRAVITY)
-	var tween := create_tween()
+	var tween := _tween()
 	for px in FIZZLE_PX:
 		tween.tween_callback(_set_x.bind(base.x + px, token))
 		tween.tween_interval(FIZZLE_STEP_SEC)
@@ -427,7 +443,7 @@ func bounce_cell(cell: Vector2i) -> void:
 	if token == null or not animate:
 		return
 	var base_y := cell_position(cell.x, cell.y).y
-	var tween := create_tween()
+	var tween := _tween()
 	tween.tween_method(_set_y.bind(token), base_y, base_y - HOP_PX * 2, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_method(_set_y.bind(token), base_y - HOP_PX * 2, base_y, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
@@ -493,7 +509,7 @@ func recognise_cells(cells: Array[Vector2i]) -> void:
 		if not animate:
 			continue
 		var base_y := cell_position(cell.x, cell.y).y
-		var tween := create_tween()
+		var tween := _tween()
 		tween.tween_method(_set_y.bind(token), base_y, base_y - RECOGNISE_HOP_PX, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		tween.tween_method(_set_y.bind(token), base_y - RECOGNISE_HOP_PX, base_y, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		_burst(_centre_px(cell), COLOR_GOLD, SPARKLE_COUNT, SPARKLE_SPEED, SPARKLE_GRAVITY)
@@ -520,6 +536,8 @@ func clear_highlight() -> void:
 
 ## Invalid-placement shake: whole game pixels left and right, dying out.
 func shake(pattern: Array[int] = SHAKE_INVALID) -> void:
+	if not shake_enabled:
+		return # Options: Screen shake Off turns every shake off
 	if _shake_tween and _shake_tween.is_valid():
 		_shake_tween.kill()
 	_shake_tween = create_tween()
@@ -650,7 +668,7 @@ func _charge(cell: Vector2i, px: int = CHARGE_PX, sec: float = CHARGE_SEC) -> vo
 	if token == null:
 		return
 	var base := cell_position(cell.x, cell.y)
-	var tween := create_tween()
+	var tween := _tween()
 	tween.tween_method(_set_y.bind(token), base.y, base.y - px, sec).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(token, "modulate", CHARGE_GLOW, sec)
 	for dx in CHARGE_SHIVER:
@@ -667,7 +685,7 @@ func _settle(cell: Vector2i) -> void:
 func _settle_token(token: Sprite2D, base: Vector2) -> void:
 	if token == null or not is_instance_valid(token):
 		return
-	var tween := create_tween().set_parallel()
+	var tween := _tween().set_parallel()
 	tween.tween_method(_set_pos.bind(token), token.position, base, SETTLE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(token, "modulate", Color.WHITE, SETTLE_SEC)
 
@@ -677,7 +695,7 @@ func _telegraph(cell: Vector2i) -> void:
 	var token: Sprite2D = _tokens.get(cell)
 	if token == null:
 		return
-	var tween := create_tween()
+	var tween := _tween()
 	for i in TELEGRAPH_BLINKS:
 		tween.tween_property(token, "modulate", TELEGRAPH_MODULATE, 0.0)
 		tween.tween_interval(TELEGRAPH_SEC)
@@ -692,19 +710,24 @@ func _lunge(source: Vector2i, target: Vector2i, px: int) -> void:
 	if token == null:
 		return
 	var to := cell_position(source.x, source.y) + Vector2(target - source) * Vector2(1, -1) * px
-	create_tween().tween_method(_set_pos.bind(token), token.position, to, LUNGE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_tween().tween_method(_set_pos.bind(token), token.position, to, LUNGE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 ## A bright flash that fades back to normal.
 func _glow(token: Sprite2D) -> void:
 	token.modulate = CHARGE_GLOW
-	var tween := create_tween()
+	var tween := _tween()
 	tween.tween_property(token, "modulate", Color.WHITE, 0.3)
 	await tween.finished
 
 
+## A play-animation tween at the current speed.
+func _tween() -> Tween:
+	return create_tween().set_speed_scale(speed_scale)
+
+
 func _wait(sec: float) -> void:
-	var tween := create_tween()
+	var tween := _tween()
 	tween.tween_interval(sec)
 	await tween.finished
 
@@ -724,7 +747,7 @@ func _burst(at: Vector2, color: Color, count: int, speed: float, gravity: float)
 		_fx.add_child(bit)
 		var angle := TAU * i / count + randf_range(-0.3, 0.3)
 		var velocity := Vector2(cos(angle), sin(angle) - 0.5) * speed * randf_range(0.6, 1.0)
-		var tween := bit.create_tween()
+		var tween := bit.create_tween().set_speed_scale(speed_scale)
 		tween.tween_method(_set_debris.bind(bit, at, velocity, gravity), 0.0, DEBRIS_SEC, DEBRIS_SEC)
 		tween.parallel().tween_property(bit, "modulate:a", 0.0, DEBRIS_SEC).set_ease(Tween.EASE_IN)
 		tween.tween_callback(bit.queue_free)

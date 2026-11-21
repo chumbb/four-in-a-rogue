@@ -33,7 +33,7 @@ const VIGNETTE := preload("res://shaders/vignette.gdshader")
 
 ## Set by the coin flip; true = player moves first.
 var player_moves_first: bool = true
-## Options "Auto-flip coin" (default Off; the Options row comes in M6b).
+## Tests force an auto-flip; players use Options "Auto-flip coin" (Settings).
 var auto_flip_coin := false
 ## Tests set 0 to change scenes at once.
 var fade_sec := FADE_SEC

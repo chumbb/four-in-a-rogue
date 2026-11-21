@@ -17,7 +17,13 @@ extends Control
 ## plays (M5; fizzle cue when it has no target), then the win check. A four
 ## plays the scoring sequence on the board first. The result is a big centred announcement: win/lose
 ## offers "Back to title", a draw "Replay" (straight back to the coin flip).
+##
+## M6b: pixel HUD (ScenarioHud: portrait, objective, scenario, timer emblem,
+## Pause bottom left), turn banners, the pause menu (tree paused) with Options,
+## haptics, the Screen shake option, and Normal / Fast / Skip on the play
+## animations (Settings).
 
+const OBJECTIVE := "Get four in a row"
 const OPPONENT_DELAY_SEC := 0.6
 ## Red flash on the opponent's column right before its Goob is played.
 const OPPONENT_FLASH_SEC := 0.15
@@ -59,9 +65,11 @@ const SCORE_HOLD_SEC := 1.0
 ## effect before the next turn (Sean, 2026-11-19).
 const EFFECT_LEAD_SEC := 0.2
 const EFFECT_HOLD_SEC := 0.6
+## Turn banner length (Normal). Fast halves it; Skip keeps the Fast length so
+## whose turn it is still reads (banners are not play animations).
+const TURN_BANNER_SEC := 0.9
 
-@onready var _turn_label: Label = %TurnLabel
-@onready var _timer_label: Label = %TimerLabel
+@onready var _hud_slot: Control = %HudSlot
 @onready var _result_label: Label = %ResultLabel
 @onready var _end_button: Button = %EndButton
 @onready var _board_view: BoardView2D = %BoardView
@@ -85,6 +93,10 @@ var animate_drops := true
 ## Tests set a deck (e.g. all Vanilla) to replace the starter deck.
 var deck: Array[GoobDefinition] = []
 
+var _hud: ScenarioHud
+var _pause: PauseMenu
+## Set when the turn timer ran out (the HUD reads 0 until the Goob is played).
+var _timed_out := false
 var _loop := TurnLoop.new()
 var _rng := RandomNumberGenerator.new()
 var _toast: Toast
@@ -140,13 +152,14 @@ func _ready() -> void:
 	add_child(vignette)
 	move_child(vignette, _stump.get_index() + 1)
 	_build_feedback_nodes()
+	_build_hud()
 	_opponent_timer = _make_timer(_choose_opponent_move)
 	_flash_timer = _make_timer(_on_opponent_flash_done)
 	_turn_timer = _make_timer(_on_turn_timeout)
 	_timeout_timer = _make_timer(_finish_timeout)
 	_end_overlay.visible = false
-	_board_view.animate = animate_drops
-	_hand.animate = animate_drops
+	Settings.changed.connect(_apply_speed)
+	_apply_speed()
 	_board_view.item_rect_changed.connect(_layout_table.call_deferred)
 	_layout_table.call_deferred()
 	_loop.start(GameFlow.player_moves_first, _rng, deck)
@@ -162,8 +175,88 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if _input_enabled and not _turn_timer.is_stopped():
-		_timer_label.text = "%ds" % ceili(_turn_timer.time_left)
+	_refresh_timer()
+
+
+## HUD countdown: the player's seconds left (30 before the turn unlocks, 0 at a
+## timeout), "—" on the opponent's turn and after the end.
+func _refresh_timer() -> void:
+	if _loop.phase != TurnLoop.Phase.PLAYER_TURN:
+		_hud.set_timer(ScenarioHud.NO_TIMER)
+	elif _timed_out:
+		_hud.set_seconds(0)
+	elif not _turn_timer.is_stopped():
+		_hud.set_seconds(ceili(_turn_timer.time_left))
+	else:
+		_hud.set_seconds(ceili(turn_seconds))
+
+
+## Pixel HUD over the zones (under flashes, toasts and overlays), the pause
+## menu on top of everything.
+func _build_hud() -> void:
+	_hud = ScenarioHud.new()
+	add_child(_hud)
+	move_child(_hud, get_node("%SafeArea").get_index() + 1)
+	_hud.set_objective(OBJECTIVE)
+	_hud.pause_pressed.connect(_on_pause_pressed)
+	_hud.stage.relayout.connect(_fit_hud_slot)
+	_pause = PauseMenu.new()
+	add_child(_pause)
+
+
+## The zones reserve the HUD's height (block + timer emblem) above the board.
+## When that leaves too little room for aim lane + board + hand (a short screen
+## with phone insets), the HUD goes compact.
+func _fit_hud_slot() -> void:
+	var insets := SafeArea.insets_for(get_viewport())
+	var room := get_viewport_rect().size.y - float(insets.top) - float(insets.bottom)
+	var below := _aim_lane.custom_minimum_size.y + _board_view.get_combined_minimum_size().y + _hand.custom_minimum_size.y
+	_hud.set_compact(false)
+	if _hud.bottom() - float(insets.top) > room - below:
+		_hud.set_compact(true)
+	_hud_slot.custom_minimum_size.y = maxf(0.0, ceilf(_hud.bottom() - float(insets.top)))
+
+
+func _on_pause_pressed() -> void:
+	if _end_overlay.visible or GameFlow.is_fading():
+		return
+	_pause.open()
+
+
+## Normal / Fast / Skip (Settings; also when changed from the pause menu).
+## Skip turns the play animations off; tests' animate_drops = false does too.
+func _apply_speed() -> void:
+	var on := _animating()
+	_board_view.animate = on
+	_hand.animate = on
+	_board_view.speed_scale = Settings.anim_scale()
+	_board_view.shake_enabled = Settings.screen_shake
+	_hand.speed_scale = Settings.anim_scale()
+
+
+func _animating() -> bool:
+	return animate_drops and not Settings.is_skip()
+
+
+## The opponent's think delay: halved on Fast, and on Skip (it still reads).
+func _think_sec() -> float:
+	if Settings.is_skip():
+		return opponent_delay_sec / Settings.FAST_SCALE
+	return opponent_delay_sec / Settings.anim_scale()
+
+
+func _banner_sec() -> float:
+	if Settings.speed == Settings.Speed.NORMAL:
+		return TURN_BANNER_SEC
+	return TURN_BANNER_SEC / Settings.FAST_SCALE
+
+
+## Turn banner (blue / red ribbon + sting). Tests (animate_drops = false) skip it.
+func _show_turn_banner(player: bool) -> void:
+	if not animate_drops:
+		return
+	_sfx.play(&"turn_player" if player else &"turn_opponent")
+	await _hud.show_turn_banner(player, _banner_sec())
 
 
 ## The biome's hand prop (Forest: an oak stump, Sean 2026-11-19): pixel art
@@ -228,6 +321,8 @@ func _input(event: InputEvent) -> void:
 func _on_press(event: InputEventScreenTouch) -> void:
 	if _touch_index != -1:
 		return # a second finger; single pointer only
+	if PixelStage.touches_button(_hud, event.position):
+		return # the Pause button (normal Control signal)
 	if _inspect.is_open():
 		# The next tap closes the inspect view and does nothing else.
 		_inspect.close()
@@ -442,6 +537,7 @@ func _hide_aim() -> void:
 func _set_input_enabled(enabled: bool) -> void:
 	_input_enabled = enabled
 	if enabled:
+		_timed_out = false
 		_turn_timer.start(turn_seconds)
 	else:
 		_turn_timer.stop()
@@ -492,6 +588,8 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 	var effect := _loop.last_effect
 	await _board_view.play_drop(column, row, side, roll_path)
 	_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
+	if side == BoardState.CellOwner.PLAYER:
+		Settings.vibrate() # one pulse when your Goob lands (slice §2B)
 	await _play_effect(effect)
 	if not is_inside_tree():
 		return
@@ -563,9 +661,8 @@ func _on_turn_timeout() -> void:
 	if _timeout_hand_index == -1:
 		_timeout_hand_index = _rng.randi_range(0, _loop.player_deck.hand.size() - 1)
 	_set_input_enabled(false)
+	_timed_out = true
 	_hand.remove(_timeout_hand_index)
-	_timer_label.text = "0s"
-	_timer_label.visible = true
 	_toast.show_message(MSG_TIMES_UP)
 	_sfx.play(&"times_up")
 	_place_toast()
@@ -609,6 +706,9 @@ func _after_play() -> void:
 		TurnLoop.Phase.OPPONENT_TURN:
 			_run_opponent_turn()
 		_:
+			await _show_turn_banner(true)
+			if not is_inside_tree():
+				return
 			await _show_turn_draw()
 			if is_inside_tree() and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
 				_set_input_enabled(true)
@@ -635,8 +735,10 @@ func _on_drop_sound(kind: StringName, side: BoardState.CellOwner) -> void:
 	_sfx.play(kind, side == BoardState.CellOwner.OPPONENT)
 
 
-## Short whole-screen shake in whole logical px.
+## Short whole-screen shake in whole logical px (none with Screen shake Off).
 func _shake_screen() -> void:
+	if not Settings.screen_shake:
+		return
 	if _shake_tween and _shake_tween.is_valid():
 		_shake_tween.kill()
 	_shake_tween = create_tween()
@@ -644,19 +746,25 @@ func _shake_screen() -> void:
 		_shake_tween.tween_property(self, "position:x", float(px), SCREEN_SHAKE_STEP_SEC)
 
 
+## The red banner and the think delay run together; the flash waits for both.
 func _run_opponent_turn() -> void:
 	_set_input_enabled(false)
-	if opponent_delay_sec > 0.0:
-		_opponent_timer.start(opponent_delay_sec)
+	var wait := _think_sec()
+	if animate_drops:
+		_show_turn_banner(false)
+		wait = maxf(wait, _banner_sec())
+	if wait > 0.0:
+		_opponent_timer.start(wait)
 	else:
 		_choose_opponent_move()
 
 
 func _choose_opponent_move() -> void:
 	_opponent_column = OpponentAI.choose_column(_loop.board, _rng)
-	if opponent_flash_sec > 0.0:
+	var flash := Settings.anim_sec(opponent_flash_sec) # Fast halves, Skip removes
+	if flash > 0.0:
 		_show_flash(_opponent_column, COLOR_FLASH_OPPONENT)
-		_flash_timer.start(opponent_flash_sec)
+		_flash_timer.start(flash)
 	else:
 		_play_opponent_move()
 
@@ -678,6 +786,7 @@ func _play_opponent_move() -> void:
 
 func _show_end() -> void:
 	_set_input_enabled(false)
+	_hud.set_pause_visible(false)
 	var color := COLOR_DRAW
 	match _loop.result:
 		TurnLoop.Result.PLAYER_WIN:
@@ -717,7 +826,10 @@ func _play_scoring(side: BoardState.CellOwner) -> void:
 	# Recognition first (Sean, 2026-11-20): the scored Goobs light up in gold
 	# and hop together before any multiplier appears.
 	_board_view.recognise_cells(cells)
-	_sfx.play(&"score_recognise")
+	# Skip plays only the result sounds: here the final sum (slice §2B Sound).
+	var ticks := not Settings.is_skip()
+	if ticks:
+		_sfx.play(&"score_recognise")
 	await _wait(SCORE_RECOGNISE_SEC)
 	var cell_px := _board_view.column_rect(0).size.x
 	var total := 0.0
@@ -731,13 +843,15 @@ func _play_scoring(side: BoardState.CellOwner) -> void:
 		var label := _make_score_label("×" + format_score(multiplier), &"Mono2", Color.WHITE)
 		_place_centered(label, _board_view.cell_center(cell) - Vector2(0.0, cell_px * 0.5 + label.size.y * 0.5))
 		score_labels.append(label)
-		_sfx.play(ladder[mini(i, ladder.size() - 1)])
+		if ticks:
+			_sfx.play(ladder[mini(i, ladder.size() - 1)])
 		await _wait(SCORE_STEP_SEC)
 	await _wait(SCORE_PAUSE_SEC)
 	var centre := _board_view.grid_center()
-	_sfx.play(&"score_collapse")
-	if animate_drops:
-		var collapse := create_tween().set_parallel()
+	if ticks:
+		_sfx.play(&"score_collapse")
+	if _animating():
+		var collapse := create_tween().set_parallel().set_speed_scale(Settings.anim_scale())
 		for label in score_labels:
 			collapse.tween_property(label, "position", centre - label.size * 0.5, SCORE_COLLAPSE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 			collapse.tween_property(label, "modulate:a", 0.0, SCORE_COLLAPSE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -748,10 +862,10 @@ func _play_scoring(side: BoardState.CellOwner) -> void:
 	sum_label = _make_score_label(format_score(total), &"Mono3", COLOR_WIN if side == BoardState.CellOwner.PLAYER else COLOR_LOSE)
 	_place_centered(sum_label, centre)
 	_sfx.play(ladder[mini(cells.size(), ladder.size() - 1)])
-	if animate_drops:
+	if _animating():
 		sum_label.pivot_offset = sum_label.size * 0.5
 		sum_label.scale = Vector2(0.3, 0.3)
-		create_tween().tween_property(sum_label, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		create_tween().set_speed_scale(Settings.anim_scale()).tween_property(sum_label, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await _wait(SCORE_HOLD_SEC)
 
 
@@ -781,13 +895,14 @@ func _place_centered(control: Control, pos: Vector2) -> void:
 	control.global_position = ((pos - control.size * 0.5) * ui_scale).round() / ui_scale
 
 
-## Waits `sec` on a child timer (freed with the scene, so a pending wait just
-## stops). No wait when animations are off (tests).
+## Waits `sec` (at the animation speed) on a child timer (freed with the
+## scene, so a pending wait just stops; paused with the tree). No wait on Skip
+## or when animations are off (tests).
 func _wait(sec: float) -> void:
-	if not animate_drops or sec <= 0.0:
+	if not _animating() or sec <= 0.0:
 		return
 	var timer := _make_timer(func() -> void: pass)
-	timer.start(sec)
+	timer.start(sec / Settings.anim_scale())
 	await timer.timeout
 	timer.queue_free()
 
@@ -814,6 +929,7 @@ func _announce() -> void:
 func _reject_placement(message: String) -> void:
 	_board_view.shake()
 	_sfx.play(&"error")
+	Settings.vibrate()
 	_toast.show_message(message)
 	_place_toast()
 
@@ -825,16 +941,7 @@ func _place_toast() -> void:
 
 
 func _refresh_hud() -> void:
-	match _loop.phase:
-		TurnLoop.Phase.PLAYER_TURN:
-			_turn_label.text = "Your turn"
-		TurnLoop.Phase.OPPONENT_TURN:
-			_turn_label.text = "Opponent's turn"
-		_:
-			_turn_label.text = ""
-	_timer_label.visible = _input_enabled
-	if _input_enabled:
-		_timer_label.text = "%ds" % ceili(turn_seconds)
+	_refresh_timer()
 
 
 func _on_end_pressed() -> void:
@@ -843,6 +950,3 @@ func _on_end_pressed() -> void:
 	else:
 		GameFlow.return_to_title()
 
-
-func _on_back_to_menu_pressed() -> void:
-	GameFlow.return_to_title()

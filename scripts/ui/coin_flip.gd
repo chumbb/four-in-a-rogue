@@ -157,7 +157,7 @@ func _pop_in() -> void:
 	tween.tween_property(_coin, "scale", Vector2.ONE * COIN_SCALE, POP_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_callback(func() -> void: _ready_for_toss = true)
 	tween.tween_callback(_start_hint)
-	if GameFlow.auto_flip_coin:
+	if GameFlow.auto_flip_coin or Settings.auto_flip:
 		tween.tween_interval(AUTO_FLIP_SEC)
 		tween.tween_callback(func() -> void: toss(TAP_STRENGTH))
 

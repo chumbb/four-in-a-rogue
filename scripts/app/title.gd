@@ -11,14 +11,13 @@ const PULSE_SEC := 0.7
 const BUTTON_GAP := 6.0
 const QUIT_BOTTOM := 458.0 ## mock: Quit bottom on the 480-tall design
 const DESIGN_HEIGHT := 480.0
-const OPTIONS_STUB := "Options arrive in M6b"
 
 var _stage: PixelStage
 var _logo: TextureRect
 var _prompt: Label
 var _options: Button
 var _quit: Button
-var _toast: Toast
+var _options_panel: OptionsPanel
 var _started := false
 
 
@@ -38,8 +37,8 @@ func _ready() -> void:
 	_quit.pressed.connect(_on_quit_pressed)
 	_quit.visible = OS.has_feature("pc") # never on phones
 	_stage.relayout.connect(_layout)
-	_toast = Toast.new()
-	add_child(_toast)
+	_options_panel = OptionsPanel.new()
+	add_child(_options_panel)
 	var pulse := create_tween().set_loops()
 	pulse.tween_property(_prompt, "modulate:a", 0.35, PULSE_SEC).set_trans(Tween.TRANS_SINE)
 	pulse.tween_property(_prompt, "modulate:a", 1.0, PULSE_SEC).set_trans(Tween.TRANS_SINE)
@@ -74,7 +73,7 @@ static func is_press_start(event: InputEvent) -> bool:
 ## _input, not _unhandled_input: tapping anywhere on the screen counts, except
 ## on the Options / Quit buttons.
 func _input(event: InputEvent) -> void:
-	if _started or GameFlow.is_fading() or not is_press_start(event):
+	if _started or GameFlow.is_fading() or _options_panel.is_open() or not is_press_start(event):
 		return
 	if event is InputEventScreenTouch and PixelStage.touches_button(self, event.position):
 		return
@@ -84,11 +83,10 @@ func _input(event: InputEvent) -> void:
 	GameFlow.begin_play_flow_from_title()
 
 
-## Options panel comes in M6b; until then a short note.
+## The shared Options panel (M6b), over a scrim.
 func _on_options_pressed() -> void:
 	GameFlow.sfx.play(&"ui_tap")
-	_toast.show_message(OPTIONS_STUB)
-	_toast.position = Vector2((size.x - _toast.size.x) * 0.5, _options.get_global_rect().position.y - _toast.size.y - 16.0)
+	_options_panel.open()
 
 
 func _on_quit_pressed() -> void:

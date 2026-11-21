@@ -24,6 +24,8 @@ Outputs in assets/ui/ (9-slice margins = the `MARGINS` table below, in game px):
   logo.png             "Four in a Rogue" (blue + red Vanilla Goobs as the O's)
   fuse_rope.png        tileable rope (8 px wide) for the 24 px timer strip; fuse_burnt.png
   fuse_spark.png       4-frame strip of the burning end (11x11 frames)
+  ribbon_blue.png / ribbon_red.png  turn banner band (8 px wide, tiles across the screen;
+                       blue "Your turn", red "Opponent's turn"; M6b)
 Also art/ui/ui_kit_sheet4x.png: every piece at 4x for review.
 
 The scrim colour and text colours live in scripts/ui/ui_theme.gd (no texture needed).
@@ -290,6 +292,26 @@ def banner(w=20, h=20):
     img = frame(w, h, [INK0, (GOLD_HI, GOLD_LO), INK0, INK1, (GOLD_LO, GOLD_SH), INK0], INK1, radius=3)
     for cx, cy in ((3, 3), (w - 4, 3), (3, h - 4), (w - 4, h - 4)):
         stud(img, cx, cy)
+    return img
+
+
+# Team colours (coin flip / turn banners): player blue, opponent red.
+TEAM = {
+    "blue": (hexc("8fd3ff"), hexc("4d9be6"), hexc("4d65b4")),
+    "red": (hexc("f68181"), RED, RED_LO),
+}
+
+
+def ribbon(team, w=8, h=36):
+    """Turn banner band: tiles horizontally edge to edge. Gold trim + ink edges top and
+    bottom, team body with a lit top row and a shaded bottom row."""
+    hi, body, lo = TEAM[team]
+    rows = [INK0, GOLD_HI, GOLD_LO, INK0, hi] + [body] * (h - 10) + [lo, INK0, GOLD, GOLD_SH, INK0]
+    img = Image.new("RGBA", (w, h), CLEAR)
+    px = img.load()
+    for y, colour in enumerate(rows):
+        for x in range(w):
+            px[x, y] = colour
     return img
 
 
@@ -593,6 +615,8 @@ def build():
         "fuse_rope": fuse_rope(),
         "fuse_burnt": fuse_burnt(),
         "fuse_spark": fuse_spark(),
+        "ribbon_blue": ribbon("blue"),
+        "ribbon_red": ribbon("red"),
     }
     return pieces
 

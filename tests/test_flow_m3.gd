@@ -1,6 +1,7 @@
 extends SceneTree
 ## Headless test for the start flow (M3, rebuilt in M6a): title Press Start,
-## GameFlow fades, Strange Man pages, swipe coin flip.
+## GameFlow fades, Strange Man pages, swipe coin flip; M6b Settings (saved
+## file, audio buses) and the Options panel from the title.
 ## Run: godot --headless -s res://tests/test_flow_m3.gd
 
 const TITLE := "res://scripts/app/title.gd"
@@ -28,6 +29,9 @@ func _run() -> void:
 	var saved_size: Vector2i = root.size
 	root.size = Vector2i(1080, 1920) # Sean's monitor: 4× pixel scale
 	_flow().fade_sec = 0.0
+	# Never touch the player's settings file; start from the defaults.
+	_settings().path = "user://test_settings.cfg"
+	_settings().reset()
 	_test_click_is_press_start()
 	await _test_title_click_starts_game()
 	await _test_title_buttons_do_not_start()
@@ -36,6 +40,11 @@ func _run() -> void:
 	await _test_strange_man_skip()
 	await _test_coin_strength()
 	await _test_coin_toss()
+	_test_settings_saved()
+	await _test_title_options()
+	await _test_auto_flip_setting()
+	_settings().reset()
+	_settings().save_file()
 	_flow().player_moves_first = saved_first
 	_flow().fade_sec = _flow().FADE_SEC
 	root.size = saved_size
@@ -46,6 +55,10 @@ func _run() -> void:
 ## GameFlow is an autoload; its name is not a compile-time identifier in -s scripts.
 func _flow() -> Node:
 	return root.get_node("GameFlow")
+
+
+func _settings() -> Node:
+	return root.get_node("Settings")
 
 
 func _frames(n: int) -> void:
@@ -247,3 +260,101 @@ func _test_coin_toss() -> void:
 	_check(strong.half_turns > gentle_turns and strong.arc_px > gentle_arc, "strong toss spins more, arcs higher")
 	strong.process_mode = Node.PROCESS_MODE_DISABLED
 	await _clear(strong)
+
+
+# --- M6b: Settings + Options ------------------------------------------------------
+
+func _test_settings_saved() -> void:
+	var st := _settings()
+	st.reset()
+	_check(st.speed == 0 and st.haptics and st.screen_shake and not st.auto_flip, "settings: defaults Normal, haptics on, shake on, auto-flip off")
+	_check(is_equal_approx(st.volume[&"Master"], 0.8) and is_equal_approx(st.volume[&"Music"], 0.7) and is_equal_approx(st.volume[&"SFX"], 0.8), "settings: volume defaults 80 / 70 / 80 %")
+	for bus: StringName in [&"Master", &"Music", &"SFX"]:
+		_check(AudioServer.get_bus_index(bus) != -1, "settings: %s bus exists" % bus)
+	var sfx_player := Sfx.new()
+	root.add_child(sfx_player)
+	_check(sfx_player.get_child(0).bus == &"SFX", "settings: sounds play on the SFX bus")
+	sfx_player.free()
+	st.set_speed(1)
+	st.set_haptics(false)
+	st.set_screen_shake(false)
+	st.set_auto_flip(true)
+	st.set_volume(&"Music", 0.35)
+	st.set_muted(&"SFX", true)
+	var music := AudioServer.get_bus_index(&"Music")
+	_check(is_equal_approx(AudioServer.get_bus_volume_db(music), linear_to_db(0.35)), "settings: Music slider sets the bus volume")
+	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index(&"SFX")), "settings: SFX mute mutes the bus")
+	st.reset()
+	st.load_file()
+	_check(st.speed == 1 and not st.haptics and not st.screen_shake and st.auto_flip, "settings: options saved and loaded")
+	_check(is_equal_approx(st.volume[&"Music"], 0.35) and st.muted[&"SFX"], "settings: volume and mute saved and loaded")
+	st.reset()
+	st.save_file()
+
+
+func _test_title_options() -> void:
+	var st := _settings()
+	var title := _add(TITLE_SCENE)
+	await _frames(3)
+	var panel = title._options_panel # untyped: OptionsPanel names autoloads
+	var on_button: Vector2 = title._options.get_global_rect().get_center()
+	root.push_input(_touch(true, on_button), true)
+	root.push_input(_touch(false, on_button), true)
+	await _frames(3)
+	if not panel.is_open():
+		title._options.pressed.emit() # headless touch may not reach Buttons
+	_check(panel.is_open() and panel._scrim.visible, "options: title Options opens the panel over a scrim")
+	await _frames(2)
+	var targets: Array[Control] = []
+	targets.append_array(panel._segments)
+	for key in panel._toggles:
+		targets.append(panel._window.get_node(String(key)))
+	for bus in panel._sliders:
+		targets.append(panel._sliders[bus])
+		targets.append(panel._window.get_node("Mute" + String(bus)))
+	targets.append(panel._back)
+	var small := targets.filter(func(c: Control) -> bool: return c.get_global_rect().size.y < 96.0 - 0.5)
+	_check(targets.size() == 13 and small.is_empty(), "options: all 13 targets ≥ 96 px tall (small: %s)" % str(small))
+	var window: Rect2 = panel._window.get_global_rect()
+	_check(window.position.y >= 0.0 and window.end.y <= 1280.0 and window.position.x >= 0.0 and window.end.x <= 720.0, "options: window on screen (%s)" % window)
+	panel._segments[2].pressed.emit()
+	_check(st.speed == 2, "options: Skip segment sets Skip")
+	_check(panel._segments[2].get_theme_stylebox(&"normal").texture == UiKit.texture(&"segment_selected") or panel._segments[2].get_theme_color(&"font_color") == PixelStage.INK0, "options: Skip shows selected")
+	panel._window.get_node("auto_flip").pressed.emit()
+	_check(st.auto_flip and panel._toggles[&"auto_flip"][1].text == "On", "options: Auto-flip row turns it On")
+	panel._window.get_node("haptics").pressed.emit()
+	_check(not st.haptics and panel._toggles[&"haptics"][1].text == "Off", "options: Haptics row turns it Off")
+	panel._window.get_node("screen_shake").pressed.emit()
+	_check(not st.screen_shake, "options: Screen shake row turns it Off")
+	panel._sliders[&"Master"].value = 0.5
+	_check(is_equal_approx(st.volume[&"Master"], 0.5), "options: Master slider sets the volume")
+	panel._window.get_node("MuteMusic").pressed.emit()
+	_check(st.muted[&"Music"] and panel._mutes[&"Music"].texture == panel.SPEAKER_MUTED, "options: Music mute + muted icon")
+	# Knob on whole game px: 7 px per 5 % step.
+	_check(is_equal_approx(fmod((panel.SLIDER_W - 11.0) / 20.0, 1.0), 0.0), "options: slider steps are whole game px")
+	# A tap while the panel is open is not Press Start.
+	root.push_input(_touch(true, Vector2(360, 20)), true)
+	root.push_input(_touch(false, Vector2(360, 20)), true)
+	await _frames(3)
+	_check(is_instance_valid(title) and current_scene == title, "options: taps on the panel never start the game")
+	panel._back.pressed.emit()
+	_check(not panel.is_open(), "options: Back closes")
+	st.reset()
+	await _clear(title)
+
+
+func _test_auto_flip_setting() -> void:
+	var st := _settings()
+	st.set_auto_flip(true)
+	var cf := _add(COIN_FLIP)
+	await create_timer(1.8).timeout
+	_check(cf.tossed, "auto-flip: Options Auto-flip tosses by itself")
+	cf.process_mode = Node.PROCESS_MODE_DISABLED
+	await _clear(cf)
+	st.set_auto_flip(false)
+	cf = _add(COIN_FLIP)
+	await create_timer(1.8).timeout
+	_check(not cf.tossed, "auto-flip: Off waits for the swipe")
+	cf.process_mode = Node.PROCESS_MODE_DISABLED
+	await _clear(cf)
+	st.reset()
