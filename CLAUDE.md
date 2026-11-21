@@ -46,7 +46,7 @@ Small diff, match existing GDScript style, no new scope. When done: what to pres
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20), **M6a** flow & screens ✅ (accepted and merged 2026-11-20), **M6b** HUD, pause, options ✅ (accepted and merged 2026-11-21) | **Art pass D1** Goob type sheets (starts with a per-type interview), then Art D2 → M6c → M6d → M7 (approved 2026-11-20) |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20), **M6a** flow & screens ✅ (accepted and merged 2026-11-20), **M6b** HUD, pause, options ✅ (accepted and merged 2026-11-21) | **Art pass D1** Goob type sheets (starts with a per-type interview), then Art D2 → Specials design grill → M6c → M6d → M7 (approved 2026-11-20; grill added 2026-11-21) |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -268,7 +268,7 @@ Scene flow, Strange Man text, coin flip, empty grid display, Goob resources, `Bo
 
 ### Remaining plan (approved by Sean, 2026-11-20 grill)
 
-Full plan + gap table: vault `Design/Roadmap v0.1 - remaining art and code.md`. Order: **Art B → Art C → M6a → M6b → Art D1 → Art D2 → M6c → M6d → M7**, one per session, each playtested. **v0.1 art is "real but rough"**: every asset exists, polish after v0.1. Art passes are their own sessions (branch, Sean approves, merge).
+Full plan + gap table: vault `Design/Roadmap v0.1 - remaining art and code.md`. Order: **Art B → Art C → M6a → M6b → Art D1 → Art D2 → Specials design grill → M6c → M6d → M7**, one per session, each playtested. **v0.1 art is "real but rough"**: every asset exists, polish after v0.1. Art passes are their own sessions (branch, Sean approves, merge).
 
 ### Art pass B — UI kit, logo, fuse, vignette ✅ (accepted by Sean and merged to `main` 2026-11-20)
 
@@ -318,6 +318,10 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 
 - [ ] Per type, blue + red: 7 expression loops (2–4 frames), board + hand stills, flip frames (PixelLab 8-dir Pro → `make_goob_flips.py`); `SpriteFrames`; `GoobDefinition` → its art; hand name labels removed
 
+### Special Goobs design grill (design only; Sean, 2026-11-21)
+
+- [ ] Grill Sean on the **17 new special Goobs** (21 special types in all): name, effect, card text, multiplier, personality, Lore seed tie-in → vault design note for his OK + Decision-Log. **No code or art**; building them stays out of v0.1 until Sean schedules it. Don't invent effects: Sean specifies, Claude asks and records
+
 ### M6c — Opponent AI, play animations, reactions (needs Art C, D2)
 
 - [ ] Start with a **short AI grill** (heuristic, personality)
@@ -355,7 +359,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 
 ## Out of scope (unless Sean asks)
 
-Music (after v0.1), multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types** (Sean, 2026-11-13: 17 more specials come after the starter four work, 21 special types in all; Sean specifies them later), balance changes beyond the starter five, final art (v0.1 art is "real but rough", Sean 2026-11-20).
+Music (after v0.1), multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types** (Sean, 2026-11-13: 17 more specials come after the starter four work, 21 special types in all; Sean specifies them in the design grill after Art D2, building them is still out of scope; Sean 2026-11-21), balance changes beyond the starter five, final art (v0.1 art is "real but rough", Sean 2026-11-20).
 
 Full-game vision: GameDev vault `Design/GDD.md` — **not v0.1 tasks**.
 
