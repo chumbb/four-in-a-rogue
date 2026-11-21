@@ -49,6 +49,9 @@ EYE = {
     "halflid": ["KKKK", "WKKW", ".WW."],                          # at y13
     "squint":  ["KKKK", "_KK_"],                                  # at y13
     "puffed":  [".KK.", "K..K"],                                  # ^ pushed up by cheeks, at y13
+    "small":   [".WW.", "WKKW", "WKKW"],                          # Fat: cheeks squeeze the eyes, y12
+    "smalldown": [".WW.", "WWWW", "WKKW"],
+    "smallside": [".WW.", "WWKK", "WWKK"],                        # not mirrored
     "sparkle": [".WW.", "WWKW", "WKKW", "WKKW", ".WW."],          # not mirrored (light top-left)
     "star":    ["..Y..", "YYYYY", ".YYY.", ".Y.Y."],              # 5 wide, x-1, y12
     "kind":    [".WW.", "WKKW", "KKKK"],                          # at y12
@@ -56,7 +59,8 @@ EYE = {
 # (shape, y, mirror_right, x_shift)
 EYE_POS = {"open": (11, 1, 0), "blink": (13, 1, 0), "arc": (12, 1, 0), "u": (13, 1, 0),
            "wide": (11, 1, -1), "down": (11, 1, 0), "side": (11, 0, 0), "halflid": (13, 1, 0),
-           "squint": (13, 1, 0), "puffed": (13, 1, 0), "sparkle": (11, 0, 0), "star": (12, 1, -1), "kind": (12, 1, 0)}
+           "squint": (13, 1, 0), "puffed": (13, 1, 0),
+           "small": (12, 1, 0), "smalldown": (12, 1, 0), "smallside": (12, 0, 0), "sparkle": (11, 0, 0), "star": (12, 1, -1), "kind": (12, 1, 0)}
 
 BROW = {  # left brow; right is mirrored
     "sad":    ["..KK", "KK.."],       # inner end up, at y9
@@ -83,6 +87,7 @@ MOUTH = {  # (shape, x, y)
     "fatroar":   (["KKKKKKKKKKK", "KKKKKKKKKKK", ".KKKPPPKKK.", "..KKKKKKK.."], 11, 19),
     "grimace":   (["KKKKKKK", "KWKWKWK", "KKKKKKK"], 13, 19),
     "warm":      (["K.....K", ".KKKKK."], 13, 20),
+    "tiny":      (["K...K", ".KKK."], 14, 20),                     # Fat: squished between the cheeks
     "warmlaugh": (["KKKKK", ".KPK."], 14, 20),
 }
 
@@ -92,6 +97,7 @@ EXTRA = {  # (shape, x, y, mirrored copy x or None)
     "fatblush":  (["PPP.", "PQQP", ".PP."], 8, 16, 21),
     "fatnose":   (["PQP"], 15, 16, None),
     "fatcheek":  (["H"], 9, 15, 23),
+    "cheeks":    (["..HH..", ".HPPP.", "PPQQPP", "PPPPPP", "SPPPPS", ".SSSS."], 6, 14, 20),  # chubby drunk-blush cheeks
     "jowl":      (["S...............S", ".S.............S.", "..SS.........SS..", "....SSSSSSSSS...."], 8, 20, None),
     "scar":      (["S.", "S.", ".S"], 9, 10, None),
     "sweat":     ([".W.", "TTT", ".T."], 23, 9, None),
@@ -105,7 +111,7 @@ EXTRA = {  # (shape, x, y, mirrored copy x or None)
 
 # ---------------------------------------------------------------- face design
 # Each expression: eyes, brows (or None), mouth, extras.
-FAT = ["jowl", "fatblush", "fatnose", "fatcheek", "scar"]  # chubby, drunk blush, old scar
+FAT = ["cheeks"]  # chubby drunk-blush cheeks (Sean: no double chin, less busy; scar read as a brow)
 TYPES = {
     "vanilla": {
         "title": "Vanilla Goob", "tag": "ordinary, content - the plain baseline", "rim": None,
@@ -134,13 +140,13 @@ TYPES = {
     "fat": {
         "title": "Fat Goob", "tag": "Falstaff - jolly red-faced braggart", "rim": "shields",
         "faces": {
-            "idle":        ("puffed", None, "fatsmile", FAT),
-            "giggle":      ("blink", None, "fatgrin", FAT),
-            "happy":       ("puffed", None, "fatgrin", FAT),
-            "sad":         ("down", "sad", "frown", FAT),
+            "idle":        ("small", None, "tiny", FAT),
+            "giggle":      ("blink", None, "laugh", FAT),
+            "happy":       ("arc", None, "opensmile", FAT),
+            "sad":         ("smalldown", "sad", "frown", FAT),
             "celebrating": ("arc", None, "fatroar", FAT),
             "surprised":   ("wide", "raised", "o", FAT),
-            "worried":     ("side", "sad", "wobbly", FAT + ["sweat"]),
+            "worried":     ("smallside", "sad", "wobbly", FAT + ["sweat"]),
         },
     },
 }
