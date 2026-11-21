@@ -40,13 +40,13 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently **M6b** playtest, then **Art D1**; M6b = HUD, pause, options; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently **Art pass D1** Goob type sheets, then **Art D2**; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20), **M6a** flow & screens ✅ (accepted and merged 2026-11-20) | **M6b** built (branch `m6b-hud-pause-options`, playtest pending), then Art D1/D2 → M6c → M6d → M7 (approved 2026-11-20) |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20), **M6a** flow & screens ✅ (accepted and merged 2026-11-20), **M6b** HUD, pause, options ✅ (accepted and merged 2026-11-21) | **Art pass D1** Goob type sheets (starts with a per-type interview), then Art D2 → M6c → M6d → M7 (approved 2026-11-20) |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -298,7 +298,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 - [x] Sounds (`art/audio/make_flow_sounds.py`): press start, UI tap, page click, Goob pop, swipe, spin whirr (pitch rises with strength), coin clink, "goes first" sting
 - Pixel screens use `PixelStage` (`scripts/ui/pixel_stage.gd`): 270-wide game-pixel canvas at the board's whole-number scale, laid out 1:1 with the Art B/C mocks; vignette on title, Strange Man, coin flip, scenario
 
-### M6b — HUD, pause, options, animation speed (needs Art B) ← **built on branch `m6b-hud-pause-options`, waiting for Sean's playtest**
+### M6b — HUD, pause, options, animation speed ✅ (accepted by Sean and merged to `main` 2026-11-21)
 
 - [x] Pixel HUD (`scripts/ui/scenario_hud.gd`, portrait idle 64 px at 1:1 → 76 px block, Sean 2026-11-20), timer in the Forest emblem (red ≤ 10 s, "—" on the opponent's turn), **Pause** bottom left replacing Quit; pause menu + scrim (`scripts/ui/pause_menu.gd`: tree paused = timer, opponent, animations, SFX stop) + "Quit this scenario?" (Quit / Cancel) → Title. (emblem inside the block since playtest 1)
 - [x] Options panel (`scripts/ui/options_panel.gd`, title + pause): speed, haptics, screen shake, auto-flip coin, Master/Music/SFX sliders (5 % steps) + mutes; `Settings` autoload (`scripts/core/settings.gd`) → `user://settings.cfg`; buses Master → Music, SFX (`default_bus_layout.tres`)
@@ -307,6 +307,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 - [x] Sounds (`art/audio/make_menu_sounds.py`): pause open/close, slider tick, soft turn-banner whoosh
 - [x] Coin flip (Sean, 2026-11-21): "Who goes first?" in the logo's gold letters (`assets/ui/heading_who_goes_first.png`, `make_ui_kit.py`), "Swipe up to flip" removed
 - [x] Playtest 1 (Sean, 2026-11-20): timer emblem moved into the HUD centre with the objective under it, no "Objective" heading, scenario "1", banners between HUD and board, soft whoosh instead of the stings; the compact HUD is gone (everything fits now)
+- [x] Playtest 2 (Sean, 2026-11-21): winner flash after the coin flip is momentary (no lingering tint); Strange Man → coin flip cut no longer flickers (`GameFlow` holds the forest cover over the scene swap). Accepted
 
 ### Art pass D1 — Goob type sheets
 
@@ -387,4 +388,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-20 (M6b built on `m6b-hud-pause-options`: pixel HUD, pause, Options + Settings, turn banners, Normal/Fast/Skip; playtest pending; M6a accepted and merged: fades, title, Strange Man intro, swipe coin flip, flow sounds; next = M6b; Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-21 (M6b accepted and merged, plus playtest 2: momentary winner flash, no flicker on the Strange Man → coin flip cut; next = Art pass D1; 2026-11-20: M6b built on `m6b-hud-pause-options`: pixel HUD, pause, Options + Settings, turn banners, Normal/Fast/Skip; playtest pending; M6a accepted and merged: fades, title, Strange Man intro, swipe coin flip, flow sounds; next = M6b; Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
