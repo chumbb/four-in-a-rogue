@@ -114,6 +114,7 @@ EXTRA = {  # (shape, x, y, mirrored copy x or None)
     "twinkle2":  ([".W.", "WWW", ".W."], 7, 8, None),
     "tired":     ([".SS."], 10, 16, 19),
     "tired2":    (["S..S"], 10, 17, 19),
+    "lashes":    (["K"], 9, 12, 23),
 }
 
 # ---------------------------------------------------------------- face design
@@ -166,6 +167,18 @@ TYPES = {
             "celebrating": ("star", None, "bigopen", ["blush", "twinkle", "twinkle2"]),
             "surprised":   ("wide", "raised", "o", ["blush"]),
             "worried":     ("side", "sad", "grimace", ["sweat"]),
+        },
+    },
+    "plentiful": {
+        "title": "Plentiful Goob", "tag": "motherly provider, worn but still giving", "rim": "wheat",
+        "faces": {
+            "idle":        ("kind", None, "warm", ["rosy", "tired", "lashes"]),
+            "giggle":      ("u", None, "warmlaugh", ["rosy"]),
+            "happy":       ("u", None, "smile", ["rosy"]),
+            "sad":         ("down", "sad", "pout", ["tired", "tired2", "lashes"]),
+            "celebrating": ("arc", None, "opensmile", ["rosy", "joytear"]),
+            "surprised":   ("wide", "sad", "o", ["rosy"]),
+            "worried":     ("kind", "sad", "pout", ["tired", "lashes"]),
         },
     },
 }
@@ -222,6 +235,7 @@ RIM = {
     "eyes": ("LDL", 8, 13.0, 0.0),
     "shields": ("DDD", 8, 13.0, math.pi / 8),
     "stars": ("L", 12, 13.0, 0.0),
+    "wheat": ("LLL", 8, 13.0, math.pi / 8),
 }
 
 
