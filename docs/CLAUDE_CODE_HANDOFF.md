@@ -65,7 +65,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 
 ### Art pass C — HANDOFF (2026-11-20, in progress, NOT merged)
 
-Branch **`art-c-strange-man`** (pushed, last commit `c430420`). Check it out to continue; do not merge until Sean approves everything.
+Branch **`art-c-strange-man`** (pushed). Check it out to continue; do not merge until Sean approves everything.
 Build: `python art/strange_man/make_strange_man.py c_pro3` writes `assets/strange_man/*`, `art/strange_man/mock_intro.png` (intro mock) and `art/strange_man/sheet_portraits.png` (review sheet). The whole history is in the vault session log `2026-11-20 Claude - Art pass C Strange Man.md` and the Decision-Log.
 
 **Settled by Sean:**
@@ -78,26 +78,15 @@ Build: `python art/strange_man/make_strange_man.py c_pro3` writes `assets/strang
 
 Sean hasn't yet given an explicit OK on the bust, the expressions or the crack/explode frames. Ask him to review them before merging.
 
-**OPEN: red intro Goob.** Sean has rejected every try so far.
-- **What Sean wants:**
-  - lying flat, face up, eyes looking **up at the sky**, relaxing (not at the camera)
-  - lying **at an angle**, not straight on
-  - the **same size and sharpness** as the blue one
-  - a **black outline like the blue one** (2e222f, 1 px)
-- **Tries:**
-  1. `raw_red_0` (PixelLab Pro, straight on, looking at the camera)
-  2. sky gaze (hand-edited eyes; OK, but straight on)
-  3. `edit_image` angle variants; Sean **liked variant 4** (`raw_red_angle_3.png`, leaning the other way) but it was smaller and softer than the blue
-  4. variant 4 scaled ×1.24 and cleaned in code: "still doesn't look right, needs a black outline like the blue one"
-  5. current `goobs/raw_red_tipped.png` from `goobs/make_red_tipped.py` (blue recoloured, squashed flat, rim grown underneath): **"the worst one yet"**. **Replace it.**
-- The files for tries 2–4 were deleted in `c430420`. Get them back with `git show b33bf8d:art/strange_man/goobs/raw_red_angle_3.png` (and the same for `raw_red_sky.png`).
-- **Budget:** Sean said **don't spend so many PixelLab gens** on fixes. 170 of 2,000 used; resets 2026-12-20.
-- **Next approach:**
-  - Draw a proper lying-disc version by hand, pixel by pixel in Aseprite (`aseprite-win` MCP) or PIL, at the blue's scale (~34 px wide incl. rim).
-  - Use the blue's exact ramp and outline: Resurrect 64 red ramp e83b3b / ae2334 / 6e2727 / f57d4a, outline 2e222f, ink ground shadow.
-  - Copy variant 4's pose (tilted oval, rim visible on the lower edge), up-gazing eyes, relaxed smile.
-  - **Show Sean 2–3 small options on one sheet before wiring one in.**
-- **Wiring:** `intro_goob()` in `make_strange_man.py` maps `"red"` to the source file. Change it there, then rebuild.
+- **Red intro Goob (settled 2026-11-20): flat B.** `goobs/raw_red_flat_b.png` from `goobs/make_red_flat.py`.
+  - The Goob lies flat on the ground, face up.
+  - The top face is an exact ellipse (a perfect circle lying down, symmetric), with the rim underneath.
+  - The face is the blue's own pixels turned sideways, blush included.
+  - Ramp e83b3b / ae2334 / 6e2727 / f57d4a, outline 2e222f.
+  - Wired via `RED_SRC` in `make_strange_man.py`.
+  - Rejected along the way: PixelLab tries, the squash/tip hack, and the blue rotated 90° (no flat edges and no "on the ground" look). Sean: it must lie **flat on the ground** and be **perfectly circular**.
+
+**Still to do before merging:** Sean's explicit OK on the bust, the 7 expressions and the crack/explode frames. They are on `art/strange_man/sheet_portraits.png`.
 
 **After Sean approves:**
 - Tick the Art pass C items in `CLAUDE.md` and in the table above.
