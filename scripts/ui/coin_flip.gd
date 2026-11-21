@@ -4,7 +4,7 @@ extends Control
 ## screen centre. Swipe up anywhere to toss it (starting on the coin = a
 ## stronger toss); a tap is a gentle toss. 50/50; the landed colour goes first
 ## (blue = player). A stronger toss only adds spins and arc within the same
-## TOSS_SEC. Then: rest, a flash in the winner's colour + "goes first" banner,
+## TOSS_SEC. Then: rest, a momentary flash in the winner's colour + "goes first" banner,
 ## and the board fades in over the forest. "Who goes first?" heads the screen
 ## in the logo's gold letters and an arrow under the coin loops a swipe-up hint
 ## (no prompt text; Sean 2026-11-21). Release → board ~3.7 s
@@ -53,7 +53,9 @@ const LAND_HOP_PX := 3.0
 const COLOR_PLAYER := Color("4d9be6") ## Resurrect 64 blue
 const COLOR_OPPONENT := Color("e83b3b") ## Resurrect 64 red
 const FLASH_PEAK := 0.8
-const FLASH_HOLD := 0.35
+## Momentary: up, then fully gone (Sean 2026-11-21; was a 0.35 tint held to the fade).
+const FLASH_IN_SEC := 0.06
+const FLASH_OUT_SEC := 0.25
 
 var rng := RandomNumberGenerator.new()
 ## Set by toss(): true = blue face up = player goes first.
@@ -263,8 +265,8 @@ func _show_result() -> void:
 	var colour := COLOR_PLAYER if player_first else COLOR_OPPONENT
 	_flash.color = Color(colour, 0.0)
 	var flash := create_tween()
-	flash.tween_property(_flash, "color:a", FLASH_PEAK, 0.08)
-	flash.tween_property(_flash, "color:a", FLASH_HOLD, 0.4)
+	flash.tween_property(_flash, "color:a", FLASH_PEAK, FLASH_IN_SEC)
+	flash.tween_property(_flash, "color:a", 0.0, FLASH_OUT_SEC)
 	_banner_label.text = "You go first" if player_first else "Opponent goes first"
 	create_tween().tween_property(_heading, "modulate:a", 0.0, 0.2) # answered by the banner
 	_banner.self_modulate = Color.WHITE
