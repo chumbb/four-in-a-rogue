@@ -808,10 +808,9 @@ func _test_layout(size: Vector2i, insets: bool) -> void:
 	var pause_rect := hud.pause_button().get_global_rect()
 	_check(pause_rect.position.x <= 30.0 and pause_rect.end.y <= bottom + 0.5 and pause_rect.end.y >= bottom - 40.0, "%s: Pause bottom left in the safe area (%s)" % [tag, pause_rect])
 	_check(pause_rect.size.x >= 96.0 and pause_rect.size.y >= 96.0, "%s: Pause button ≥ 96 px (%s)" % [tag, pause_rect.size])
-	_check(hud.bottom() <= lane.position.y + 0.5, "%s: HUD + timer emblem above the aim lane (%.0f ≤ %.0f)" % [tag, hud.bottom(), lane.position.y])
+	_check(hud.bottom() <= lane.position.y + 0.5, "%s: HUD above the aim lane (%.0f ≤ %.0f)" % [tag, hud.bottom(), lane.position.y])
 	var block: Rect2 = hud._block.get_global_rect()
 	_check(block.position.y >= top - 0.5, "%s: HUD block under the top inset" % tag)
-	_check(hud.is_compact() == (size == PHONE and insets), "%s: compact HUD only when space is short (got %s)" % [tag, hud.is_compact()])
 	_check(scenario.column_hit_rect(3).size.x >= 85.0, "%s: columns ≥ 85 px" % tag)
 	var view := _view(scenario)
 	_check(view.pixel_scale == 4, "%s: board at 4× physical (got %d)" % [tag, view.pixel_scale])
@@ -1110,7 +1109,16 @@ func _test_hud() -> void:
 	var scenario := await _make(5.0)
 	var hud: ScenarioHud = scenario._hud
 	_check(hud.objective() == "Get four in a row", "HUD: objective text")
-	_check(hud._scenario.text == "1/1", "HUD: scenario 1/1")
+	_check(hud._block.find_children("*", "Label", true, false).all(func(l: Label) -> bool: return l.text != "Objective"), "HUD: no Objective heading")
+	_check(hud._scenario.text == "1", "HUD: scenario shows 1")
+	await process_frame
+	var emblem: Rect2 = hud._emblem.get_global_rect()
+	var block: Rect2 = hud._block.get_global_rect()
+	_check(block.encloses(emblem) and absf(emblem.get_center().x - block.get_center().x) < 30.0, "HUD: timer emblem inside the block, centre section")
+	_check(hud._objective.get_global_rect().position.y >= emblem.end.y - 0.5, "HUD: objective under the emblem")
+	var ribbon: Rect2 = hud._ribbon.get_global_rect()
+	var board_top: float = scenario.get_node("%BoardView").get_global_rect().position.y
+	_check(ribbon.position.y >= hud.bottom() - 0.5 and ribbon.end.y <= board_top + 0.5, "HUD: banner band between the HUD and the board (%s, %.0f..%.0f)" % [ribbon, hud.bottom(), board_top])
 	_check(hud.stage.k > 0.0 and hud._block.size == Vector2(258, 76), "HUD: one 76 px block across the screen (%s)" % hud._block.size)
 	var portrait: TextureRect = hud._block.get_child(0)
 	_check(portrait.texture == ScenarioHud.PORTRAIT and portrait.size == Vector2(64, 64), "HUD: Strange Man bust at 1:1 (64 px)")
@@ -1132,7 +1140,7 @@ func _test_turn_banners() -> void:
 	var hud: ScenarioHud = scenario._hud
 	_check(hud.is_banner_visible() and hud.banner_text() == "Your turn", "banner: blue Your turn at the start")
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_BLUE, "banner: blue ribbon")
-	_check(_heard(scenario, &"turn_player"), "banner: Your turn sting")
+	_check(_heard(scenario, &"turn_whoosh"), "banner: soft whoosh")
 	_check(not scenario._input_enabled, "banner: input waits for the banner + draw")
 	await _wait_input(scenario)
 	_check(not hud.is_banner_visible(), "banner: gone when input unlocks")
@@ -1141,7 +1149,7 @@ func _test_turn_banners() -> void:
 	hud = scenario._hud
 	_check(hud.is_banner_visible() and hud.banner_text() == "Opponent's turn", "banner: red Opponent's turn")
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_RED, "banner: red ribbon")
-	_check(_heard(scenario, &"turn_opponent"), "banner: Opponent's turn sting")
+	_check(_heard(scenario, &"turn_whoosh"), "banner: whoosh on the opponent's turn too")
 	await _free(scenario)
 
 

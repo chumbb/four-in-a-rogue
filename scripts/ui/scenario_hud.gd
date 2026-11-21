@@ -2,14 +2,16 @@ class_name ScenarioHud
 extends Control
 ## Scenario HUD on the game-pixel grid (Art B mock 2, slice §2B "HUD"; M6b):
 ## one block with thick gold section bars: the opponent's bust portrait (v0.1:
-## the Strange Man, idle) | "Objective" + the scenario's text, centred |
-## "Scenario 1/1". The turn timer sits just under the block in the round Forest
-## emblem: a number from 30, red for the last 10 s, "—" on the opponent's turn.
+## the Strange Man, idle) | the turn timer in the round Forest emblem, with the
+## scenario's objective ("Get four in a row") under it | "Scenario" + its number.
+## Timer: a number from 30, red for the last 10 s, "—" on the opponent's turn.
 ## The Pause button is at the bottom left of the safe area. Also shows the turn
-## banners (blue "Your turn" / red "Opponent's turn" ribbons across the screen).
+## banners (blue "Your turn" / red "Opponent's turn" ribbons across the screen),
+## in the gap between the HUD and the board.
 ##
-## The block grew from 56 to 76 game px so the 64 px bust shows whole (Sean,
-## 2026-11-20).
+## Sean, 2026-11-20: the block grew from 56 to 76 game px so the 64 px bust
+## shows whole; playtest 1: emblem moved up into the block's centre section,
+## no "Objective" heading, scenario shows "1", banners above the board.
 
 signal pause_pressed
 
@@ -24,17 +26,12 @@ const GOLD_HI := Color("fbb954")
 const RED := Color("e83b3b")
 ## Layout in game px (mock 2, block 76 tall for the 64 px bust).
 const TOP_GAP := 8.0
-## Compact (short screens with insets, e.g. 16:9 + a notch): smaller top gap,
-## and the timer emblem hangs over the block's bottom edge.
-const COMPACT_TOP_GAP := 2.0
-const COMPACT_EMBLEM_OVERLAP := 28.0
-## Compact lifts the objective lines clear of the hanging emblem.
-const COMPACT_TEXT_LIFT := 8.0
 const BLOCK_X := 6.0
 const BLOCK_H := 76.0
 const PORTRAIT_INSET := 6.0
 const SCENARIO_W := 62.0
-const EMBLEM_GAP := 1.0
+const EMBLEM_TOP := 4.0 ## emblem top inside the block's centre section
+const OBJECTIVE_Y := 52.0 ## objective line under the emblem
 const PAUSE_SIZE := Vector2(40, 38)
 const PAUSE_INSET := 9.0
 ## Ink outline around the timer digits (8 directions + a drop below).
@@ -56,7 +53,9 @@ var _pause: Button
 var _ribbon: TextureRect
 var _ribbon_label: Label
 var _ribbon_tween: Tween
-var _compact := false
+## Gap between the HUD and the board in game px (set_banner_band); the
+## ribbon is centred in it.
+var _band := Vector2(-1, -1)
 
 
 func _init() -> void:
@@ -88,16 +87,14 @@ func _build() -> void:
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		bar.name = "Bar%d" % i
 		_block.add_child(bar)
-	var header := _shadowed(stage.add_label("Objective", GOLD_HI, &"", _block))
-	header.name = "ObjectiveHeader"
 	_objective = _shadowed(stage.add_label("Get four in a row", PixelStage.CREAM, &"", _block))
 	_objective.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var run_header := _shadowed(stage.add_label("Scenario", GOLD_HI, &"", _block))
 	run_header.name = "ScenarioHeader"
-	_scenario = _shadowed(stage.add_label("1/1", PixelStage.CREAM, &"Mono2", _block), 2)
-	for label: Label in [header, _objective, run_header, _scenario]:
+	_scenario = _shadowed(stage.add_label("1", PixelStage.CREAM, &"Mono2", _block), 2)
+	for label: Label in [_objective, run_header, _scenario]:
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_emblem = stage.add_image(EMBLEM)
+	_emblem = stage.add_image(EMBLEM, Vector2.ZERO, _block)
 	_timer_box = Control.new()
 	_timer_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_emblem.add_child(_timer_box)
@@ -130,7 +127,7 @@ func _shadowed(label: Label, drop := 1) -> Label:
 
 func _layout() -> void:
 	var safe := stage.safe
-	var top := safe.position.y + _top_gap()
+	var top := safe.position.y + TOP_GAP
 	var width := stage.game_size.x - BLOCK_X * 2.0
 	_block.position = Vector2(BLOCK_X, top)
 	_block.size = Vector2(width, BLOCK_H)
@@ -143,11 +140,8 @@ func _layout() -> void:
 		bar.size = Vector2(bar_w, BLOCK_H - 4.0)
 	var mid_x := x1 + bar_w
 	var mid_w := x2 - mid_x
-	var header: Label = _block.get_node("ObjectiveHeader")
-	var lift := COMPACT_TEXT_LIFT if _compact else 0.0
-	header.position = Vector2(mid_x, 22 - lift)
-	header.size = Vector2(mid_w, 16)
-	_objective.position = Vector2(mid_x + 2, 38 - lift)
+	_emblem.position = Vector2(mid_x + floorf((mid_w - EMBLEM.get_width()) * 0.5), EMBLEM_TOP)
+	_objective.position = Vector2(mid_x + 2, OBJECTIVE_Y)
 	_objective.size = Vector2(mid_w - 4, 16)
 	var run_x := x2 + bar_w
 	var run_w := width - 3.0 - run_x
@@ -156,40 +150,34 @@ func _layout() -> void:
 	run_header.size = Vector2(run_w, 16)
 	_scenario.position = Vector2(run_x, 28)
 	_scenario.size = Vector2(run_w, 32)
-	_emblem.position = Vector2(floorf((stage.game_size.x - EMBLEM.get_width()) * 0.5), top + BLOCK_H + _emblem_gap())
 	_centre_timer()
 	_pause.position = Vector2(safe.position.x + PAUSE_INSET, safe.end.y - PAUSE_INSET - PAUSE_SIZE.y)
 	_ribbon.size = Vector2(stage.game_size.x, RIBBON_BLUE.get_height())
-	_ribbon.position = Vector2(0, floorf((stage.game_size.y - _ribbon.size.y) * 0.5))
+	_place_ribbon()
 	_ribbon.pivot_offset = _ribbon.size * 0.5
 	_ribbon_label.size = Vector2(_ribbon.size.x, 32)
 	_ribbon_label.position.y = floorf((_ribbon.size.y - 32.0) * 0.5) - 1.0
 
 
-## Bottom of the HUD (block + timer emblem) in viewport (720-base) units: the
-## scenario reserves this much above the board.
+## Bottom of the HUD block in viewport (720-base) units: the scenario
+## reserves this much above the board.
 func bottom() -> float:
-	var bottom_px := stage.safe.position.y + _top_gap() + BLOCK_H + _emblem_gap() + EMBLEM.get_height()
+	var bottom_px := stage.safe.position.y + TOP_GAP + BLOCK_H
 	return stage.canvas.position.y + bottom_px * stage.k
 
 
-func set_compact(on: bool) -> void:
-	if on == _compact:
-		return
-	_compact = on
-	_layout()
+## The turn banners sit in the gap between the HUD and the board: `top` and
+## `bottom` in viewport units (HUD bottom, board top).
+func set_banner_band(top: float, bottom_y: float) -> void:
+	_band = Vector2((top - stage.canvas.position.y) / stage.k, (bottom_y - stage.canvas.position.y) / stage.k)
+	_place_ribbon()
 
 
-func is_compact() -> bool:
-	return _compact
-
-
-func _top_gap() -> float:
-	return COMPACT_TOP_GAP if _compact else TOP_GAP
-
-
-func _emblem_gap() -> float:
-	return -COMPACT_EMBLEM_OVERLAP if _compact else EMBLEM_GAP
+func _place_ribbon() -> void:
+	var mid := stage.game_size.y * 0.5
+	if _band.y > _band.x:
+		mid = (_band.x + _band.y) * 0.5
+	_ribbon.position = Vector2(0, roundf(mid - _ribbon.size.y * 0.5))
 
 
 ## The scenario's objective text (v0.1: "Get four in a row").

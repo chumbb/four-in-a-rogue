@@ -8,8 +8,8 @@ ffmpeg) in assets/audio/sfx/, all chiptune (C) per slice §2B Sound:
   pause_open.ogg     pause menu opens: two-note down-blip (G5 → C5)
   pause_close.ogg    pause menu closes / resume: two-note up-blip (C5 → G5, softer)
   slider_tick.ogg    volume slider step: tiny high tick
-  turn_player.ogg    blue "Your turn" banner: bright rising arpeggio
-  turn_opponent.ogg  red "Opponent's turn" banner: lower falling figure, thinner duty
+  turn_whoosh.ogg    turn banners: soft airy whoosh (filtered noise, slow swell), not a
+                     beep (Sean, 2026-11-20); the opponent's plays ~10 % lower (Sfx)
 Button taps reuse ui_tap.ogg (make_flow_sounds.py).
 """
 import os
@@ -33,22 +33,32 @@ def slider_tick():
     return square(1567.98, 0.018, duty=0.25, vol=0.1)
 
 
-def turn_player():
-    notes = [(587.33, 0.06), (739.99, 0.06), (880.0, 0.06), (1174.66, 0.2)]
-    return np.concatenate([square(hz, sec, duty=0.5, vol=0.17) for hz, sec in notes])
-
-
-def turn_opponent():
-    notes = [(440.0, 0.07), (349.23, 0.07), (293.66, 0.22)]
-    return np.concatenate([square(hz, sec, duty=0.25, vol=0.17) for hz, sec in notes])
+def turn_whoosh(sec=0.45, seed=11):
+    """Soft whoosh: white noise through a gentle band-pass whose centre sweeps up
+    then down, under a slow swell; no tone, no hard attack."""
+    rng = np.random.default_rng(seed)
+    n = int(SR * sec)
+    t = np.arange(n) / SR
+    noise = rng.standard_normal(n)
+    out = np.empty(n)
+    lo = hi = 0.0
+    for i in range(n):
+        x = t[i] / sec
+        # Low-pass cutoff swells 0.03 → 0.12 → 0.04 (fraction per sample).
+        a = 0.03 + 0.09 * np.sin(np.pi * x) ** 2
+        lo += a * (noise[i] - lo)
+        hi += 0.004 * (lo - hi)
+        out[i] = lo - hi  # remove the rumble
+    env = np.sin(np.pi * np.clip(t / sec, 0, 1)) ** 1.6
+    out = out * env
+    return out / np.max(np.abs(out)) * 0.16
 
 
 def main():
     write_ogg(pause_open(), "pause_open.ogg")
     write_ogg(pause_close(), "pause_close.ogg")
     write_ogg(slider_tick(), "slider_tick.ogg")
-    write_ogg(turn_player(), "turn_player.ogg")
-    write_ogg(turn_opponent(), "turn_opponent.ogg")
+    write_ogg(turn_whoosh(), "turn_whoosh.ogg")
     print("wrote menu sounds to assets/audio/sfx")
 
 

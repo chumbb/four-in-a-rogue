@@ -21,7 +21,7 @@ fallback credited here). Files in `sfx/` were trimmed / converted to Ogg Vorbis.
 | `sfx/effect_popular.ogg` | Kenney — Starter Kit Match-3 | `sounds/tile-land.ogg` |
 | `sfx/score_0..8.ogg`, `sfx/score_collapse.ogg`, `sfx/score_recognise.ogg` | Made for this project (`art/audio/make_effect_sounds.py`: chiptune square blips, 2026-11-19) | — |
 | `sfx/press_start.ogg`, `sfx/ui_tap.ogg`, `sfx/page_click.ogg`, `sfx/first_sting.ogg`, `sfx/coin_whirr.ogg`, `sfx/coin_clink.ogg` | Made for this project (`art/audio/make_flow_sounds.py`: chiptune blips + synthesised whirr/clink, 2026-11-20) | — |
-| `sfx/pause_open.ogg`, `sfx/pause_close.ogg`, `sfx/slider_tick.ogg`, `sfx/turn_player.ogg`, `sfx/turn_opponent.ogg` | Made for this project (`art/audio/make_menu_sounds.py`: chiptune blips and banner stings, 2026-11-20) | — |
+| `sfx/pause_open.ogg`, `sfx/pause_close.ogg`, `sfx/slider_tick.ogg`, `sfx/turn_whoosh.ogg` | Made for this project (`art/audio/make_menu_sounds.py`: chiptune blips; soft turn-banner whoosh, 2026-11-20) | — |
 | `sfx/inspect_close.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookClose.ogg` (low-passed, quieter, softened attack) |
 
 Kenney starter kits: code MIT, bundled assets CC0 (per each kit's README). Small Sound Kit: CC0 (store listing). Kenney RPG Audio: CC0 (pack `license.txt`).

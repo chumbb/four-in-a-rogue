@@ -53,8 +53,8 @@ const STREAMS := {
 	&"pause_open": preload("res://assets/audio/sfx/pause_open.ogg"),
 	&"pause_close": preload("res://assets/audio/sfx/pause_close.ogg"),
 	&"slider_tick": preload("res://assets/audio/sfx/slider_tick.ogg"),
-	&"turn_player": preload("res://assets/audio/sfx/turn_player.ogg"),
-	&"turn_opponent": preload("res://assets/audio/sfx/turn_opponent.ogg"),
+	# Turn banners: a soft whoosh, not a chiptune beep (Sean, 2026-11-20).
+	&"turn_whoosh": preload("res://assets/audio/sfx/turn_whoosh.ogg"),
 }
 ## Scoring ladder notes, lowest first; the ladder must stay in tune, so these
 ## get no random pitch.

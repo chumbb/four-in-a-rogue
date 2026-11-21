@@ -69,7 +69,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 
 - `Settings` autoload (`scripts/core/settings.gd`): `speed` (Normal/Fast/Skip), `haptics`, `screen_shake`, `auto_flip`, `volume` / `muted` per bus; setters save `user://settings.cfg` and emit `changed`. `anim_sec()`, `anim_scale()`, `is_skip()`, `vibrate()`. Tests set `Settings.path = "user://test_settings.cfg"` then `reset()`, so they never touch the player's file.
 - **Gotcha:** autoload names (`Settings`, `GameFlow`) are not compile-time identifiers when a `-s` test script compiles a class it names (e.g. `BoardView2D`). Keep autoload references out of class_name scripts that tests type against (the board gets `shake_enabled` from the scenario instead), and leave `PauseMenu` / `OptionsPanel` untyped in tests.
-- `ScenarioHud` (`scripts/ui/scenario_hud.gd`): own `PixelStage`; `set_seconds()`, `set_timer("—")`, `show_turn_banner(player, sec)`, `bottom()` (the scenario sizes `%HudSlot` from it), `set_compact()` for short screens with insets.
+- `ScenarioHud` (`scripts/ui/scenario_hud.gd`): own `PixelStage`; `set_seconds()`, `set_timer("—")`, `show_turn_banner(player, sec)`, `bottom()` (the scenario sizes `%HudSlot` from it), `set_banner_band(top, bottom)` (banners centred between HUD and board). Playtest 1: emblem inside the block, no Objective heading, scenario "1", whoosh `turn_whoosh.ogg`.
 - `PauseMenu` pauses the tree (it and its `OptionsPanel` are `PROCESS_MODE_ALWAYS`); scenario timers, tweens and sounds pause with it.
 - Speed: `BoardView2D.speed_scale` / `HandView.speed_scale` (Fast = 2) on play tweens via `_tween()`; Skip = `animate = false` (same path tests use), and the board then emits only impact sounds.
 - **Gotcha:** set a Button's size after it gets the pixel theme. Built before entering the tree, it measures the default font and grows (the Options speed segments are re-sized in `_layout`).
@@ -134,12 +134,12 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6b-hud-pause-options`, 860 checks)
+### Tests (all pass on `m6b-hud-pause-options`, 863 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 380 checks
+& $g --headless -s res://tests/test_scenario.gd    # 383 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
 & $g --headless -s res://tests/test_flow_m3.gd     # 182

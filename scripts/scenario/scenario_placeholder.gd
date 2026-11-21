@@ -204,17 +204,16 @@ func _build_hud() -> void:
 	add_child(_pause)
 
 
-## The zones reserve the HUD's height (block + timer emblem) above the board.
-## When that leaves too little room for aim lane + board + hand (a short screen
-## with phone insets), the HUD goes compact.
+## The zones reserve the HUD block's height above the board.
 func _fit_hud_slot() -> void:
 	var insets := SafeArea.insets_for(get_viewport())
-	var room := get_viewport_rect().size.y - float(insets.top) - float(insets.bottom)
-	var below := _aim_lane.custom_minimum_size.y + _board_view.get_combined_minimum_size().y + _hand.custom_minimum_size.y
-	_hud.set_compact(false)
-	if _hud.bottom() - float(insets.top) > room - below:
-		_hud.set_compact(true)
 	_hud_slot.custom_minimum_size.y = maxf(0.0, ceilf(_hud.bottom() - float(insets.top)))
+	_place_banner_band.call_deferred()
+
+
+## Turn banners go in the gap between the HUD and the board (Sean, 2026-11-20).
+func _place_banner_band() -> void:
+	_hud.set_banner_band(_hud.bottom(), _board_view.get_global_rect().position.y)
 
 
 func _on_pause_pressed() -> void:
@@ -255,7 +254,7 @@ func _banner_sec() -> float:
 func _show_turn_banner(player: bool) -> void:
 	if not animate_drops:
 		return
-	_sfx.play(&"turn_player" if player else &"turn_opponent")
+	_sfx.play(&"turn_whoosh", not player) # soft whoosh, a little lower for the opponent
 	await _hud.show_turn_banner(player, _banner_sec())
 
 
@@ -274,6 +273,7 @@ func _layout_table() -> void:
 	_stump.position = (pos * ui_scale).round() / ui_scale
 	_stump.size = tex_size * hand_px
 	_hand.set_fan_width(STUMP_TOP_WIDTH * hand_px)
+	_place_banner_band()
 
 
 func _make_timer(callback: Callable) -> Timer:
