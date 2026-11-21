@@ -87,7 +87,14 @@ MOUTH = {  # (shape, x, y)
     "fatroar":   (["KKKKKKKKKKK", "KKKKKKKKKKK", ".KKKPPPKKK.", "..KKKKKKK.."], 11, 19),
     "grimace":   (["KKKKKKK", "KWKWKWK", "KKKKKKK"], 13, 19),
     "warm":      (["K.....K", ".KKKKK."], 13, 20),
-    "tiny":      (["K...K", ".KKK."], 14, 20),                     # Fat: squished between the cheeks
+    # Fat: every mouth sits between ")(" cheek creases that imply the fat cheeks
+    # (Sean's reference: vault References/fat-emoji.jpg, 2026-11-21)
+    "fat_smile": (["K...........K", ".K.........K.", ".KKK.....KKK.", ".K..KKKKK..K.", "K...........K"], 10, 18),
+    "fat_grin":  (["K...........K", ".K.........K.", ".KKKKKKKKKKK.", ".K.KKPPPKK.K.", "K...KKKKK...K"], 10, 18),
+    "fat_roar":  (["K...........K", ".KKKKKKKKKKK.", ".KKKKKKKKKKK.", ".KKKKPPPKKKK.", "K..KKKKKKK..K"], 10, 18),
+    "fat_frown": (["K...........K", ".K...KKK...K.", ".K.KK...KK.K.", ".KK.......KK.", "K...........K"], 10, 18),
+    "fat_o":     (["K...........K", ".K...KKK...K.", ".K..KKKKK..K.", ".K...KKK...K.", "K...........K"], 10, 18),
+    "fat_wobble": (["K...........K", ".K.........K.", ".KK.K.K.K.KK.", ".K.K.K.K.K.K.", "K...........K"], 10, 18),
     "warmlaugh": (["KKKKK", ".KPK."], 14, 20),
 }
 
@@ -97,7 +104,7 @@ EXTRA = {  # (shape, x, y, mirrored copy x or None)
     "fatblush":  (["PPP.", "PQQP", ".PP."], 8, 16, 21),
     "fatnose":   (["PQP"], 15, 16, None),
     "fatcheek":  (["H"], 9, 15, 23),
-    "cheeks":    (["..HH..", ".HPPP.", "PPQQPP", "PPPPPP", "SPPPPS", ".SSSS."], 6, 14, 20),  # chubby drunk-blush cheeks
+    "fatblush2": (["PP", "PP"], 7, 19, 24),                     # drunk blush outside the creases
     "jowl":      (["S...............S", ".S.............S.", "..SS.........SS..", "....SSSSSSSSS...."], 8, 20, None),
     "scar":      (["S.", "S.", ".S"], 9, 10, None),
     "sweat":     ([".W.", "TTT", ".T."], 23, 9, None),
@@ -111,7 +118,7 @@ EXTRA = {  # (shape, x, y, mirrored copy x or None)
 
 # ---------------------------------------------------------------- face design
 # Each expression: eyes, brows (or None), mouth, extras.
-FAT = ["cheeks"]  # chubby drunk-blush cheeks (Sean: no double chin, less busy; scar read as a brow)
+FAT = ["fatblush2"]  # cheeks are implied by the mouth creases (Sean, 2026-11-21)
 TYPES = {
     "vanilla": {
         "title": "Vanilla Goob", "tag": "ordinary, content - the plain baseline", "rim": None,
@@ -140,13 +147,13 @@ TYPES = {
     "fat": {
         "title": "Fat Goob", "tag": "Falstaff - jolly red-faced braggart", "rim": "shields",
         "faces": {
-            "idle":        ("small", None, "tiny", FAT),
-            "giggle":      ("blink", None, "laugh", FAT),
-            "happy":       ("arc", None, "opensmile", FAT),
-            "sad":         ("smalldown", "sad", "frown", FAT),
-            "celebrating": ("arc", None, "fatroar", FAT),
-            "surprised":   ("wide", "raised", "o", FAT),
-            "worried":     ("smallside", "sad", "wobbly", FAT + ["sweat"]),
+            "idle":        ("open", None, "fat_smile", FAT),
+            "giggle":      ("arc", None, "fat_grin", FAT),
+            "happy":       ("open", None, "fat_grin", FAT),
+            "sad":         ("down", "sad", "fat_frown", FAT),
+            "celebrating": ("arc", None, "fat_roar", FAT),
+            "surprised":   ("wide", "raised", "fat_o", FAT),
+            "worried":     ("side", "sad", "fat_wobble", FAT + ["sweat"]),
         },
     },
 }
