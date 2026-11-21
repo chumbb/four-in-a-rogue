@@ -45,8 +45,11 @@ const ARROW_BLINK_SEC := 0.4
 const POP_SEC := 0.3
 const POP_STAGGER_SEC := 0.12
 const POP_DROP_PX := 10.0
-const OUTRO_SEC := 0.3 ## his scene fades out
-const FOREST_IN_SEC := 0.6 ## the forest comes into focus
+## Outro (Sean 2026-11-20: slow enough to register): he fades out, the forest
+## comes into focus, a beat on the empty forest, then the coin flip.
+const OUTRO_SEC := 0.5
+const FOREST_IN_SEC := 1.0
+const FOREST_HOLD_SEC := 0.4
 
 @onready var _dim: ColorRect = %Dim
 
@@ -201,4 +204,5 @@ func finish() -> void:
 	var tween := create_tween().set_parallel()
 	tween.tween_property(_stage, "modulate:a", 0.0, OUTRO_SEC)
 	tween.tween_property(_dim, "color:a", 0.0, FOREST_IN_SEC).set_trans(Tween.TRANS_SINE)
+	tween.chain().tween_interval(FOREST_HOLD_SEC)
 	tween.chain().tween_callback(GameFlow.go_to.bind(GameFlow.SceneKey.COIN_FLIP, GameFlow.Transition.CUT))

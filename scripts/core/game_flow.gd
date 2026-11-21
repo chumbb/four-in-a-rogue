@@ -71,7 +71,9 @@ func is_fading() -> bool:
 	return _fading
 
 
-func go_to(key: SceneKey, transition := Transition.BLACK) -> void:
+## `sec` overrides the length of each fade half (e.g. the coin flip's slower
+## fade to the board); tests' fade_sec = 0 still wins.
+func go_to(key: SceneKey, transition := Transition.BLACK, sec := -1.0) -> void:
 	var path: String = SCENE_PATHS.get(key, "")
 	if path.is_empty():
 		push_error("GameFlow: unknown scene key %s" % str(key))
@@ -81,6 +83,7 @@ func go_to(key: SceneKey, transition := Transition.BLACK) -> void:
 	if transition == Transition.CUT or fade_sec <= 0.0:
 		get_tree().change_scene_to_file(path)
 		return
+	var half := fade_sec if sec < 0.0 else sec
 	_fading = true
 	var cover: Control = _black if transition == Transition.BLACK else _forest
 	cover.modulate.a = 0.0
@@ -90,12 +93,12 @@ func go_to(key: SceneKey, transition := Transition.BLACK) -> void:
 	if old:
 		old.process_mode = Node.PROCESS_MODE_DISABLED
 	var out := create_tween()
-	out.tween_property(cover, "modulate:a", 1.0, fade_sec)
+	out.tween_property(cover, "modulate:a", 1.0, half)
 	await out.finished
 	get_tree().change_scene_to_file(path)
 	await get_tree().scene_changed
 	var back := create_tween()
-	back.tween_property(cover, "modulate:a", 0.0, fade_sec)
+	back.tween_property(cover, "modulate:a", 0.0, half)
 	await back.finished
 	cover.visible = false
 	_fading = false

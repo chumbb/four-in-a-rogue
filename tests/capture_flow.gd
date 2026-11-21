@@ -28,7 +28,7 @@ func _run() -> void:
 		var scene: Node = load(key[1]).instantiate()
 		root.add_child(scene)
 		current_scene = scene
-		for i in 30:
+		for i in 110:
 			await process_frame
 		if key[0] == "strange_man":
 			scene.advance() # finish typing page 1
@@ -40,7 +40,10 @@ func _run() -> void:
 				await process_frame
 		await _shot(dir, key[0])
 		if key[0] == "coin":
-			scene.toss(0.8)
+			for i in 20:
+				await process_frame
+			await _shot(dir, "coin_b")
+			scene.toss(1.0)
 			for i in 18:
 				await process_frame
 			await _shot(dir, "coin_air")

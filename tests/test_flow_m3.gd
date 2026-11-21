@@ -201,7 +201,7 @@ func _test_coin_strength() -> void:
 
 func _test_coin_toss() -> void:
 	var cf_script: GDScript = load("res://scripts/ui/coin_flip.gd")
-	_check(cf_script.TOTAL_SEC <= 3.0, "release → scenario ≤ 3 s (got %s)" % cf_script.TOTAL_SEC)
+	_check(cf_script.TOTAL_SEC <= 4.0, "release → scenario ~4 s (Sean 2026-11-20; got %s)" % cf_script.TOTAL_SEC)
 	var outcomes := {}
 	for seed in 12:
 		for strength in [0.15, 1.0]:
