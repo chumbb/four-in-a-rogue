@@ -78,6 +78,8 @@ func _run() -> void:
 	await _test_speed_settings()
 	await _test_skip_scoring_sounds()
 	await _test_screen_shake_option()
+	await _test_m6c_reactions()
+	await _test_m6c_fuse()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -247,11 +249,11 @@ func _test_tap_drops_then_opponent() -> void:
 	_check(view._tokens.size() == 2, "view shows 2 tokens (got %d)" % view._tokens.size())
 	_check(scenario._input_enabled, "input re-enabled for player")
 	_check(not scenario._flash.visible, "no flash after the drop")
-	_check(view._tokens[Vector2i(3, 0)].texture == BoardView2D.VANILLA.still(BoardState.CellOwner.PLAYER), "player Goob is blue")
+	_check(view.shows_goob(Vector2i(3, 0), BoardView2D.VANILLA, BoardState.CellOwner.PLAYER), "player Goob is blue")
 	_check(view._tokens[Vector2i(3, 0)].position == view.cell_position(3, 0), "player Goob sits in its hole")
 	for cell in view._tokens:
 		if board.get_owner(cell.x, cell.y) == O:
-			_check(view._tokens[cell].texture == BoardView2D.VANILLA.still(BoardState.CellOwner.OPPONENT), "opponent Goob is red")
+			_check(view.shows_goob(cell, BoardView2D.VANILLA, BoardState.CellOwner.OPPONENT), "opponent Goob is red")
 	await _free(scenario)
 
 
@@ -441,7 +443,8 @@ func _test_timeout_is_obvious() -> void:
 	_touch(_col_pos(scenario, 1), false)
 	await create_timer(0.4).timeout
 	_check(board.get_owner(4, 0) == P, "then drops in the held column")
-	_check(_count(board, P) == 1, "release during the reveal does nothing")
+	_check(_count(board, P) == 1, "release during the reveal does nothing (P=%d, O=%d, phase=%d)
+%s" % [_count(board, P), _count(board, O), scenario._loop.phase, board.to_debug_string()])
 	_check(not scenario._flash.visible, "flash gone after the drop")
 	_check(not _view(scenario).is_preview_visible(), "floating Goob gone after the timeout drop")
 	await _free(scenario)
@@ -636,7 +639,7 @@ func _view_matches(scenario: Control) -> bool:
 			var goob: GoobDefinition = scenario._loop.goob_at(c, r)
 			if goob == null:
 				goob = BoardView2D.VANILLA
-			if token.texture != goob.still(board.get_owner(c, r)):
+			if not view.shows_goob(cell, goob, board.get_owner(c, r)):
 				return false
 	return n == view._tokens.size()
 
@@ -758,6 +761,79 @@ func _test_scoring_sequence() -> void:
 	await _free(scenario)
 
 
+## M6c: portrait thinking / angry, end lead-in faces, defeat explodes the bust.
+func _test_m6c_reactions() -> void:
+	var scenario := await _make(5.0)
+	var hud: ScenarioHud = scenario._hud
+	_play_col(scenario, 0)
+	await process_frame
+	_check(hud.portrait_face() == &"thinking", "m6c: portrait thinks during the opponent's delay (got %s)" % hud.portrait_face())
+	await _free(scenario)
+	# Blocking his open three makes him angry.
+	scenario = await _make(5.0)
+	hud = scenario._hud
+	var board := _board(scenario)
+	for c in 3:
+		board.drop(c, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 3)
+	await process_frame
+	_check(hud.portrait_face() == &"angry", "m6c: a block makes him angry (got %s)" % hud.portrait_face())
+	await _free(scenario)
+	# Player win: winning four celebrates, portrait says well played then explodes.
+	scenario = await _make(5.0)
+	hud = scenario._hud
+	board = _board(scenario)
+	for c in 3:
+		board.drop(c, P)
+	board.drop(6, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 3)
+	await process_frame
+	await process_frame
+	_check(_view(scenario).face_at(Vector2i(0, 0)) == &"celebrating", "m6c: winning four celebrates")
+	_check(_view(scenario).face_at(Vector2i(6, 0)) == &"sad", "m6c: loser's Goob is sad")
+	_check(hud.portrait_face() == &"exploded", "m6c: portrait explodes on a player win (got %s)" % hud.portrait_face())
+	_check(scenario._sfx.history.has(&"win_sting"), "m6c: win sting")
+	await _free(scenario)
+	# Opponent win: he celebrates, his four celebrates, your Goobs are sad.
+	scenario = await _make(0.0)
+	hud = scenario._hud
+	board = _board(scenario)
+	for r in 3:
+		board.drop(5, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 0)
+	await process_frame
+	await process_frame
+	_check(scenario._loop.result == TurnLoop.Result.OPPONENT_WIN, "m6c: opponent takes his four")
+	_check(hud.portrait_face() == &"celebrating", "m6c: portrait celebrates his win (got %s)" % hud.portrait_face())
+	_check(_view(scenario).face_at(Vector2i(0, 0)) == &"sad", "m6c: your Goobs are sad when he wins")
+	_check(scenario._sfx.history.has(&"lose_sting"), "m6c: lose sting")
+	await _free(scenario)
+
+
+## M6c: the fuse burns only for the last 10 s, with worried hand Goobs.
+func _test_m6c_fuse() -> void:
+	var scenario := await _make(5.0, true, 0.0, 10.4)
+	await _wait_input(scenario)
+	var fuse: FuseStrip = scenario._fuse
+	var hand: HandView = scenario.get_node("%PlayerHand")
+	await process_frame
+	_check(not fuse.visible, "fuse: hidden above 10 s left")
+	_check(hand.face_of(0) == &"idle", "fuse: hand idle before the fuse (got %s)" % hand.face_of(0))
+	await create_timer(0.6).timeout
+	_check(fuse.visible, "fuse: burns in the last 10 s")
+	_check(fuse.fraction_left() < 1.0 and fuse.fraction_left() > 0.8, "fuse: almost whole at ~9.8 s (got %.2f)" % fuse.fraction_left())
+	_check(hand.face_of(0) == &"worried", "fuse: hand Goobs worried (got %s)" % hand.face_of(0))
+	_check(scenario._fuse_sound.playing, "fuse: crackle loop plays")
+	_play_col(scenario, 3)
+	await process_frame
+	await process_frame
+	_check(not fuse.visible and not scenario._fuse_sound.playing, "fuse: gone once the Goob is played")
+	await _free(scenario)
+
+
 ## Balatro rhythm: multipliers appear one by one before the sum and overlay.
 func _test_scoring_animated() -> void:
 	var scenario := await _make(5.0, true, 0.0, 30.0, true)
@@ -770,7 +846,7 @@ func _test_scoring_animated() -> void:
 	var overlay: Control = scenario.get_node("%EndOverlay")
 	var seen := 0
 	var sum_before_overlay := false
-	var deadline := Time.get_ticks_msec() + 6000
+	var deadline := Time.get_ticks_msec() + 10000
 	while not overlay.visible and Time.get_ticks_msec() < deadline:
 		seen = maxi(seen, scenario.score_labels.size())
 		if scenario.sum_label != null:

@@ -62,6 +62,9 @@ const COLOR_DRAW := Color(0.75, 0.82, 1.0)
 const COLOR_SCORE_OUTLINE := Color(0.13, 0.08, 0.1)
 ## Scoring sequence timing (slice §4: ~0.6 s per Goob, short pause, collapse).
 const SCORE_RECOGNISE_SEC := 1.0
+## Win/lose lead-in (faces + sting) before the scoring recognition.
+const LEAD_IN_SEC := 0.8
+const FUSE_BURN := preload("res://assets/audio/sfx/fuse_burn.ogg")
 const SCORE_STEP_SEC := 0.6
 const SCORE_PAUSE_SEC := 0.4
 const SCORE_COLLAPSE_SEC := 0.3
@@ -113,6 +116,8 @@ var _turn_timer: Timer
 var _timeout_timer: Timer
 var _opponent_column := -1
 var _opponent_hand_index := -1
+## The board just before the play now being shown (portrait reactions).
+var _board_before := BoardState.new()
 ## Think-delay spread only, so it never shifts the game's own random draws.
 var _think_rng := RandomNumberGenerator.new()
 var _timeout_column := -1
@@ -146,6 +151,8 @@ var _last_tap_msec := -100000
 var _inspect: InspectPanel
 var _grey: Array[ColorRect] = []
 var _shake_tween: Tween
+var _fuse: FuseStrip
+var _fuse_sound: AudioStreamPlayer
 ## Scoring sequence: the multiplier labels on show, then the sum (stays up
 ## under the end overlay).
 var score_labels: Array[Label] = []
@@ -186,6 +193,21 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_refresh_timer()
+	_refresh_fuse()
+
+
+## Low-time fuse (M6c): the last FuseStrip.FUSE_SEC of a running player turn;
+## hand Goobs look worried and the fuse crackles while it burns.
+func _refresh_fuse() -> void:
+	var left := -1.0
+	if _loop.phase == TurnLoop.Phase.PLAYER_TURN and not _timed_out and not _turn_timer.is_stopped():
+		left = _turn_timer.time_left
+	_fuse.set_seconds_left(left)
+	_hand.set_worried(_fuse.visible)
+	if _fuse.visible and not _fuse_sound.playing:
+		_fuse_sound.play()
+	elif not _fuse.visible and _fuse_sound.playing:
+		_fuse_sound.stop()
 
 
 ## HUD countdown: the player's seconds left (30 before the turn unlocks, 0 at a
@@ -209,6 +231,7 @@ func _build_hud() -> void:
 	move_child(_hud, get_node("%SafeArea").get_index() + 1)
 	_hud.set_objective(OBJECTIVE)
 	_hud.pause_pressed.connect(_on_pause_pressed)
+	_hud.portrait_sound.connect(func(kind: StringName) -> void: _sfx.play(kind))
 	_hud.stage.relayout.connect(_fit_hud_slot)
 	_pause = PauseMenu.new()
 	add_child(_pause)
@@ -290,6 +313,11 @@ func _layout_table() -> void:
 	_stump.size = tex_size * hand_px
 	_hand.set_fan_width(STUMP_TOP_WIDTH * hand_px)
 	_place_banner_band()
+	# Fuse strip centred between the board panel's bottom and the hand.
+	var k := _board_view.column_rect(0).size.x / BoardView2D.CELL
+	var board_bottom := _board_view.column_rect(0).end.y + BoardView2D.GRID_ORIGIN.y * k
+	var hand_top := _hand.global_position.y
+	_fuse.place(roundf((board_bottom + hand_top) * 0.5), size.x, k)
 
 
 func _make_timer(callback: Callable) -> Timer:
@@ -317,6 +345,16 @@ func _build_feedback_nodes() -> void:
 	_inspect = InspectPanel.new()
 	add_child(_inspect)
 	move_child(_inspect, _end_overlay.get_index())
+	_fuse = FuseStrip.new()
+	_fuse.name = "Fuse"
+	add_child(_fuse)
+	move_child(_fuse, _inspect.get_index())
+	_fuse_sound = AudioStreamPlayer.new()
+	var loop: AudioStreamOggVorbis = FUSE_BURN.duplicate()
+	loop.loop = true
+	_fuse_sound.stream = loop
+	_fuse_sound.bus = &"SFX"
+	add_child(_fuse_sound)
 
 
 # --- Touch input (slice §2B) ---------------------------------------------------
@@ -540,12 +578,16 @@ func _hide_flash() -> void:
 
 ## Player aim feedback: blue column flash + their Goob floating on top of the
 ## board over that column. `goob` defaults to the selected hand Goob.
-func _show_aim(column: int, goob: GoobDefinition = null) -> void:
+## `from` (viewport px): where the float Goob flips up from when it first
+## appears; default = the selected hand Goob where it is now (M6c).
+func _show_aim(column: int, goob: GoobDefinition = null, from: Vector2 = Vector2.INF) -> void:
 	var hand := _loop.player_deck.hand
 	if goob == null and _selected >= 0 and _selected < hand.size():
 		goob = hand[_selected]
+	if from == Vector2.INF and _selected >= 0:
+		from = _hand.card_center(_selected)
 	_show_flash(column, COLOR_FLASH_PLAYER)
-	_board_view.show_preview(column, BoardState.CellOwner.PLAYER, goob)
+	_board_view.show_preview(column, BoardState.CellOwner.PLAYER, goob, from)
 
 
 func _hide_aim() -> void:
@@ -596,6 +638,7 @@ func _play_player(column: int, hand_index: int, roll_path: Array[int] = []) -> i
 	_set_input_enabled(false) # locked until the drop finishes
 	_hand.remove(hand_index)
 	var goob: GoobDefinition = _loop.player_deck.hand[hand_index]
+	_board_before = _loop.board.copy()
 	var row := _loop.play(column, hand_index)
 	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path, goob)
 	return row
@@ -604,9 +647,10 @@ func _play_player(column: int, hand_index: int, roll_path: Array[int] = []) -> i
 ## The Goob falls (or rolls) into place, its effect plays, then the next turn
 ## starts. §4.2 order: land → special effect → win check last (TurnLoop has
 ## already resolved all three; this shows them in that order).
-func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null) -> void:
+## `from_behind`: the opponent's Goob flips up from behind the board first.
+func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false) -> void:
 	var effect := _loop.last_effect
-	await _board_view.play_drop(column, row, side, roll_path, goob)
+	await _board_view.play_drop(column, row, side, roll_path, goob, from_behind)
 	_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 	if side == BoardState.CellOwner.PLAYER:
 		Settings.vibrate() # one pulse when your Goob lands (slice §2B)
@@ -614,7 +658,39 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 	if not is_inside_tree():
 		return
 	_board_view.sync_from_board(_loop.board)
+	_react_to_play(column, side, roll_path, effect)
 	_after_play()
+
+
+## Opponent portrait reaction to the play just shown (slice §2B; Sean,
+## 2026-11-22): surprised on a chain (Fat's destroy making Goobs fall) or a
+## timeout roll; for his play, happy when he makes a new open three or his
+## effect hits you; for yours, angry when you break up his threes (a block)
+## or your effect hits him. Game over is left to the end lead-in.
+func _react_to_play(column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> void:
+	if _loop.phase == TurnLoop.Phase.OVER:
+		return
+	var landed := _board_before.copy()
+	landed.drop(column, side)
+	var hit_other := false
+	var chain := false
+	if effect.has("target"):
+		var target: Vector2i = effect["target"]
+		hit_other = landed.get_owner(target.x, target.y) == TurnLoop.enemy_of(side)
+		chain = effect["kind"] == GoobDefinition.EffectType.DESTROY_ADJACENT 			and not _loop.board.is_empty(target.x, target.y)
+	var face := &""
+	if chain or roll_path.size() > 1:
+		face = &"surprised"
+	elif side == BoardState.CellOwner.OPPONENT:
+		var threes_before := OpponentAI.open_threes(_board_before, side)
+		if hit_other or OpponentAI.open_threes(_loop.board, side) > threes_before:
+			face = &"happy"
+	else:
+		var his := BoardState.CellOwner.OPPONENT
+		if hit_other or OpponentAI.open_threes(_loop.board, his) < OpponentAI.open_threes(_board_before, his):
+			face = &"angry"
+	if face != &"":
+		_hud.react(face)
 
 
 ## Shows what TurnLoop.last_effect did: the type's impact on its target (the
@@ -682,6 +758,7 @@ func _on_turn_timeout() -> void:
 		_timeout_hand_index = _rng.randi_range(0, _loop.player_deck.hand.size() - 1)
 	_set_input_enabled(false)
 	_timed_out = true
+	var from := _hand.card_center(_timeout_hand_index)
 	_hand.remove(_timeout_hand_index)
 	_toast.show_message(MSG_TIMES_UP)
 	_sfx.play(&"times_up")
@@ -690,7 +767,7 @@ func _on_turn_timeout() -> void:
 	_timeout_column = _loop.board.roll_target(column, rightward)
 	_timeout_path = _roll_path(column, rightward)
 	if timeout_reveal_sec > 0.0:
-		_show_aim(column, _loop.player_deck.hand[_timeout_hand_index])
+		_show_aim(column, _loop.player_deck.hand[_timeout_hand_index], from)
 		_timeout_timer.start(timeout_reveal_sec)
 	else:
 		_finish_timeout()
@@ -775,6 +852,7 @@ func _run_opponent_turn() -> void:
 	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng)
 	_opponent_column = move["column"]
 	_opponent_hand_index = move["hand_index"]
+	_hud.set_base_face(&"thinking")
 	var wait := _think_sec(move["blocking"] or move["close"])
 	if animate_drops:
 		_show_turn_banner(false)
@@ -802,11 +880,13 @@ func _on_opponent_flash_done() -> void:
 func _play_opponent_move() -> void:
 	var hand_index := _opponent_hand_index
 	var goob: GoobDefinition = _loop.opponent_deck.hand[hand_index]
+	_hud.set_base_face(&"idle")
+	_board_before = _loop.board.copy()
 	var row := _loop.play(_opponent_column, hand_index)
 	if row == -1:
 		push_error("Scenario: opponent chose illegal column %d" % _opponent_column)
 		return
-	_land_then_continue(_opponent_column, row, BoardState.CellOwner.OPPONENT, [], goob)
+	_land_then_continue(_opponent_column, row, BoardState.CellOwner.OPPONENT, [], goob, true)
 
 
 func _show_end() -> void:
@@ -815,7 +895,13 @@ func _show_end() -> void:
 	var color := COLOR_DRAW
 	match _loop.result:
 		TurnLoop.Result.PLAYER_WIN:
+			await _lead_in(BoardState.CellOwner.PLAYER)
+			if not is_inside_tree():
+				return
 			await _play_scoring(BoardState.CellOwner.PLAYER)
+			if not is_inside_tree():
+				return
+			await _hud.play_defeat(Settings.anim_scale() if _animating() else 0.0)
 			if not is_inside_tree():
 				return
 			_board_view.highlight_cells(_loop.scoring_cells(BoardState.CellOwner.PLAYER))
@@ -823,6 +909,9 @@ func _show_end() -> void:
 			_end_button.text = "Back to title"
 			color = COLOR_WIN
 		TurnLoop.Result.OPPONENT_WIN:
+			await _lead_in(BoardState.CellOwner.OPPONENT)
+			if not is_inside_tree():
+				return
 			await _play_scoring(BoardState.CellOwner.OPPONENT)
 			if not is_inside_tree():
 				return
@@ -837,6 +926,22 @@ func _show_end() -> void:
 	(_banner.get_theme_stylebox("panel") as StyleBoxFlat).border_color = color
 	_end_overlay.visible = true
 	_announce.call_deferred()
+
+
+## Win/lose lead-in (slice §2B): the winner's Goobs turn happy, the loser's
+## sad, the winning four celebrates; the opponent portrait celebrates his win
+## or says "well played" (then cracks and explodes after the scoring). A
+## win or lose sting marks it.
+func _lead_in(winner: BoardState.CellOwner) -> void:
+	_board_view.set_side_face(winner, &"happy")
+	_board_view.set_side_face(TurnLoop.enemy_of(winner), &"sad")
+	for cell in _loop.scoring_cells(winner):
+		_board_view.set_face(cell, &"celebrating")
+	var player_won := winner == BoardState.CellOwner.PLAYER
+	_hud.hold_face(&"well_played" if player_won else &"celebrating")
+	if not Settings.is_skip(): # Skip keeps only result sounds
+		_sfx.play(&"win_sting" if player_won else &"lose_sting")
+	await _wait(LEAD_IN_SEC)
 
 
 ## Scoring sequence (slice §4, Balatro rhythm): first a moment of recognition

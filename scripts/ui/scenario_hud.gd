@@ -12,10 +12,36 @@ extends Control
 ## Sean, 2026-11-20: the block grew from 56 to 76 game px so the 64 px bust
 ## shows whole; playtest 1: emblem moved up into the block's centre section,
 ## no "Objective" heading, scenario shows "1", banners above the board.
+##
+## M6c: portrait expressions (slice §2B): a base face (idle, or thinking during
+## the opponent's think delay) and short reactions (happy, angry, surprised;
+## REACTION_SEC, then back to the base face); celebrating on his win; on a
+## player win "well played", then the bust cracks and explodes.
 
 signal pause_pressed
+## &"portrait_crack" / &"portrait_explode" during play_defeat() (the scenario plays them).
+signal portrait_sound(kind: StringName)
 
 const PORTRAIT := preload("res://assets/strange_man/portrait_idle.png")
+const PORTRAITS := {
+	&"idle": PORTRAIT,
+	&"thinking": preload("res://assets/strange_man/portrait_thinking.png"),
+	&"happy": preload("res://assets/strange_man/portrait_happy.png"),
+	&"angry": preload("res://assets/strange_man/portrait_angry.png"),
+	&"surprised": preload("res://assets/strange_man/portrait_surprised.png"),
+	&"celebrating": preload("res://assets/strange_man/portrait_celebrating.png"),
+	&"well_played": preload("res://assets/strange_man/portrait_well_played.png"),
+}
+const CRACK := preload("res://assets/strange_man/portrait_crack.png") ## 3 × 64 px
+const EXPLODE := preload("res://assets/strange_man/portrait_explode.png") ## 6 × 128 px
+const CRACK_FRAMES := 3
+const EXPLODE_FRAMES := 6
+## Reaction faces hold this long, then the base face returns (slice §2B).
+const REACTION_SEC := 1.5
+## Player win (Normal speed): well played, cracks, explodes.
+const WELL_PLAYED_SEC := 0.9
+const CRACK_FRAME_SEC := 0.18
+const EXPLODE_FRAME_SEC := 0.08
 const EMBLEM := preload("res://assets/ui/timer_emblem_forest.png")
 const DIVIDER := preload("res://assets/ui/divider_v.png")
 const PAUSE_ICON := preload("res://assets/ui/icon_pause.png")
@@ -44,6 +70,11 @@ const BANNER_SLIDE_PX := 40.0
 
 var stage: PixelStage
 var _block: NinePatchRect
+var _portrait: TextureRect
+var _burst: TextureRect
+var _base_face := &"idle"
+var _face := &"idle"
+var _reaction_left := 0.0
 var _objective: Label
 var _scenario: Label
 var _timer_box: Control
@@ -78,7 +109,12 @@ func _build() -> void:
 	_block.patch_margin_bottom = m[3]
 	_block.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.canvas.add_child(_block)
-	stage.add_image(PORTRAIT, Vector2(PORTRAIT_INSET, PORTRAIT_INSET), _block)
+	_portrait = stage.add_image(PORTRAIT, Vector2(PORTRAIT_INSET, PORTRAIT_INSET), _block)
+	_portrait.name = "Portrait"
+	_burst = stage.add_image(_frame(EXPLODE, 0, EXPLODE_FRAMES), Vector2.ZERO, _block)
+	_burst.name = "PortraitBurst"
+	_burst.position = _portrait.position + (_portrait.size - _burst.size) * 0.5
+	_burst.visible = false
 	for i in 2:
 		var bar := TextureRect.new()
 		bar.texture = DIVIDER
@@ -276,3 +312,74 @@ func banner_text() -> String:
 ## Whole game px only.
 func _set_label_x(x: float) -> void:
 	_ribbon_label.position.x = roundf(x)
+
+
+# --- Portrait (M6c) --------------------------------------------------------
+
+func _process(delta: float) -> void:
+	if _reaction_left > 0.0:
+		_reaction_left -= delta
+		if _reaction_left <= 0.0:
+			_show_face(_base_face)
+
+
+## The resting face: &"idle" or &"thinking". A running reaction finishes first.
+func set_base_face(face: StringName) -> void:
+	_base_face = face
+	if _reaction_left <= 0.0:
+		_show_face(face)
+
+
+## A short reaction (&"happy", &"angry", &"surprised"), then the base face.
+func react(face: StringName) -> void:
+	_reaction_left = REACTION_SEC
+	_show_face(face)
+
+
+## Holds `face` until the scene ends (celebrating on his win).
+func hold_face(face: StringName) -> void:
+	_reaction_left = 0.0
+	_base_face = face
+	_show_face(face)
+
+
+func portrait_face() -> StringName:
+	return _face
+
+
+## Player win: "well played", then the bust cracks and explodes, leaving the
+## portrait slot empty. `scale` divides every step (Fast = 2); 0 = jump to
+## the end (Skip).
+func play_defeat(scale: float = 1.0) -> void:
+	hold_face(&"well_played")
+	if scale <= 0.0:
+		_portrait.visible = false
+		_face = &"exploded"
+		return
+	await get_tree().create_timer(WELL_PLAYED_SEC / scale, false).timeout
+	portrait_sound.emit(&"portrait_crack")
+	for i in CRACK_FRAMES:
+		_portrait.texture = _frame(CRACK, i, CRACK_FRAMES)
+		await get_tree().create_timer(CRACK_FRAME_SEC / scale, false).timeout
+	_portrait.visible = false
+	portrait_sound.emit(&"portrait_explode")
+	_burst.visible = true
+	for i in EXPLODE_FRAMES:
+		_burst.texture = _frame(EXPLODE, i, EXPLODE_FRAMES)
+		await get_tree().create_timer(EXPLODE_FRAME_SEC / scale, false).timeout
+	_burst.visible = false
+	_face = &"exploded"
+
+
+func _show_face(face: StringName) -> void:
+	_face = face
+	_portrait.visible = true
+	_portrait.texture = PORTRAITS.get(face, PORTRAIT)
+
+
+static func _frame(sheet: Texture2D, index: int, count: int) -> AtlasTexture:
+	var w := float(sheet.get_width()) / count
+	var atlas := AtlasTexture.new()
+	atlas.atlas = sheet
+	atlas.region = Rect2(w * index, 0, w, sheet.get_height())
+	return atlas

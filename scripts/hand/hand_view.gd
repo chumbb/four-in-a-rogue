@@ -39,6 +39,45 @@ var _dragged := -1
 var _revealing: Node2D ## the drawn Goob still flying in (layout skips it)
 var _outline: ShaderMaterial
 var _outline_selected: ShaderMaterial
+## M6c faces: giggle while selected or dragged, worried during the low-time
+## fuse, idle (blinking) otherwise.
+var _worried := false
+var _face_clock := 0.0
+var _face_frames: Dictionary = {}
+
+
+func _process(delta: float) -> void:
+	_face_clock += delta
+	for i in _cards.size():
+		var card := _cards[i]
+		if not is_instance_valid(card):
+			continue
+		var face := &"idle"
+		if i == _selected or i == _dragged:
+			face = &"giggle"
+		elif _worried:
+			face = &"worried"
+		if card.get_meta(&"face", &"") != face:
+			card.set_meta(&"face", face)
+			card.set_meta(&"face_t0", _face_clock - (randf() * 3.0 if face == &"idle" else 0.0))
+		var goob: GoobDefinition = card.get_meta("goob")
+		if not _face_frames.has(goob.art_id):
+			_face_frames[goob.art_id] = goob.sprite_frames(BoardState.CellOwner.PLAYER)
+		var texture := GoobDefinition.face_frame(_face_frames[goob.art_id], face, _face_clock - float(card.get_meta(&"face_t0")))
+		if texture:
+			(card.get_node("Sprite") as Sprite2D).texture = texture
+
+
+## Low-time fuse on/off: hand Goobs look worried (slice §2B, Sean 2026-11-20).
+func set_worried(on: bool) -> void:
+	_worried = on
+
+
+## The face the hand Goob at `index` shows (tests).
+func face_of(index: int) -> StringName:
+	if index < 0 or index >= _cards.size():
+		return &""
+	return _cards[index].get_meta(&"face", &"idle")
 
 
 func _ready() -> void:
@@ -95,6 +134,16 @@ func goob_at(pos: Vector2) -> int:
 ## Viewport centre of a card's resting place (for tests and fly-ins).
 func slot_center(index: int) -> Vector2:
 	return get_global_transform() * _slot(index).origin
+
+
+## Viewport centre of the Goob at `index` where it is now (lifted, or under
+## the finger while dragged). Vector2.INF if out of range.
+func card_center(index: int) -> Vector2:
+	if index < 0 or index >= _cards.size():
+		return Vector2.INF
+	var card := _cards[index]
+	var sprite: Sprite2D = card.get_node("Sprite")
+	return sprite.get_global_transform() * Vector2.ZERO if sprite.centered else sprite.get_global_transform() * (sprite.texture.get_size() * 0.5)
 
 
 ## Lifts the Goob at `index` with a white/blue outline; -1 lowers all.

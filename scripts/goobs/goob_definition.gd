@@ -45,3 +45,22 @@ func yaw_frames(side: BoardState.CellOwner) -> Array[Texture2D]:
 ## surprised, worried); wired to game events in M6c.
 func sprite_frames(side: BoardState.CellOwner) -> SpriteFrames:
 	return load(ART_DIR % [art_id, team_of(side), "frames.tres"])
+
+
+## The frame of expression `anim` at `t` seconds into its loop (frame
+## durations as baked in the SpriteFrames; idle holds its open-eyed frame and
+## blinks now and then). Null if `frames` lacks `anim`.
+static func face_frame(frames: SpriteFrames, anim: StringName, t: float) -> Texture2D:
+	if frames == null or not frames.has_animation(anim):
+		return null
+	var count := frames.get_frame_count(anim)
+	var speed := frames.get_animation_speed(anim)
+	var total := 0.0
+	for i in count:
+		total += frames.get_frame_duration(anim, i) / speed
+	var at := fposmod(t, total)
+	for i in count:
+		at -= frames.get_frame_duration(anim, i) / speed
+		if at < 0.0:
+			return frames.get_frame_texture(anim, i)
+	return frames.get_frame_texture(anim, count - 1)

@@ -41,6 +41,15 @@ const HIGHLIGHT_MODULATE := Color(1.5, 1.5, 1.5)
 ## of the board over it (Sean, 2026-11-13), bobbing gently.
 const FLOAT_BOB_PX := 2
 const FLOAT_BOB_SEC := 0.4
+## M6c play animations (slice §2B): the player's Goob flips up from the hand
+## to its float spot on top of the board; the opponent's rises with a flip
+## from behind the board's top edge to the same spot, then drops.
+const HAND_FLIP_SEC := 0.22
+const HAND_FLIP_ARC_PX := 16
+const BEHIND_START_Y := 2 ## game px: hidden behind the top of the panel
+const BEHIND_RISE_PX := 10 ## rises this far above the rest spot, then settles
+const BEHIND_RISE_SEC := 0.22
+const BEHIND_SETTLE_SEC := 0.1
 
 const TEX_BACK := preload("res://assets/board/board_back.png")
 const TEX_FRONT := preload("res://assets/board/board_front.png")
@@ -119,6 +128,9 @@ const SMOKE_GRAVITY := -40.0
 ## Scoring recognition: gold outline + a hop on the scored Goobs.
 const COLOR_GOLD := Color("f9c22b")
 const RECOGNISE_HOP_PX := 6
+## M6c expressions: every Goob token plays its face loop (idle by default,
+## blinking now and then); reactions (surprised) last REACTION_SEC.
+const REACTION_SEC := 1.2
 
 ## Sound cues during play_drop(): &"rest" (on top of the board), &"roll" (each
 ## column rolled over), &"bounce" (off the edge), &"fall". The landing itself
@@ -152,10 +164,17 @@ var _outline: ShaderMaterial
 var _outline_gold: ShaderMaterial
 var _preview: Sprite2D
 var _preview_tween: Tween
+var _preview_flight: Tween
+var _preview_frames: Tween
+## Clips the opponent's Goob rising from behind the board to above its top edge.
+var _behind: Control
 var _token_goob: Dictionary = {} ## Vector2i -> GoobDefinition (its art)
 ## Which Goob sits in a cell, for sync_from_board: (column, row) -> GoobDefinition
 ## or null (Vanilla). The scenario sets TurnLoop.goob_at.
 var goob_lookup: Callable
+## SpriteFrames per "art_id/team" (expression loops).
+var _face_frames: Dictionary = {}
+var _face_clock := 0.0
 
 
 func _ready() -> void:
@@ -170,6 +189,13 @@ func _ready() -> void:
 	_pixel.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(_pixel)
 	_pixel.add_child(_make_sprite(TEX_BACK, "Back"))
+	_behind = Control.new()
+	_behind.name = "BehindBoard"
+	_behind.clip_contents = true
+	_behind.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_behind.position = Vector2(0, -64)
+	_behind.size = Vector2(BOARD_SIZE.x, 64)
+	_pixel.add_child(_behind)
 	_goobs = Node2D.new()
 	_goobs.name = "Goobs"
 	_pixel.add_child(_goobs)
@@ -184,6 +210,84 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_update_scale)
 	item_rect_changed.connect(_place_layer)
 	_update_scale()
+
+
+# --- Expressions (M6c) -----------------------------------------------------
+
+func _process(delta: float) -> void:
+	_face_clock += delta
+	for cell: Vector2i in _tokens:
+		var token: Sprite2D = _tokens[cell]
+		if is_instance_valid(token):
+			_show_face(token, _token_goob.get(cell, VANILLA), _token_owner[cell])
+	if _preview.visible:
+		_show_face(_preview, _preview.get_meta(&"goob", VANILLA), BoardState.CellOwner.PLAYER)
+
+
+## Sets the face of the Goob in `cell` (&"idle", &"happy", &"sad",
+## &"celebrating", &"surprised", …). `sec` > 0 = a reaction that returns to idle.
+func set_face(cell: Vector2i, face: StringName, sec: float = 0.0) -> void:
+	var token: Sprite2D = _tokens.get(cell)
+	if token == null:
+		return
+	token.set_meta(&"face", face)
+	token.set_meta(&"face_until", _face_clock + sec if sec > 0.0 else 0.0)
+	token.set_meta(&"face_t0", _face_clock)
+
+
+## Every Goob of `side` gets `face` (end lead-in: winner happy, loser sad).
+func set_side_face(side: BoardState.CellOwner, face: StringName) -> void:
+	for cell: Vector2i in _tokens:
+		if _token_owner[cell] == side:
+			set_face(cell, face)
+
+
+## The face the Goob in `cell` is showing (tests); &"" if empty.
+func face_at(cell: Vector2i) -> StringName:
+	var token: Sprite2D = _tokens.get(cell)
+	if token == null:
+		return &""
+	return _current_face(token)
+
+
+## True when the Goob in `cell` shows `goob`'s art for `side` (its still or
+## any frame of its expression loops). For tests.
+func shows_goob(cell: Vector2i, goob: GoobDefinition, side: BoardState.CellOwner) -> bool:
+	var token: Sprite2D = _tokens.get(cell)
+	if token == null:
+		return false
+	if token.texture == goob.still(side):
+		return true
+	var frames := goob.sprite_frames(side)
+	for anim in frames.get_animation_names():
+		for i in frames.get_frame_count(anim):
+			if frames.get_frame_texture(anim, i) == token.texture:
+				return true
+	return false
+
+
+func _current_face(token: Sprite2D) -> StringName:
+	var until: float = token.get_meta(&"face_until", 0.0)
+	if until > 0.0 and _face_clock >= until:
+		token.set_meta(&"face", &"idle")
+		token.set_meta(&"face_until", 0.0)
+	return token.get_meta(&"face", &"idle")
+
+
+func _show_face(token: Sprite2D, goob: GoobDefinition, side: BoardState.CellOwner) -> void:
+	if token.get_meta(&"busy", false):
+		return
+	var face := _current_face(token)
+	if not token.has_meta(&"face_t0"):
+		# Idle blinks out of step: each Goob starts at a random point.
+		token.set_meta(&"face_t0", _face_clock - randf() * 3.0)
+	var key := "%s/%d" % [goob.art_id, side]
+	if not _face_frames.has(key):
+		_face_frames[key] = goob.sprite_frames(side)
+	var t: float = _face_clock - token.get_meta(&"face_t0", 0.0)
+	var texture := GoobDefinition.face_frame(_face_frames[key], face, t)
+	if texture:
+		token.texture = texture
 
 
 # --- Public API ------------------------------------------------------------
@@ -212,7 +316,7 @@ func sync_from_board(board: BoardState) -> void:
 ## off that edge. The Goob counts as on the board at once, so a sync during
 ## the animation does not duplicate it. `goob` picks its art (null = Vanilla).
 ## Await this to know when it has landed.
-func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null) -> void:
+func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false) -> void:
 	hide_preview()
 	var cell := Vector2i(column, row)
 	_remove_token(cell)
@@ -221,8 +325,14 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 	if not animate:
 		token.position = target
 		return
+	if side == BoardState.CellOwner.PLAYER:
+		set_face(cell, &"giggle") # still giggling from the hand until it lands
 	var start := roll_path[0] if roll_path.size() > 1 else column
 	token.position = Vector2(_column_x(start), TOP_Y)
+	if from_behind:
+		await _rise_from_behind(token, goob if goob else VANILLA, side)
+		if not is_instance_valid(token):
+			return
 	var tween := _tween()
 	tween.tween_callback(drop_sound.emit.bind(&"rest", side))
 	tween.tween_interval(TOP_PAUSE_SEC)
@@ -231,6 +341,8 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 	tween.tween_callback(drop_sound.emit.bind(&"fall", side))
 	_queue_fall(tween, token, TOP_Y, target)
 	await tween.finished
+	if is_instance_valid(token) and _tokens.get(cell) == token:
+		set_face(cell, &"idle")
 
 
 # --- Effects (M5) -------------------------------------------------------------
@@ -251,6 +363,7 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	if not animate:
 		token.texture = goob.still(side)
 		drop_sound.emit(&"flip", side) # Skip keeps the impact sound
+		set_face(target, &"surprised", REACTION_SEC)
 		return
 	await _charge(source)
 	await _telegraph(target)
@@ -272,12 +385,15 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	for i in FLIP_NEW_FRAMES:
 		frames.tween_callback(_set_texture.bind(token, new_yaw[i]))
 		frames.tween_interval(FLIP_FRAME_SEC)
+	token.set_meta(&"busy", true) # the spin frames own the texture
 	token.reparent(_fx, false) # knocked out of its hole, in front of the board
 	await hop.finished
 	token.reparent(_goobs, false)
 	token.position = cell_position(target.x, target.y)
 	drop_sound.emit(&"rest", side)
 	token.texture = goob.still(side)
+	token.set_meta(&"busy", false)
+	set_face(target, &"surprised", REACTION_SEC)
 	shake(SHAKE_SMALL)
 	_burst(_centre_px(target), COLOR_DEBRIS[side], SPARKLE_COUNT, SPARKLE_SPEED, SPARKLE_GRAVITY)
 	await _glow(token)
@@ -316,6 +432,7 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 		_token_owner.erase(cell)
 		_token_goob.erase(cell)
 		falling.append(_tokens[below])
+		set_face(below, &"surprised", REACTION_SEC)
 	if not animate:
 		drop_sound.emit(&"crunch", side)
 		token.queue_free()
@@ -459,17 +576,64 @@ func grid_center() -> Vector2:
 	return _to_global(Vector2(GRID_ORIGIN) + Vector2(COLUMNS, ROWS) * CELL * 0.5)
 
 
+## The opponent's Goob flips up from behind the board's top edge (clipped so
+## it never shows through the holes), overshoots and settles on its rest spot.
+func _rise_from_behind(token: Sprite2D, goob: GoobDefinition, side: BoardState.CellOwner) -> void:
+	var rest := token.position
+	token.set_meta(&"busy", true)
+	token.reparent(_behind, false)
+	token.position = Vector2(rest.x, BEHIND_START_Y) - _behind.position
+	drop_sound.emit(&"goob_flip", side)
+	var yaw := goob.yaw_frames(side)
+	var frames := _tween()
+	for i in yaw.size():
+		frames.tween_callback(_set_texture.bind(token, yaw[(i + 4) % yaw.size()])) # back first
+		frames.tween_interval(BEHIND_RISE_SEC / yaw.size())
+	var rise := _tween()
+	var top := rest - Vector2(0, BEHIND_RISE_PX) - _behind.position
+	rise.tween_property(token, "position", top.round(), BEHIND_RISE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	await rise.finished
+	if not is_instance_valid(token):
+		return
+	token.reparent(_goobs, false)
+	token.position = rest - Vector2(0, BEHIND_RISE_PX)
+	token.texture = goob.still(side)
+	token.set_meta(&"busy", false)
+	var settle := _tween()
+	settle.tween_method(_set_y.bind(token), rest.y - BEHIND_RISE_PX, rest.y, BEHIND_SETTLE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await settle.finished
+
+
 ## Floats a `side` Goob on top of the board over `column` (aim feedback). The
 ## drop that follows starts from the same spot, so the Goob seems to fall from
 ## here. `goob` picks its art (null = Vanilla).
-func show_preview(column: int, side: BoardState.CellOwner, goob: GoobDefinition = null) -> void:
-	_preview.texture = (goob if goob else VANILLA).still(side)
-	_preview.position = Vector2(_column_x(column), TOP_Y)
+## `from_global` (viewport px): where the Goob comes from the first time it
+## appears (its hand slot, or the finger while dragging): it flips up from
+## there to the float spot (M6c), without holding up input.
+func show_preview(column: int, side: BoardState.CellOwner, goob: GoobDefinition = null, from_global: Vector2 = Vector2.INF) -> void:
+	var art: GoobDefinition = goob if goob else VANILLA
+	_preview.texture = art.still(side)
+	# Giggles while it floats (aim and timeout reveal), until it drops.
+	_preview.set_meta(&"goob", art)
+	_preview.set_meta(&"face", &"giggle")
+	var spot := Vector2(_column_x(column), TOP_Y)
+	if _preview_flight and _preview_flight.is_valid():
+		# Moved to another column mid-flight: land there at once.
+		_preview_flight.kill()
+		_end_preview_flight(art, side)
+	_preview.position = spot
 	if _preview.visible:
 		return
 	_preview.visible = true
 	if not animate:
 		return
+	if from_global != Vector2.INF:
+		_fly_preview(spot, art, side, from_global)
+		return
+	_start_bob()
+
+
+func _start_bob() -> void:
 	_preview_tween = create_tween().set_loops()
 	_preview_tween.tween_method(_set_y.bind(_preview), TOP_Y, TOP_Y - FLOAT_BOB_PX, FLOAT_BOB_SEC).set_trans(Tween.TRANS_SINE)
 	_preview_tween.tween_method(_set_y.bind(_preview), TOP_Y - FLOAT_BOB_PX, TOP_Y, FLOAT_BOB_SEC).set_trans(Tween.TRANS_SINE)
@@ -478,7 +642,42 @@ func show_preview(column: int, side: BoardState.CellOwner, goob: GoobDefinition 
 func hide_preview() -> void:
 	if _preview_tween and _preview_tween.is_valid():
 		_preview_tween.kill()
+	if _preview_flight and _preview_flight.is_valid():
+		_preview_flight.kill()
+	if _preview_frames and _preview_frames.is_valid():
+		_preview_frames.kill()
+	_preview.set_meta(&"busy", false)
 	_preview.visible = false
+
+
+## The float Goob flips from `from_global` (hand) up to `spot`, spinning once.
+func _fly_preview(spot: Vector2, art: GoobDefinition, side: BoardState.CellOwner, from_global: Vector2) -> void:
+	var from := ((from_global - global_position - _origin) / _k - Vector2(CELL, CELL) * 0.5).round()
+	_preview.position = from
+	_preview.set_meta(&"busy", true)
+	drop_sound.emit(&"goob_flip", side)
+	var yaw := art.yaw_frames(side)
+	_preview_flight = _tween()
+	_preview_flight.set_parallel()
+	var mid := (from + spot) * 0.5 - Vector2(0, HAND_FLIP_ARC_PX)
+	_preview_flight.tween_method(func(t: float) -> void:
+		var a := from.lerp(mid, t)
+		var b := mid.lerp(spot, t)
+		_preview.position = a.lerp(b, t).round(), 0.0, 1.0, HAND_FLIP_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_preview_frames = _tween()
+	for i in yaw.size():
+		_preview_frames.tween_callback(_set_texture.bind(_preview, yaw[i]))
+		_preview_frames.tween_interval(HAND_FLIP_SEC / yaw.size())
+	_preview_flight.chain().tween_callback(func() -> void:
+		_end_preview_flight(art, side)
+		_start_bob())
+
+
+func _end_preview_flight(art: GoobDefinition, side: BoardState.CellOwner) -> void:
+	if _preview_frames and _preview_frames.is_valid():
+		_preview_frames.kill()
+	_preview.set_meta(&"busy", false)
+	_preview.texture = art.still(side)
 
 
 func is_preview_visible() -> bool:
