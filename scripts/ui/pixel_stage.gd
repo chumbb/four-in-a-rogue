@@ -17,6 +17,8 @@ const CANVAS_WIDTH := 270.0
 const INK0 := Color("2e222f")
 const CREAM := Color("fdcbb0")
 const WHITE := Color("ffffff")
+## Pixel-bold Monogram for buttons (art/fonts/make_monogram_bold.py).
+const BUTTON_FONT: Font = preload("res://resources/fonts/monogram-bold.fnt")
 
 ## Logical (720-base) units per game px.
 var k := 1.0
@@ -131,6 +133,9 @@ static func _canvas_theme() -> Theme:
 	theme.set_stylebox(&"hover_pressed", &"Button", pressed)
 	theme.set_stylebox(&"disabled", &"Button", UiKit.stylebox(&"button_disabled"))
 	theme.set_stylebox(&"focus", &"Button", StyleBoxEmpty.new())
+	# Button text in pixel-bold Monogram (Sean, M6c playtest: thicker, crisper).
+	theme.set_font(&"font", &"Button", BUTTON_FONT)
+	theme.set_font_size(&"font_size", &"Button", UiTheme.NATIVE_SIZE)
 	for state: StringName in [&"font_color", &"font_hover_color", &"font_pressed_color", &"font_hover_pressed_color", &"font_focus_color"]:
 		theme.set_color(state, &"Button", INK0)
 	_theme = theme

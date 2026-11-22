@@ -16,9 +16,9 @@ const HEADINGS := {
 }
 const TEXT := {&"win": "You win!", &"lose": "You lose", &"draw": "Draw"}
 const PRIMARY := {&"win": "Back to title", &"lose": "Back to title", &"draw": "Replay"}
-const WIDTH := 220.0
+const WIDTH := 236.0
 const HEIGHT := 104.0
-const BUTTON_W := 96.0
+const BUTTON_W := 104.0
 const BUTTON_GAP := 8.0
 const HEADING_Y := 14.0
 const BUTTONS_Y := 60.0
