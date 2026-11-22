@@ -65,6 +65,16 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6a** Flow & screens | ✅ Accepted and merged 2026-11-20 |
 | **M6b** HUD, pause, options, speed | Built on `m6b-hud-pause-options` 2026-11-20, playtest pending |
 
+### M6c (built 2026-11-22, branch `m6c-ai-animations-reactions`, waiting for Sean's playtest)
+
+- AI: `OpponentAI.choose_move(board, hand, deck_count, rng)` → {column, hand_index, blocking, close}; scores every (hand Goob, column) over `TurnLoop.effect_outcomes()` (static, same targets as `_resolve_effect`). `open_threes()` drives the happy/angry portrait. `choose_column()` kept for a plain hand.
+- Think delay: `OPPONENT_DELAY_SEC` 0.7 ± 0.2 (+0.4 blocking/close), own `_think_rng`; `opponent_delay_sec = 0` still means none (tests).
+- Faces: `BoardView2D` plays expression loops on every token (`set_face`, `set_side_face`, `face_at`; token meta `face` / `busy` — spins set `busy` so the face player leaves the texture alone). `GoobDefinition.face_frame()` reads the baked SpriteFrames durations. Tests compare art with `BoardView2D.shows_goob()` (textures are loop frames now). `HandView.set_worried()`, `face_of()`, `card_center()`.
+- Portrait: `ScenarioHud.set_base_face()` (idle/thinking), `react()`, `hold_face()`, `play_defeat(scale)` (await; emits `portrait_sound`).
+- Play flips: `show_preview(..., from_global)` flies the float up from the hand; `play_drop(..., from_behind)` raises the opponent's Goob inside the `BehindBoard` clip control.
+- Fuse: `FuseStrip` placed in `_layout_table()`; `_refresh_fuse()` each frame; loop player on the SFX bus (pauses with the tree).
+- Screenshots: `tests/capture_m6c.gd -- <dir>` (windowed).
+
 ### M6b (built 2026-11-20, branch `m6b-hud-pause-options`, waiting for Sean's playtest)
 
 - `Settings` autoload (`scripts/core/settings.gd`): `speed` (Normal/Fast/Skip), `haptics`, `screen_shake`, `auto_flip`, `volume` / `muted` per bus; setters save `user://settings.cfg` and emit `changed`. `anim_sec()`, `anim_scale()`, `is_skip()`, `vibrate()`. Tests set `Settings.path = "user://test_settings.cfg"` then `reset()`, so they never touch the player's file.
@@ -134,16 +144,16 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6b-hud-pause-options`, 863 checks)
+### Tests (all pass on `m6c-ai-animations-reactions`, 866 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 383 checks
+& $g --headless -s res://tests/test_scenario.gd    # 400 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
 & $g --headless -s res://tests/test_flow_m3.gd     # 182
-& $g --headless -s res://tests/test_opponent_ai.gd # 86
+& $g --headless -s res://tests/test_opponent_ai.gd # 72
 ```
 
 Known: `test_git_sync` "temp repos cleaned up" fails on this machine — pre-existing.
