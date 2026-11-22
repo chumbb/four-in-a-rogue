@@ -49,6 +49,8 @@ const DIVIDER := preload("res://assets/ui/divider_v.png")
 const PAUSE_ICON := preload("res://assets/ui/icon_pause.png")
 const RIBBON_BLUE := preload("res://assets/ui/ribbon_blue.png")
 const RIBBON_RED := preload("res://assets/ui/ribbon_red.png")
+const RIBBON_INK := preload("res://assets/ui/ribbon_ink.png") ## neutral "Game start"
+const GAME_START := "Game start"
 
 const GOLD_HI := Color("fbb954")
 const RED := Color("e83b3b")
@@ -303,10 +305,19 @@ func _centre_timer() -> void:
 ## "Opponent's turn" band across the screen. `sec` is the whole length; await
 ## it. Under the toasts, over the board.
 func show_turn_banner(player: bool, sec: float) -> void:
+	await _show_ribbon(RIBBON_BLUE if player else RIBBON_RED, "Your turn" if player else "Opponent's turn", sec)
+
+
+## The neutral "Game start" banner before the first turn (Sean, M6c playtest).
+func show_start_banner(sec: float) -> void:
+	await _show_ribbon(RIBBON_INK, GAME_START, sec)
+
+
+func _show_ribbon(texture: Texture2D, text: String, sec: float) -> void:
 	if _ribbon_tween and _ribbon_tween.is_valid():
 		_ribbon_tween.kill()
-	_ribbon.texture = RIBBON_BLUE if player else RIBBON_RED
-	_ribbon_label.text = "Your turn" if player else "Opponent's turn"
+	_ribbon.texture = texture
+	_ribbon_label.text = text
 	_ribbon.visible = true
 	if sec <= 0.0:
 		_ribbon.visible = false

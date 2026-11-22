@@ -38,7 +38,9 @@ func _run() -> void:
 	scenario.turn_seconds = 14.0
 	root.add_child(scenario)
 	current_scene = scenario
-	await create_timer(1.3).timeout
+	await create_timer(0.8).timeout
+	await _shot(dir, "game_start")
+	await create_timer(2.0).timeout
 	await _shot(dir, "draw_caption")
 	var deadline := Time.get_ticks_msec() + 5000
 	while not scenario._input_enabled and Time.get_ticks_msec() < deadline:

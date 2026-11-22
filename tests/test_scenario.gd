@@ -199,7 +199,7 @@ func _tap(pos: Vector2) -> void:
 
 ## Animated scenarios lock input while the turn's drawn Goob flies in.
 func _wait_input(scenario: Control) -> void:
-	var deadline := Time.get_ticks_msec() + 3000
+	var deadline := Time.get_ticks_msec() + 6000
 	while not scenario._input_enabled and Time.get_ticks_msec() < deadline:
 		await process_frame
 
@@ -1260,10 +1260,19 @@ func _test_hud() -> void:
 	await _free(scenario)
 
 
+func _wait_banner(hud: ScenarioHud, text: String) -> void:
+	var deadline := Time.get_ticks_msec() + 4000
+	while not (hud.is_banner_visible() and hud.banner_text() == text) and Time.get_ticks_msec() < deadline:
+		await process_frame
+
+
 func _test_turn_banners() -> void:
 	var scenario := await _make(5.0, true, 0.0, 30.0, true)
 	var hud: ScenarioHud = scenario._hud
-	_check(hud.is_banner_visible() and hud.banner_text() == "Your turn", "banner: blue Your turn at the start")
+	_check(hud.is_banner_visible() and hud.banner_text() == "Game start", "banner: Game start first (got '%s')" % hud.banner_text())
+	_check(hud._ribbon.texture == ScenarioHud.RIBBON_INK, "banner: neutral ink ribbon for Game start")
+	await _wait_banner(hud, "Your turn")
+	_check(hud.is_banner_visible() and hud.banner_text() == "Your turn", "banner: then blue Your turn")
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_BLUE, "banner: blue ribbon")
 	_check(_heard(scenario, &"turn_whoosh"), "banner: soft whoosh")
 	_check(not scenario._input_enabled, "banner: input waits for the banner + draw")
@@ -1272,7 +1281,8 @@ func _test_turn_banners() -> void:
 	await _free(scenario)
 	scenario = await _make(5.0, false, 0.0, 30.0, true)
 	hud = scenario._hud
-	_check(hud.is_banner_visible() and hud.banner_text() == "Opponent's turn", "banner: red Opponent's turn")
+	await _wait_banner(hud, "Opponent's turn")
+	_check(hud.is_banner_visible() and hud.banner_text() == "Opponent's turn", "banner: red Opponent's turn after Game start")
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_RED, "banner: red ribbon")
 	_check(_heard(scenario, &"turn_whoosh"), "banner: whoosh on the opponent's turn too")
 	await _free(scenario)

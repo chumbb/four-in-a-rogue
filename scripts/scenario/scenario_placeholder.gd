@@ -78,6 +78,9 @@ const EFFECT_HOLD_SEC := 0.6
 ## Turn banner length (Normal). Fast halves it; Skip keeps the Fast length so
 ## whose turn it is still reads (banners are not play animations).
 const TURN_BANNER_SEC := 0.9
+## "Game start" banner, then a beat before the first turn banner.
+const GAME_START_SEC := 1.3
+const GAME_START_GAP_SEC := 0.25
 
 @onready var _hud_slot: Control = %HudSlot
 @onready var _result_label: Label = %ResultLabel
@@ -193,6 +196,21 @@ func _ready() -> void:
 		for goob in _loop.last_draw:
 			start_hand.remove_at(start_hand.rfind(goob))
 	_hand.rebuild(start_hand)
+	_start_game()
+
+
+## "Game start" banner first, a short beat, then the first turn's banner
+## (Sean, M6c playtest: the first turn banner came too quickly).
+func _start_game() -> void:
+	if animate_drops:
+		_sfx.play(&"turn_whoosh")
+		var fast := Settings.speed != Settings.Speed.NORMAL
+		await _hud.show_start_banner(GAME_START_SEC / (Settings.FAST_SCALE if fast else 1.0))
+		if not is_inside_tree():
+			return
+		await _wait(GAME_START_GAP_SEC)
+		if not is_inside_tree():
+			return
 	_after_play()
 
 

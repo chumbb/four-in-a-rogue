@@ -25,7 +25,8 @@ Outputs in assets/ui/ (9-slice margins = the `MARGINS` table below, in game px):
   fuse_rope.png        tileable rope (8 px wide) for the 24 px timer strip; fuse_burnt.png
   fuse_spark.png       4-frame strip of the burning end (11x11 frames)
   ribbon_blue.png / ribbon_red.png  turn banner band (8 px wide, tiles across the screen;
-                       blue "Your turn", red "Opponent's turn"; M6b)
+                       blue "Your turn", red "Opponent's turn"; M6b); ribbon_ink.png the
+                       neutral "Game start" banner (M6c playtest)
 Also art/ui/ui_kit_sheet4x.png: every piece at 4x for review.
 
 The scrim colour and text colours live in scripts/ui/ui_theme.gd (no texture needed).
@@ -299,6 +300,7 @@ def banner(w=20, h=20):
 TEAM = {
     "blue": (hexc("8fd3ff"), hexc("4d9be6"), hexc("4d65b4")),
     "red": (hexc("f68181"), RED, RED_LO),
+    "ink": (INK2, INK1, INK0),  # neutral "Game start" banner (M6c playtest)
 }
 
 
@@ -631,6 +633,7 @@ def build():
         "fuse_spark": fuse_spark(),
         "ribbon_blue": ribbon("blue"),
         "ribbon_red": ribbon("red"),
+        "ribbon_ink": ribbon("ink"),
     }
     return pieces
 
