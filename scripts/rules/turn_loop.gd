@@ -146,8 +146,7 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 	last_effect = {"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false}
 	match goob.effect_type:
 		GoobDefinition.EffectType.FLIP_ADJACENT:
-			var enemy := BoardState.CellOwner.OPPONENT if side == BoardState.CellOwner.PLAYER else BoardState.CellOwner.PLAYER
-			var targets := _neighbours(cell, enemy)
+			var targets := neighbours(board, cell, enemy_of(side))
 			if targets.is_empty():
 				last_effect["fizzled"] = true
 				return
@@ -155,7 +154,7 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			board.set_owner(target.x, target.y, side)
 			last_effect["target"] = target
 		GoobDefinition.EffectType.DESTROY_ADJACENT:
-			var targets := _neighbours(cell, BoardState.CellOwner.EMPTY)
+			var targets := neighbours(board, cell, BoardState.CellOwner.EMPTY)
 			if targets.is_empty():
 				last_effect["fizzled"] = true
 				return
@@ -170,10 +169,7 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 					_cell_goobs.erase(Vector2i(target.x, r))
 			last_effect["target"] = target
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
-			var open: Array[int] = []
-			for c in BoardState.COLUMNS:
-				if not board.column_full(c):
-					open.append(c)
+			var open := open_columns(board)
 			if open.is_empty():
 				last_effect["fizzled"] = true
 				return
@@ -191,18 +187,57 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			last_effect["fizzled"] = drawn.is_empty() and not hand_full
 
 
-## Occupied neighbours of `cell` (8-way). `only` = that side's Goobs; EMPTY =
-## any Goob.
-func _neighbours(cell: Vector2i, only: BoardState.CellOwner) -> Array[Vector2i]:
+## Occupied neighbours of `cell` on `board` (8-way). `only` = that side's
+## Goobs; EMPTY = any Goob.
+static func neighbours(on: BoardState, cell: Vector2i, only: BoardState.CellOwner) -> Array[Vector2i]:
 	var found: Array[Vector2i] = []
 	for offset in _NEIGHBOURS:
 		var at := cell + offset
-		var owner := board.get_owner(at.x, at.y)
+		var owner := on.get_owner(at.x, at.y)
 		if owner == BoardState.CellOwner.EMPTY:
 			continue
 		if only == BoardState.CellOwner.EMPTY or owner == only:
 			found.append(at)
 	return found
+
+
+static func open_columns(on: BoardState) -> Array[int]:
+	var open: Array[int] = []
+	for c in BoardState.COLUMNS:
+		if not on.column_full(c):
+			open.append(c)
+	return open
+
+
+static func enemy_of(side: BoardState.CellOwner) -> BoardState.CellOwner:
+	return BoardState.CellOwner.OPPONENT if side == BoardState.CellOwner.PLAYER else BoardState.CellOwner.PLAYER
+
+
+## Every equally likely board after `effect` resolves for a Goob of `side`
+## that landed in `cell` on `after_land` (same targets as _resolve_effect;
+## for the AI, M6c). Effects that leave the board alone, and fizzles, give
+## [after_land]. Never mutates `after_land`.
+static func effect_outcomes(after_land: BoardState, effect: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> Array[BoardState]:
+	var outcomes: Array[BoardState] = []
+	match effect:
+		GoobDefinition.EffectType.FLIP_ADJACENT:
+			for target in neighbours(after_land, cell, enemy_of(side)):
+				var b := after_land.copy()
+				b.set_owner(target.x, target.y, side)
+				outcomes.append(b)
+		GoobDefinition.EffectType.DESTROY_ADJACENT:
+			for target in neighbours(after_land, cell, BoardState.CellOwner.EMPTY):
+				var b := after_land.copy()
+				b.destroy_cell(target.x, target.y)
+				outcomes.append(b)
+		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
+			for column in open_columns(after_land):
+				var b := after_land.copy()
+				b.drop(column, side)
+				outcomes.append(b)
+	if outcomes.is_empty():
+		outcomes.append(after_land)
+	return outcomes
 
 
 ## Every Goob in any of `side`'s winning lines, each once, in scoring reveal

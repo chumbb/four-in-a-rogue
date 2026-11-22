@@ -16,7 +16,14 @@ func _initialize() -> void:
 	_test_win_beats_block()
 	_test_blocks_player()
 	_test_random_is_legal()
-	_test_random_spread()
+	_test_opens_centre()
+	_test_blocks_single_end()
+	_test_avoids_playing_under_player_win()
+	_test_flip_to_win()
+	_test_saves_specials()
+	_test_plays_plentiful_with_room()
+	_test_blocking_flag()
+	_test_open_threes()
 	_test_full_board_returns_minus_one()
 	_test_does_not_mutate()
 
@@ -78,12 +85,14 @@ func _test_win_beats_block() -> void:
 
 
 func _test_blocks_player() -> void:
+	# Open three on the bottom row: both ends lose, so either end is fine.
 	var b := BoardState.new()
 	for c in [1, 2, 3]:
 		b.drop(c, P)
 	b.drop(6, O)
 	for s in range(1, 6):
-		_check(OpponentAI.choose_column(b, _rng(s)) == 0, "blocks at lowest index (seed %d)" % s)
+		var col := OpponentAI.choose_column(b, _rng(s))
+		_check(col == 0 or col == 4, "blocks an end of an open three (seed %d, got %d)" % [s, col])
 
 
 func _test_random_is_legal() -> void:
@@ -95,13 +104,85 @@ func _test_random_is_legal() -> void:
 		_check(OpponentAI.choose_column(b, _rng(s)) == 6, "only legal column is 6 (seed %d)" % s)
 
 
-func _test_random_spread() -> void:
-	var seen := {}
-	for s in range(1, 51):
-		var col := OpponentAI.choose_column(BoardState.new(), _rng(s))
-		_check(col >= 0 and col <= 6, "empty board result in range (seed %d)" % s)
-		seen[col] = true
-	_check(seen.size() >= 3, "random spread covers at least 3 columns (got %d)" % seen.size())
+func _test_opens_centre() -> void:
+	for s in range(1, 11):
+		_check(OpponentAI.choose_column(BoardState.new(), _rng(s)) == 3, "empty board: opens in the centre (seed %d)" % s)
+
+
+func _test_blocks_single_end() -> void:
+	var b := BoardState.new()
+	for c in [0, 1, 2]:
+		b.drop(c, P)
+	b.drop(6, O)
+	b.drop(6, O)
+	for s in range(1, 6):
+		_check(OpponentAI.choose_column(b, _rng(s)) == 3, "blocks the only winning cell (seed %d)" % s)
+
+
+func _test_avoids_playing_under_player_win() -> void:
+	# Player three on row 1 (cols 1-3); its winning cells (0,1) and (4,1)
+	# open only once someone drops into columns 0 or 4.
+	var b := BoardState.new()
+	b.drop(1, P)
+	b.drop(2, O)
+	b.drop(3, P)
+	for c in [1, 2, 3]:
+		b.drop(c, P)
+	for s in range(1, 11):
+		var col := OpponentAI.choose_column(b, _rng(s))
+		_check(col != 0 and col != 4, "never plays under the player's winning cell (seed %d, got %d)" % [s, col])
+
+
+func _hand(goobs: Array) -> Array[GoobDefinition]:
+	var hand: Array[GoobDefinition] = []
+	for g: GoobDefinition in goobs:
+		hand.append(g)
+	return hand
+
+
+func _test_flip_to_win() -> void:
+	var b := BoardState.new()
+	b.drop(0, O)
+	b.drop(1, O)
+	b.drop(2, P)
+	var convincing: GoobDefinition = load("res://resources/goobs/convincing_goob.tres")
+	var move := OpponentAI.choose_move(b, _hand([TurnLoop.VANILLA, convincing]), 10, _rng(1))
+	_check(move["hand_index"] == 1 and move["column"] == 3, "plays Convincing to flip into a four (got %s)" % move)
+
+
+func _test_saves_specials() -> void:
+	var convincing: GoobDefinition = load("res://resources/goobs/convincing_goob.tres")
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	for s in range(1, 6):
+		var move := OpponentAI.choose_move(BoardState.new(), _hand([convincing, fat, TurnLoop.VANILLA]), 10, _rng(s))
+		_check(move["hand_index"] == 2, "empty board: plays Vanilla, saves specials (seed %d)" % s)
+
+
+func _test_plays_plentiful_with_room() -> void:
+	var plentiful: GoobDefinition = load("res://resources/goobs/plentiful_goob.tres")
+	var move := OpponentAI.choose_move(BoardState.new(), _hand([TurnLoop.VANILLA, plentiful]), 10, _rng(1))
+	_check(move["hand_index"] == 1, "plays Plentiful when the hand has room")
+	move = OpponentAI.choose_move(BoardState.new(), _hand([TurnLoop.VANILLA, plentiful]), 0, _rng(1))
+	_check(move["hand_index"] == 0, "empty deck: Plentiful gains nothing, Vanilla instead")
+
+
+func _test_blocking_flag() -> void:
+	var b := BoardState.new()
+	for c in [0, 1, 2]:
+		b.drop(c, P)
+	var move := OpponentAI.choose_move(b, _hand([TurnLoop.VANILLA]), 5, _rng(1))
+	_check(move["blocking"], "blocking flag set when the player threatens four")
+	move = OpponentAI.choose_move(BoardState.new(), _hand([TurnLoop.VANILLA]), 5, _rng(1))
+	_check(not move["blocking"], "no blocking flag on an empty board")
+
+
+func _test_open_threes() -> void:
+	var b := BoardState.new()
+	for c in [0, 1, 2]:
+		b.drop(c, O)
+	_check(OpponentAI.open_threes(b, O) == 1, "three with an open fourth counts")
+	b.drop(3, P)
+	_check(OpponentAI.open_threes(b, O) == 0, "three with a blocked fourth does not")
 
 
 func _test_full_board_returns_minus_one() -> void:

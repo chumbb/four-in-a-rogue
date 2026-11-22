@@ -24,7 +24,12 @@ extends Control
 ## animations (Settings).
 
 const OBJECTIVE := "Get four in a row"
-const OPPONENT_DELAY_SEC := 0.6
+## Opponent think delay: OPPONENT_DELAY_SEC ± THINK_JITTER_SEC, plus
+## THINK_HARD_SEC when he is blocking you or the choice is close (Sean,
+## 2026-11-22: 0.5–0.9 s, ~+0.4 s).
+const OPPONENT_DELAY_SEC := 0.7
+const THINK_JITTER_SEC := 0.2
+const THINK_HARD_SEC := 0.4
 ## Red flash on the opponent's column right before its Goob is played.
 const OPPONENT_FLASH_SEC := 0.15
 ## Per-scenario player turn limit (slice §2B); v0.1 has one scenario.
@@ -107,6 +112,9 @@ var _flash_timer: Timer
 var _turn_timer: Timer
 var _timeout_timer: Timer
 var _opponent_column := -1
+var _opponent_hand_index := -1
+## Think-delay spread only, so it never shifts the game's own random draws.
+var _think_rng := RandomNumberGenerator.new()
 var _timeout_column := -1
 var _timeout_hand_index := -1
 ## Columns the timeout Goob rolls over (off-board entries = edge bounces).
@@ -146,6 +154,7 @@ var sum_label: Label
 
 func _ready() -> void:
 	_rng.randomize()
+	_think_rng.randomize()
 	# Art B vignette over the forest + stump, under the board and UI (it matches
 	# GameFlow's forest cover, so the board fades cleanly over the forest).
 	var vignette := GameFlow.make_vignette()
@@ -239,10 +248,16 @@ func _animating() -> bool:
 
 
 ## The opponent's think delay: halved on Fast, and on Skip (it still reads).
-func _think_sec() -> float:
+## `hard` (blocking / close call) adds THINK_HARD_SEC; 0 base = no delay.
+func _think_sec(hard: bool = false) -> float:
+	if opponent_delay_sec <= 0.0:
+		return 0.0
+	var sec := opponent_delay_sec + _think_rng.randf_range(-THINK_JITTER_SEC, THINK_JITTER_SEC)
+	if hard:
+		sec += THINK_HARD_SEC
 	if Settings.is_skip():
-		return opponent_delay_sec / Settings.FAST_SCALE
-	return opponent_delay_sec / Settings.anim_scale()
+		return sec / Settings.FAST_SCALE
+	return sec / Settings.anim_scale()
 
 
 func _banner_sec() -> float:
@@ -752,9 +767,15 @@ func _shake_screen() -> void:
 
 
 ## The red banner and the think delay run together; the flash waits for both.
+## The move is chosen up front (the board can't change while he thinks) so a
+## block or a close call can think a little longer.
 func _run_opponent_turn() -> void:
 	_set_input_enabled(false)
-	var wait := _think_sec()
+	var deck := _loop.opponent_deck
+	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng)
+	_opponent_column = move["column"]
+	_opponent_hand_index = move["hand_index"]
+	var wait := _think_sec(move["blocking"] or move["close"])
 	if animate_drops:
 		_show_turn_banner(false)
 		wait = maxf(wait, _banner_sec())
@@ -765,7 +786,6 @@ func _run_opponent_turn() -> void:
 
 
 func _choose_opponent_move() -> void:
-	_opponent_column = OpponentAI.choose_column(_loop.board, _rng)
 	var flash := Settings.anim_sec(opponent_flash_sec) # Fast halves, Skip removes
 	if flash > 0.0:
 		_show_flash(_opponent_column, COLOR_FLASH_OPPONENT)
@@ -780,8 +800,7 @@ func _on_opponent_flash_done() -> void:
 
 
 func _play_opponent_move() -> void:
-	# Until the M6 AI: a random Goob from its hidden hand (Sean, 2026-11-13).
-	var hand_index := _rng.randi_range(0, _loop.opponent_deck.hand.size() - 1)
+	var hand_index := _opponent_hand_index
 	var goob: GoobDefinition = _loop.opponent_deck.hand[hand_index]
 	var row := _loop.play(_opponent_column, hand_index)
 	if row == -1:
