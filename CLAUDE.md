@@ -40,13 +40,13 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently the **Specials design grill**, then **M6c**; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently **M6c**, starting with a short AI grill; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20), **M6a** flow & screens ✅ (accepted and merged 2026-11-20), **M6b** HUD, pause, options ✅ (accepted and merged 2026-11-21), **Art pass D1** Goob type sheets ✅ (accepted and merged 2026-11-21), **Art pass D2** Goob type production ✅ (accepted and merged 2026-11-21) | **Specials design grill** (design only), then M6c → M6d → M7 (approved 2026-11-20; grill added 2026-11-21) |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20), **M6a** flow & screens ✅ (accepted and merged 2026-11-20), **M6b** HUD, pause, options ✅ (accepted and merged 2026-11-21), **Art pass D1** Goob type sheets ✅ (accepted and merged 2026-11-21), **Art pass D2** Goob type production ✅ (accepted and merged 2026-11-21), **Specials design grill** ✅ (Sean confirmed 2026-11-22) | **M6c**, then M6d → M7 (approved 2026-11-20) |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs opponent on the 2D pixel board with decks, a hand fan and drag/tap play |
 
 ---
@@ -321,9 +321,9 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 - `GoobDefinition.art_id` + `still(side)`, `yaw_frames(side)`, `sprite_frames(side)`; board tokens, aim preview, hand and inspect show each type's still; Convincing's flip spins with the target's own type. Expressions are played from M6c
 - [x] Sean approved the loops (all types in one review, 2026-11-21) → merged
 
-### Special Goobs design grill (design only; Sean, 2026-11-21)
+### Special Goobs design grill (design only; Sean, 2026-11-21) ✅ (Sean confirmed 2026-11-22)
 
-- [ ] Grill Sean on the **17 new special Goobs** (21 special types in all): name, effect, card text, multiplier, personality, Lore seed tie-in → vault design note for his OK + Decision-Log. **No code or art**; building them stays out of v0.1 until Sean schedules it. Don't invent effects: Sean specifies, Claude asks and records
+- [x] Grill Sean on the new special Goobs: name, effect, card text, multiplier, personality, Lore seed tie-in → vault design note for his OK + Decision-Log. **No code or art**; building them stays out of v0.1 until Sean schedules it. Done: Sean listed **21 new effects → 25 special types** in all (was 17 / 21); spec in vault `Design/Special Goobs.md` (tiers Common / Rare / Legendary, multipliers ×0–×3, random targets only, win check at end of turn after chains; biome tags wait for a terrain grill, flavour lines for a writing session)
 
 ### M6c — Opponent AI, play animations, reactions (needs Art C, D2)
 
@@ -362,7 +362,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 
 ## Out of scope (unless Sean asks)
 
-Music (after v0.1), multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types** (Sean, 2026-11-13: 17 more specials come after the starter four work, 21 special types in all; Sean specifies them in the design grill after Art D2, building them is still out of scope; Sean 2026-11-21), balance changes beyond the starter five, final art (v0.1 art is "real but rough", Sean 2026-11-20).
+Music (after v0.1), multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types** (Sean, 2026-11-13: more specials come after the starter four work; 21 new, 25 special types in all, specified in vault `Design/Special Goobs.md` (Sean 2026-11-22); building them is still out of scope), balance changes beyond the starter five, final art (v0.1 art is "real but rough", Sean 2026-11-20).
 
 Full-game vision: GameDev vault `Design/GDD.md` — **not v0.1 tasks**.
 
@@ -395,4 +395,4 @@ Everything else: implement from this file + existing scripts.
 
 ---
 
-*Last updated: 2026-11-21 (Art pass D2 accepted and merged: expression loops, stills, flips (Vanilla back/edge reused), SpriteFrames, types shown in game; next = Specials design grill; Art pass D1 accepted and merged: all five type sheets approved, rim motifs as glyphs at even spots, Fat = mouth-crease cheeks per Sean's reference; next = Art pass D2; M6b accepted and merged, plus playtest 2: momentary winner flash, no flicker on the Strange Man → coin flip cut; next = Art pass D1; 2026-11-20: M6b built on `m6b-hud-pause-options`: pixel HUD, pause, Options + Settings, turn banners, Normal/Fast/Skip; playtest pending; M6a accepted and merged: fades, title, Strange Man intro, swipe coin flip, flow sounds; next = M6b; Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-22 (Specials design grill done: 21 new specials → 25 types, vault `Design/Special Goobs.md`; next = M6c; 2026-11-21: Art pass D2 accepted and merged: expression loops, stills, flips (Vanilla back/edge reused), SpriteFrames, types shown in game; next = Specials design grill; Art pass D1 accepted and merged: all five type sheets approved, rim motifs as glyphs at even spots, Fat = mouth-crease cheeks per Sean's reference; next = Art pass D2; M6b accepted and merged, plus playtest 2: momentary winner flash, no flicker on the Strange Man → coin flip cut; next = Art pass D1; 2026-11-20: M6b built on `m6b-hud-pause-options`: pixel HUD, pause, Options + Settings, turn banners, Normal/Fast/Skip; playtest pending; M6a accepted and merged: fades, title, Strange Man intro, swipe coin flip, flow sounds; next = M6b; Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
