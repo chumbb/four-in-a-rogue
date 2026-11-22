@@ -38,6 +38,8 @@ func _run() -> void:
 	scenario.turn_seconds = 14.0
 	root.add_child(scenario)
 	current_scene = scenario
+	await create_timer(1.3).timeout
+	await _shot(dir, "draw_caption")
 	var deadline := Time.get_ticks_msec() + 5000
 	while not scenario._input_enabled and Time.get_ticks_msec() < deadline:
 		await process_frame
@@ -62,4 +64,9 @@ func _run() -> void:
 	await _shot(dir, "win_lead_in")
 	await create_timer(6.0).timeout
 	await _shot(dir, "win_end")
+	await create_timer(1.5).timeout
+	await _shot(dir, "end_overlay")
+	scenario.get_node("%ViewButton").pressed.emit()
+	await _frames(5)
+	await _shot(dir, "review")
 	quit()

@@ -19,6 +19,8 @@ extends Control
 ## player win "well played", then the bust cracks and explodes.
 
 signal pause_pressed
+## "Show result" while the player reviews the board after the end.
+signal show_result_pressed
 ## &"portrait_crack" / &"portrait_explode" during play_defeat() (the scenario plays them).
 signal portrait_sound(kind: StringName)
 
@@ -60,6 +62,7 @@ const EMBLEM_TOP := 4.0 ## emblem top inside the block's centre section
 const OBJECTIVE_Y := 52.0 ## objective line under the emblem
 const PAUSE_SIZE := Vector2(40, 38)
 const PAUSE_INSET := 9.0
+const SHOW_RESULT_W := 112.0
 ## Ink outline around the timer digits (8 directions + a drop below).
 const OUTLINE := [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1), Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1), Vector2(0, 2)]
 const NO_TIMER := "—"
@@ -81,9 +84,13 @@ var _timer_box: Control
 var _timer_labels: Array[Label] = []
 var _emblem: TextureRect
 var _pause: Button
+var _show_result: Button
 var _ribbon: TextureRect
 var _ribbon_label: Label
 var _ribbon_tween: Tween
+## Drawn Goob's name in the gap above the board (Sean, M6c playtest).
+var _caption: Label
+var _caption_tween: Tween
 ## Gap between the HUD and the board in game px (set_banner_band); the
 ## ribbon is centred in it.
 var _band := Vector2(-1, -1)
@@ -143,6 +150,11 @@ func _build() -> void:
 	_pause.size = PAUSE_SIZE
 	stage.add_image(PAUSE_ICON, ((PAUSE_SIZE - PAUSE_ICON.get_size()) * 0.5).floor() + Vector2(0, -1), _pause)
 	_pause.pressed.connect(pause_pressed.emit)
+	_show_result = stage.add_button("Show result", SHOW_RESULT_W)
+	_show_result.name = "ShowResultButton"
+	_show_result.size = Vector2(SHOW_RESULT_W, PAUSE_SIZE.y)
+	_show_result.visible = false
+	_show_result.pressed.connect(show_result_pressed.emit)
 	_ribbon = TextureRect.new()
 	_ribbon.stretch_mode = TextureRect.STRETCH_TILE
 	_ribbon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -151,6 +163,10 @@ func _build() -> void:
 	stage.canvas.add_child(_ribbon)
 	_ribbon_label = _shadowed(stage.add_label("", PixelStage.WHITE, &"Mono2", _ribbon), 2)
 	_ribbon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_caption = _shadowed(stage.add_label("", GOLD_HI, &"Mono2"), 2)
+	_caption.name = "Caption"
+	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_caption.modulate.a = 0.0
 	set_timer(NO_TIMER)
 
 
@@ -188,6 +204,7 @@ func _layout() -> void:
 	_scenario.size = Vector2(run_w, 32)
 	_centre_timer()
 	_pause.position = Vector2(safe.position.x + PAUSE_INSET, safe.end.y - PAUSE_INSET - PAUSE_SIZE.y)
+	_show_result.position = Vector2(floorf((stage.game_size.x - SHOW_RESULT_W) * 0.5), safe.end.y - PAUSE_INSET - PAUSE_SIZE.y)
 	_ribbon.size = Vector2(stage.game_size.x, RIBBON_BLUE.get_height())
 	_place_ribbon()
 	_ribbon.pivot_offset = _ribbon.size * 0.5
@@ -214,6 +231,9 @@ func _place_ribbon() -> void:
 	if _band.y > _band.x:
 		mid = (_band.x + _band.y) * 0.5
 	_ribbon.position = Vector2(0, roundf(mid - _ribbon.size.y * 0.5))
+	if _caption:
+		_caption.size = Vector2(stage.game_size.x, 32)
+		_caption.position = Vector2(0, roundf(mid - 16.0))
 
 
 ## The scenario's objective text (v0.1: "Get four in a row").
@@ -250,6 +270,14 @@ func is_timer_red() -> bool:
 
 func pause_button() -> Button:
 	return _pause
+
+
+func set_show_result_visible(on: bool) -> void:
+	_show_result.visible = on
+
+
+func show_result_button() -> Button:
+	return _show_result
 
 
 func set_pause_visible(on: bool) -> void:
@@ -383,3 +411,21 @@ static func _frame(sheet: Texture2D, index: int, count: int) -> AtlasTexture:
 	atlas.atlas = sheet
 	atlas.region = Rect2(w * index, 0, w, sheet.get_height())
 	return atlas
+
+
+## Shows `text` (a drawn Goob's name) centred in the gap between the HUD and
+## the board for about `sec`, fading in and out.
+func show_caption(text: String, sec: float) -> void:
+	if _caption_tween and _caption_tween.is_valid():
+		_caption_tween.kill()
+	_place_ribbon()
+	_caption.text = text
+	var fade := minf(0.12, sec * 0.2)
+	_caption_tween = create_tween()
+	_caption_tween.tween_property(_caption, "modulate:a", 1.0, fade)
+	_caption_tween.tween_interval(maxf(sec - fade * 2.0, 0.0))
+	_caption_tween.tween_property(_caption, "modulate:a", 0.0, fade)
+
+
+func caption_text() -> String:
+	return _caption.text if _caption.modulate.a > 0.0 or (_caption_tween and _caption_tween.is_valid()) else ""

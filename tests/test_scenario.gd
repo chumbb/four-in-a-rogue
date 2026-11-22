@@ -80,6 +80,7 @@ func _run() -> void:
 	await _test_screen_shake_option()
 	await _test_m6c_reactions()
 	await _test_m6c_fuse()
+	await _test_m6c_playtest()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -810,6 +811,50 @@ func _test_m6c_reactions() -> void:
 	_check(hud.portrait_face() == &"celebrating", "m6c: portrait celebrates his win (got %s)" % hud.portrait_face())
 	_check(_view(scenario).face_at(Vector2i(0, 0)) == &"sad", "m6c: your Goobs are sad when he wins")
 	_check(scenario._sfx.history.has(&"lose_sting"), "m6c: lose sting")
+	await _free(scenario)
+
+
+## M6c playtest (Sean): drawn Goob's name above the board; hand reacts to the
+## result; the end overlay minimises to review and inspect the board.
+func _test_m6c_playtest() -> void:
+	var scenario := await _make(5.0)
+	var hud: ScenarioHud = scenario._hud
+	_check(hud.caption_text() == "Vanilla Goob", "playtest: drawn Goob's name shows above the board (got '%s')" % hud.caption_text())
+	var board := _board(scenario)
+	for c in 3:
+		board.drop(c, P)
+	board.drop(6, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 3)
+	await process_frame
+	await process_frame
+	var hand: HandView = scenario.get_node("%PlayerHand")
+	_check(hand.count() > 0 and hand.face_of(0) == &"happy", "playtest: hand Goobs happy on a win (got %s)" % hand.face_of(0))
+	var overlay: Control = scenario.get_node("%EndOverlay")
+	_check(overlay.visible, "playtest: result overlay up")
+	scenario.get_node("%ViewButton").pressed.emit()
+	_check(scenario.is_reviewing() and not overlay.visible, "playtest: View board minimises the overlay")
+	_check(scenario._hud.show_result_button().visible, "playtest: Show result button while reviewing")
+	scenario._last_tap_key = ""
+	_tap(_view(scenario).cell_center(Vector2i(3, 0)))
+	_tap(_view(scenario).cell_center(Vector2i(3, 0)))
+	_check(scenario._inspect.is_open(), "playtest: double tap inspects a board Goob after the end")
+	_tap(_view(scenario).cell_center(Vector2i(3, 0)))
+	_check(not scenario._inspect.is_open(), "playtest: next tap closes the inspect view")
+	scenario._hud.show_result_button().pressed.emit()
+	_check(not scenario.is_reviewing() and overlay.visible, "playtest: Show result restores the overlay")
+	await _free(scenario)
+	# Loss: hand Goobs are sad.
+	scenario = await _make(0.0)
+	board = _board(scenario)
+	for r in 3:
+		board.drop(5, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 0)
+	await process_frame
+	await process_frame
+	hand = scenario.get_node("%PlayerHand")
+	_check(hand.count() > 0 and hand.face_of(0) == &"sad", "playtest: hand Goobs sad on a loss (got %s)" % hand.face_of(0))
 	await _free(scenario)
 
 

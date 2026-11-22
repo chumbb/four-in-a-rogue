@@ -42,6 +42,8 @@ var _outline_selected: ShaderMaterial
 ## M6c faces: giggle while selected or dragged, worried during the low-time
 ## fuse, idle (blinking) otherwise.
 var _worried := false
+## End of the scenario: &"happy" (you won) / &"sad" (you lost); &"" = none.
+var _mood := &""
 var _face_clock := 0.0
 var _face_frames: Dictionary = {}
 
@@ -53,7 +55,9 @@ func _process(delta: float) -> void:
 		if not is_instance_valid(card):
 			continue
 		var face := &"idle"
-		if i == _selected or i == _dragged:
+		if _mood != &"":
+			face = _mood
+		elif i == _selected or i == _dragged:
 			face = &"giggle"
 		elif _worried:
 			face = &"worried"
@@ -71,6 +75,11 @@ func _process(delta: float) -> void:
 ## Low-time fuse on/off: hand Goobs look worried (slice §2B, Sean 2026-11-20).
 func set_worried(on: bool) -> void:
 	_worried = on
+
+
+## Hand Goobs react to the result (Sean, M6c playtest): &"happy" / &"sad".
+func set_mood(face: StringName) -> void:
+	_mood = face
 
 
 ## The face the hand Goob at `index` shows (tests).

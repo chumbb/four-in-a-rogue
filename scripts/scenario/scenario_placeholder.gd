@@ -64,6 +64,8 @@ const COLOR_SCORE_OUTLINE := Color(0.13, 0.08, 0.1)
 const SCORE_RECOGNISE_SEC := 1.0
 ## Win/lose lead-in (faces + sting) before the scoring recognition.
 const LEAD_IN_SEC := 0.8
+## Shortest time a drawn Goob's name stays up (Fast, Skip).
+const CAPTION_MIN_SEC := 1.0
 const FUSE_BURN := preload("res://assets/audio/sfx/fuse_burn.ogg")
 const SCORE_STEP_SEC := 0.6
 const SCORE_PAUSE_SEC := 0.4
@@ -152,6 +154,9 @@ var _inspect: InspectPanel
 var _grey: Array[ColorRect] = []
 var _shake_tween: Tween
 var _fuse: FuseStrip
+## After the end: the result overlay minimised so the board can be looked at
+## and its Goobs inspected (Sean, M6c playtest); "Show result" brings it back.
+var _reviewing := false
 var _fuse_sound: AudioStreamPlayer
 ## Scoring sequence: the multiplier labels on show, then the sum (stays up
 ## under the end overlay).
@@ -232,6 +237,9 @@ func _build_hud() -> void:
 	_hud.set_objective(OBJECTIVE)
 	_hud.pause_pressed.connect(_on_pause_pressed)
 	_hud.portrait_sound.connect(func(kind: StringName) -> void: _sfx.play(kind))
+	_hud.show_result_pressed.connect(func() -> void:
+		_sfx.play(&"ui_tap")
+		set_reviewing(false))
 	_hud.stage.relayout.connect(_fit_hud_slot)
 	_pause = PauseMenu.new()
 	add_child(_pause)
@@ -382,6 +390,9 @@ func _on_press(event: InputEventScreenTouch) -> void:
 		_inspect.close()
 		_sfx.play(&"inspect_close")
 		_start_gesture(event, Gesture.SWALLOW)
+		return
+	if _reviewing:
+		_review_press(event)
 		return
 	if not _input_enabled:
 		return
@@ -737,7 +748,7 @@ func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, ce
 				if effect["hand_full"]:
 					_show_hand_full()
 				for goob in drawn:
-					await _hand.reveal(goob)
+					await _reveal_drawn(goob)
 
 
 ## Timeout: the column under the finger, else a random one (full included).
@@ -817,7 +828,15 @@ func _show_turn_draw() -> void:
 	if _loop.last_draw_hand_full:
 		_show_hand_full()
 	for goob in _loop.last_draw:
-		await _hand.reveal(goob)
+		await _reveal_drawn(goob)
+
+
+## A drawn Goob pops into the hand while its name shows in the gap above the
+## board (Sean, M6c playtest). The name stays readable on Fast and Skip.
+func _reveal_drawn(goob: GoobDefinition) -> void:
+	var sec := HandView.REVEAL_POP_SEC + HandView.REVEAL_HOLD_SEC + HandView.REVEAL_FLY_SEC
+	_hud.show_caption(goob.display_name, maxf(sec / Settings.anim_scale() if _animating() else 0.0, CAPTION_MIN_SEC))
+	await _hand.reveal(goob)
 
 
 ## A draw skipped by the hand cap (turn draw or Plentiful): toast + shake.
@@ -938,6 +957,7 @@ func _lead_in(winner: BoardState.CellOwner) -> void:
 	for cell in _loop.scoring_cells(winner):
 		_board_view.set_face(cell, &"celebrating")
 	var player_won := winner == BoardState.CellOwner.PLAYER
+	_hand.set_mood(&"happy" if player_won else &"sad")
 	_hud.hold_face(&"well_played" if player_won else &"celebrating")
 	if not Settings.is_skip(): # Skip keeps only result sounds
 		_sfx.play(&"win_sting" if player_won else &"lose_sting")
@@ -1072,6 +1092,40 @@ func _place_toast() -> void:
 
 func _refresh_hud() -> void:
 	_refresh_timer()
+
+
+## Review after the end: a double tap on a board or hand Goob inspects it;
+## nothing else reacts. The Show result button is a normal Control.
+func _review_press(event: InputEventScreenTouch) -> void:
+	_start_gesture(event, Gesture.SWALLOW)
+	var hand_index := _hand.goob_at(event.position)
+	if hand_index != -1:
+		if _is_double_tap("hand:%d" % hand_index):
+			_open_inspect(_loop.player_deck.hand[hand_index], BoardState.CellOwner.PLAYER)
+		return
+	var cell := _board_view.cell_at(event.position)
+	var goob := _loop.goob_at(cell.x, cell.y)
+	if goob != null and _is_double_tap("cell:%d,%d" % [cell.x, cell.y]):
+		_open_inspect(goob, _loop.board.get_owner(cell.x, cell.y))
+
+
+func _on_view_board_pressed() -> void:
+	_sfx.play(&"ui_tap")
+	set_reviewing(true)
+
+
+## Minimises (true) or restores (false) the end overlay. While minimised the
+## sum stays hidden so no Goob is covered.
+func set_reviewing(on: bool) -> void:
+	_reviewing = on
+	_end_overlay.visible = not on
+	_hud.set_show_result_visible(on)
+	if sum_label:
+		sum_label.visible = not on
+
+
+func is_reviewing() -> bool:
+	return _reviewing
 
 
 func _on_end_pressed() -> void:
