@@ -40,8 +40,16 @@ func _run() -> void:
 	current_scene = scenario
 	await create_timer(0.8).timeout
 	await _shot(dir, "game_start")
-	await create_timer(2.0).timeout
+	var hand: HandView = scenario.get_node("%PlayerHand")
+	var until := Time.get_ticks_msec() + 5000
+	while hand._revealing == null and Time.get_ticks_msec() < until:
+		await process_frame
+	await create_timer(0.25).timeout
 	await _shot(dir, "draw_caption")
+	scenario._hud.pause_button().pressed.emit()
+	await _frames(3)
+	await _shot(dir, "pause_over_reveal")
+	scenario._pause.resume()
 	var deadline := Time.get_ticks_msec() + 5000
 	while not scenario._input_enabled and Time.get_ticks_msec() < deadline:
 		await process_frame
@@ -68,7 +76,7 @@ func _run() -> void:
 	await _shot(dir, "win_end")
 	await create_timer(1.5).timeout
 	await _shot(dir, "end_overlay")
-	scenario.get_node("%ViewButton").pressed.emit()
+	scenario._end_screen.view_button().pressed.emit()
 	await _frames(5)
 	await _shot(dir, "review")
 	quit()

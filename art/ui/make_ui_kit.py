@@ -24,6 +24,8 @@ Outputs in assets/ui/ (9-slice margins = the `MARGINS` table below, in game px):
   logo.png             "Four in a Rogue" (blue + red Vanilla Goobs as the O's)
   fuse_rope.png        tileable rope (8 px wide) for the 24 px timer strip; fuse_burnt.png
   fuse_spark.png       4-frame strip of the burning end (11x11 frames)
+  heading_you_win.png / heading_you_lose.png / heading_draw.png  end screen results in the
+                       logo's letters (M6c playtest)
   ribbon_blue.png / ribbon_red.png  turn banner band (8 px wide, tiles across the screen;
                        blue "Your turn", red "Opponent's turn"; M6b); ribbon_ink.png the
                        neutral "Game start" banner (M6c playtest)
@@ -522,6 +524,18 @@ def logo():
     return img.crop(img.getbbox())
 
 
+def heading_word(text, ramp):
+    """One line in the logo's pixel letters (end screen results; M6c playtest)."""
+    return shade_letters(glyph_mask(text, 3), ramp).crop()
+
+
+END_RAMPS = {
+    "win": [GOLD_HI, GOLD_HI, GOLD, GOLD, GOLD_LO],
+    "lose": [hexc("f68181"), hexc("f68181"), RED, RED, RED_LO],
+    "draw": [WHITE, CREAM, CREAM, hexc("fca790"), hexc("cf657f")],
+}
+
+
 def heading_who_goes_first():
     """Coin flip heading in the logo's gold letters (no Goobs; Sean 2026-11-21).
     Caps only: the glyph crop keeps the cap height, so descenders would be cut."""
@@ -628,6 +642,9 @@ def build():
         "icon_speaker_muted": icon_speaker(True),
         "logo": logo(),
         "heading_who_goes_first": heading_who_goes_first(),
+        "heading_you_win": heading_word("YOU WIN!", END_RAMPS["win"]),
+        "heading_you_lose": heading_word("YOU LOSE", END_RAMPS["lose"]),
+        "heading_draw": heading_word("DRAW", END_RAMPS["draw"]),
         "fuse_rope": fuse_rope(),
         "fuse_burnt": fuse_burnt(),
         "fuse_spark": fuse_spark(),

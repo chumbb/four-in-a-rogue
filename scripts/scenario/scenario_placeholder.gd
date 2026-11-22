@@ -58,7 +58,6 @@ const COLOR_FLASH_OPPONENT := Color(1.0, 0.2, 0.2, 0.45)
 const COLOR_FULL_GREY := Color(0.08, 0.08, 0.1, 0.55)
 const COLOR_WIN := Color(1.0, 0.85, 0.3)
 const COLOR_LOSE := Color(1.0, 0.3, 0.3)
-const COLOR_DRAW := Color(0.75, 0.82, 1.0)
 const COLOR_SCORE_OUTLINE := Color(0.13, 0.08, 0.1)
 ## Scoring sequence timing (slice §4: ~0.6 s per Goob, short pause, collapse).
 const SCORE_RECOGNISE_SEC := 1.0
@@ -83,14 +82,11 @@ const GAME_START_SEC := 1.3
 const GAME_START_GAP_SEC := 0.25
 
 @onready var _hud_slot: Control = %HudSlot
-@onready var _result_label: Label = %ResultLabel
-@onready var _end_button: Button = %EndButton
 @onready var _board_view: BoardView2D = %BoardView
 @onready var _aim_lane: Control = %AimLane
 @onready var _flash: ColorRect = %ColumnFlash
 @onready var _stump: TextureRect = %Stump
 @onready var _end_overlay: Control = %EndOverlay
-@onready var _banner: Control = %Banner
 @onready var _hand: HandView = %PlayerHand
 
 ## Seconds before the opponent drops. Tests set 0.0 (move immediately).
@@ -160,6 +156,7 @@ var _fuse: FuseStrip
 ## After the end: the result overlay minimised so the board can be looked at
 ## and its Goobs inspected (Sean, M6c playtest); "Show result" brings it back.
 var _reviewing := false
+var _end_screen: EndScreen
 var _fuse_sound: AudioStreamPlayer
 ## Scoring sequence: the multiplier labels on show, then the sum (stays up
 ## under the end overlay).
@@ -203,7 +200,7 @@ func _ready() -> void:
 ## (Sean, M6c playtest: the first turn banner came too quickly).
 func _start_game() -> void:
 	if animate_drops:
-		_sfx.play(&"turn_whoosh")
+		_sfx.play(&"game_start")
 		var fast := Settings.speed != Settings.Speed.NORMAL
 		await _hud.show_start_banner(GAME_START_SEC / (Settings.FAST_SCALE if fast else 1.0))
 		if not is_inside_tree():
@@ -371,6 +368,12 @@ func _build_feedback_nodes() -> void:
 	_inspect = InspectPanel.new()
 	add_child(_inspect)
 	move_child(_inspect, _end_overlay.get_index())
+	_end_screen = EndScreen.new()
+	_end_overlay.add_child(_end_screen)
+	_end_screen.view_pressed.connect(_on_view_board_pressed)
+	_end_screen.primary_pressed.connect(func() -> void:
+		_sfx.play(&"ui_tap")
+		_on_end_pressed())
 	_fuse = FuseStrip.new()
 	_fuse.name = "Fuse"
 	add_child(_fuse)
@@ -929,7 +932,7 @@ func _play_opponent_move() -> void:
 func _show_end() -> void:
 	_set_input_enabled(false)
 	_hud.set_pause_visible(false)
-	var color := COLOR_DRAW
+	var kind := &"draw"
 	match _loop.result:
 		TurnLoop.Result.PLAYER_WIN:
 			await _lead_in(BoardState.CellOwner.PLAYER)
@@ -942,9 +945,7 @@ func _show_end() -> void:
 			if not is_inside_tree():
 				return
 			_board_view.highlight_cells(_loop.scoring_cells(BoardState.CellOwner.PLAYER))
-			_result_label.text = "You Win!"
-			_end_button.text = "Back to title"
-			color = COLOR_WIN
+			kind = &"win"
 		TurnLoop.Result.OPPONENT_WIN:
 			await _lead_in(BoardState.CellOwner.OPPONENT)
 			if not is_inside_tree():
@@ -953,16 +954,10 @@ func _show_end() -> void:
 			if not is_inside_tree():
 				return
 			_board_view.highlight_cells(_loop.scoring_cells(BoardState.CellOwner.OPPONENT))
-			_result_label.text = "You Lose"
-			_end_button.text = "Back to title"
-			color = COLOR_LOSE
-		_:
-			_result_label.text = "Draw"
-			_end_button.text = "Replay"
-	_result_label.add_theme_color_override("font_color", color)
-	(_banner.get_theme_stylebox("panel") as StyleBoxFlat).border_color = color
+			kind = &"lose"
+	_end_screen.set_result(kind)
 	_end_overlay.visible = true
-	_announce.call_deferred()
+	_end_screen.play_intro.call_deferred(animate_drops)
 
 
 ## Win/lose lead-in (slice §2B): the winner's Goobs turn happy, the loser's
@@ -1074,23 +1069,6 @@ func _wait(sec: float) -> void:
 	await timer.timeout
 	timer.queue_free()
 
-
-## Placeholder juice: dim fades in, the banner slams in with overshoot and a
-## white flash, then the result text keeps pulsing.
-func _announce() -> void:
-	var dim: Control = _end_overlay.get_node("Dim")
-	_banner.pivot_offset = _banner.size * 0.5
-	_result_label.pivot_offset = _result_label.size * 0.5
-	dim.modulate.a = 0.0
-	_banner.scale = Vector2(1.0, 0.0)
-	_banner.modulate = Color(3.0, 3.0, 3.0)
-	var intro := create_tween().set_parallel()
-	intro.tween_property(dim, "modulate:a", 1.0, 0.25)
-	intro.tween_property(_banner, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	intro.tween_property(_banner, "modulate", Color.WHITE, 0.4)
-	var pulse := create_tween().set_loops()
-	pulse.tween_property(_result_label, "scale", Vector2(1.08, 1.08), 0.45).set_trans(Tween.TRANS_SINE)
-	pulse.tween_property(_result_label, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE)
 
 
 ## §4.6 feedback: shake + error sound + toast.

@@ -57,6 +57,7 @@ const STREAMS := {
 	&"turn_whoosh": preload("res://assets/audio/sfx/turn_whoosh.ogg"),
 	# M6c play flips, fuse, win/lose lead-ins (art/audio/make_reaction_sounds.py).
 	&"goob_flip": preload("res://assets/audio/sfx/goob_flip.ogg"),
+	&"game_start": preload("res://assets/audio/sfx/game_start.ogg"),
 	&"win_sting": preload("res://assets/audio/sfx/win_sting.ogg"),
 	&"lose_sting": preload("res://assets/audio/sfx/lose_sting.ogg"),
 	&"portrait_crack": preload("res://assets/audio/sfx/portrait_crack.ogg"),

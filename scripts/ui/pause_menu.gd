@@ -27,6 +27,9 @@ var _buttons: Dictionary = {} ## label -> Button
 func _init() -> void:
 	name = "PauseMenu"
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Above everything in the scene, incl. a drawn Goob popping in at the centre
+	# (HandView raises it to z 20; Sean, M6c playtest).
+	z_index = 100
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false

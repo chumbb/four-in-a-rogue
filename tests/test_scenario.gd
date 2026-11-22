@@ -481,7 +481,7 @@ func _test_win_shows_end() -> void:
 	var scenario := await _make(0.0)
 	var view := _view(scenario)
 	var board := _board(scenario)
-	var end_button: Button = scenario.get_node("%EndButton")
+	var end_button: Button = scenario._end_screen.primary_button()
 	_check(not scenario.get_node("%EndOverlay").visible, "result overlay hidden during play")
 	for c in [0, 1, 2]:
 		board.drop(c, P)
@@ -491,11 +491,11 @@ func _test_win_shows_end() -> void:
 	_play_col(scenario, 3)
 	await process_frame
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "player wins")
-	_check(scenario._result_label.text == "You Win!", "announces You Win! (got %s)" % scenario._result_label.text)
+	_check(scenario._end_screen.result_text() == "You win!", "announces You win! (got %s)" % scenario._end_screen.result_text())
 	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown")
 	_check(end_button.is_visible_in_tree(), "end button visible")
 	_check(end_button.text == "Back to title", "end button says Back to title")
-	_check(end_button.size.y >= 96.0, "end button ≥ 96 px tall")
+	_check(end_button.get_global_rect().size.y >= 96.0, "end button ≥ 96 px tall (got %s)" % end_button.get_global_rect().size)
 	_check(not scenario._input_enabled, "input disabled after win")
 	_check(scenario._turn_timer.is_stopped(), "timer stopped after win")
 	_check(_glows(view, Vector2i(0, 0)) and _glows(view, Vector2i(3, 0)), "winning line highlighted")
@@ -517,9 +517,9 @@ func _test_draw_shows_replay() -> void:
 	view.sync_from_board(board)
 	_play_col(scenario, 6)
 	await process_frame
-	var end_button: Button = scenario.get_node("%EndButton")
+	var end_button: Button = scenario._end_screen.primary_button()
 	_check(scenario._loop.result == TurnLoop.Result.DRAW, "full board is a draw")
-	_check(scenario._result_label.text == "Draw", "announces Draw (got %s)" % scenario._result_label.text)
+	_check(scenario._end_screen.result_text() == "Draw", "announces Draw (got %s)" % scenario._end_screen.result_text())
 	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown on draw")
 	_check(end_button.is_visible_in_tree(), "end button visible on draw")
 	_check(end_button.text == "Replay", "end button says Replay")
@@ -832,7 +832,7 @@ func _test_m6c_playtest() -> void:
 	_check(hand.count() > 0 and hand.face_of(0) == &"happy", "playtest: hand Goobs happy on a win (got %s)" % hand.face_of(0))
 	var overlay: Control = scenario.get_node("%EndOverlay")
 	_check(overlay.visible, "playtest: result overlay up")
-	scenario.get_node("%ViewButton").pressed.emit()
+	scenario._end_screen.view_button().pressed.emit()
 	_check(scenario.is_reviewing() and not overlay.visible, "playtest: View board minimises the overlay")
 	_check(scenario._hud.show_result_button().visible, "playtest: Show result button while reviewing")
 	scenario._last_tap_key = ""
@@ -1147,8 +1147,8 @@ func _test_stalemate_replay() -> void:
 	await process_frame
 	_check(loop.result == TurnLoop.Result.DRAW, "stalemate: draw")
 	_check(not loop.board.is_board_full(), "stalemate: board not full")
-	_check(scenario._result_label.text == "Draw", "stalemate: announces Draw")
-	_check(scenario.get_node("%EndButton").text == "Replay", "stalemate: Replay")
+	_check(scenario._end_screen.result_text() == "Draw", "stalemate: announces Draw")
+	_check(scenario._end_screen.primary_button().text == "Replay", "stalemate: Replay")
 	await _free(scenario)
 
 
@@ -1269,7 +1269,7 @@ func _wait_banner(hud: ScenarioHud, text: String) -> void:
 func _test_turn_banners() -> void:
 	var scenario := await _make(5.0, true, 0.0, 30.0, true)
 	var hud: ScenarioHud = scenario._hud
-	_check(hud.is_banner_visible() and hud.banner_text() == "Game start", "banner: Game start first (got '%s')" % hud.banner_text())
+	_check(hud.is_banner_visible() and hud.banner_text() == "GAME START", "banner: Game start first (got '%s')" % hud.banner_text())
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_INK, "banner: neutral ink ribbon for Game start")
 	await _wait_banner(hud, "Your turn")
 	_check(hud.is_banner_visible() and hud.banner_text() == "Your turn", "banner: then blue Your turn")

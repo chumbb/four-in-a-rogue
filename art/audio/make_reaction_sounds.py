@@ -5,6 +5,7 @@ Usage (from the repo root):
 
 All synthesised for this project (no packs needed). Outputs (Ogg Vorbis, 44.1 kHz, via
 ffmpeg) in assets/audio/sfx/; T = tactile, C = chiptune (slice §2B Sound):
+  game_start.ogg       C  "GAME START" banner: two stabs into a held chord + crash
   goob_flip.ogg        T  a Goob flips out of the hand / up from behind the board: short
                           airy flick (filtered noise, fast swell) + a soft tick
   fuse_burn.ogg        T  low-time fuse: crackling hiss, seamless ~1 s loop
@@ -104,7 +105,29 @@ def portrait_explode(sec=0.6, seed=13):
     return _norm(burst * 0.7 + thump, 0.32)
 
 
+def _chord(freqs, sec, vol):
+    return sum(square(f, sec, duty=0.5, vol=vol) for f in freqs)
+
+
+def game_start(seed=17):
+    """Definitive start: two short low stabs, then a bright held C-major chord over a
+    noise crash (M6c playtest: 'a more definitive game start sound')."""
+    rng = np.random.default_rng(seed)
+    stab = _chord([196.0, 261.63, 329.63], 0.09, 0.09)
+    gap = np.zeros(int(SR * 0.04))
+    held_sec = 0.7
+    held = _chord([523.25, 659.25, 783.99, 1046.5], held_sec, 0.075)
+    t = np.arange(len(held)) / SR
+    held *= np.minimum(1.0, 2.2 * np.exp(-t / 0.35))  # sustain a bit longer than square()'s decay
+    crash = _lowpass(rng.standard_normal(len(held)), 0.5)
+    crash -= _lowpass(crash, 0.08)
+    crash *= np.exp(-t / 0.18) * 0.18
+    out = np.concatenate([stab, gap, stab, gap, held + crash])
+    return out / np.max(np.abs(out)) * 0.32
+
+
 def main():
+    write_ogg(game_start(), "game_start.ogg")
     write_ogg(goob_flip(), "goob_flip.ogg")
     write_ogg(fuse_burn(), "fuse_burn.ogg")
     write_ogg(win_sting(), "win_sting.ogg")

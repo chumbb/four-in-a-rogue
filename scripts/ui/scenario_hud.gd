@@ -50,7 +50,7 @@ const PAUSE_ICON := preload("res://assets/ui/icon_pause.png")
 const RIBBON_BLUE := preload("res://assets/ui/ribbon_blue.png")
 const RIBBON_RED := preload("res://assets/ui/ribbon_red.png")
 const RIBBON_INK := preload("res://assets/ui/ribbon_ink.png") ## neutral "Game start"
-const GAME_START := "Game start"
+const GAME_START := "GAME START" ## all caps (Sean, M6c playtest)
 
 const GOLD_HI := Color("fbb954")
 const RED := Color("e83b3b")
