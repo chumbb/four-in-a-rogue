@@ -65,6 +65,9 @@ const SCORE_RECOGNISE_SEC := 1.0
 const LEAD_IN_SEC := 0.8
 ## Shortest time a drawn Goob's name stays up (Fast, Skip).
 const CAPTION_MIN_SEC := 1.0
+## The opponent starts waiting after this long without a touch on your turn,
+## and always while the fuse burns (Sean, M6c playtest).
+const WAITING_AFTER_SEC := 8.0
 const FUSE_BURN := preload("res://assets/audio/sfx/fuse_burn.ogg")
 const SCORE_STEP_SEC := 0.6
 const SCORE_PAUSE_SEC := 0.4
@@ -156,6 +159,8 @@ var _fuse: FuseStrip
 ## After the end: the result overlay minimised so the board can be looked at
 ## and its Goobs inspected (Sean, M6c playtest); "Show result" brings it back.
 var _reviewing := false
+## Last touch (or turn start) on the player's turn, msec, for the waiting face.
+var _idle_since_msec := 0
 var _end_screen: EndScreen
 var _fuse_sound: AudioStreamPlayer
 ## Scoring sequence: the multiplier labels on show, then the sum (stays up
@@ -216,6 +221,20 @@ func _process(_delta: float) -> void:
 	_refresh_fuse()
 
 
+## The opponent waits on you: after WAITING_AFTER_SEC of your turn without a
+## touch, or while the fuse burns; a touch (or a play) brings him back to idle.
+func _refresh_waiting() -> void:
+	if _loop.phase != TurnLoop.Phase.PLAYER_TURN or not _input_enabled:
+		if _hud.base_face() == &"waiting":
+			_hud.set_base_face(&"idle")
+		return
+	var idle_sec := (Time.get_ticks_msec() - _idle_since_msec) / 1000.0
+	var waiting := _fuse.visible or idle_sec >= WAITING_AFTER_SEC
+	var want := &"waiting" if waiting else &"idle"
+	if _hud.base_face() != want:
+		_hud.set_base_face(want)
+
+
 ## Low-time fuse (M6c): the last FuseStrip.FUSE_SEC of a running player turn;
 ## hand Goobs look worried and the fuse crackles while it burns.
 func _refresh_fuse() -> void:
@@ -224,6 +243,7 @@ func _refresh_fuse() -> void:
 		left = _turn_timer.time_left
 	_fuse.set_seconds_left(left)
 	_hand.set_worried(_fuse.visible)
+	_refresh_waiting()
 	if _fuse.visible and not _fuse_sound.playing:
 		_fuse_sound.play()
 	elif not _fuse.visible and _fuse_sound.playing:
@@ -257,6 +277,8 @@ func _build_hud() -> void:
 		set_reviewing(false))
 	_hud.stage.relayout.connect(_fit_hud_slot)
 	_pause = PauseMenu.new()
+	# Time paused doesn't count as the player keeping him waiting.
+	_pause.resumed.connect(func() -> void: _idle_since_msec = Time.get_ticks_msec())
 	add_child(_pause)
 
 
@@ -402,6 +424,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _on_press(event: InputEventScreenTouch) -> void:
+	_idle_since_msec = Time.get_ticks_msec()
 	if _touch_index != -1:
 		return # a second finger; single pointer only
 	if PixelStage.touches_button(_hud, event.position):
@@ -630,6 +653,7 @@ func _hide_aim() -> void:
 func _set_input_enabled(enabled: bool) -> void:
 	_input_enabled = enabled
 	if enabled:
+		_idle_since_msec = Time.get_ticks_msec()
 		_timed_out = false
 		_turn_timer.start(turn_seconds)
 	else:
@@ -682,15 +706,24 @@ func _play_player(column: int, hand_index: int, roll_path: Array[int] = []) -> i
 ## `from_behind`: the opponent's Goob flips up from behind the board first.
 func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false) -> void:
 	var effect := _loop.last_effect
+	# The portrait reacts while it happens (Sean, M6c playtest): a timeout roll
+	# as it starts rolling, an effect's outcome as the effect starts, anything
+	# else (a three, a block) as the Goob lands.
+	var face := _reaction_for(column, side, roll_path, effect)
+	var on_effect := face != &"" and (effect.has("target") or effect.has("extra"))
+	if face != &"" and roll_path.size() > 1:
+		_hud.react(face)
+		face = &""
 	await _board_view.play_drop(column, row, side, roll_path, goob, from_behind)
 	_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 	if side == BoardState.CellOwner.PLAYER:
 		Settings.vibrate() # one pulse when your Goob lands (slice §2B)
-	await _play_effect(effect)
+	if face != &"" and not on_effect:
+		_hud.react(face)
+	await _play_effect(effect, face if on_effect else &"")
 	if not is_inside_tree():
 		return
 	_board_view.sync_from_board(_loop.board)
-	_react_to_play(column, side, roll_path, effect)
 	_after_play()
 
 
@@ -699,9 +732,9 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 ## timeout roll; for his play, happy when he makes a new open three or his
 ## effect hits you; for yours, angry when you break up his threes (a block)
 ## or your effect hits him. Game over is left to the end lead-in.
-func _react_to_play(column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> void:
+func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> StringName:
 	if _loop.phase == TurnLoop.Phase.OVER:
-		return
+		return &""
 	var landed := _board_before.copy()
 	landed.drop(column, side)
 	var hit_other := false
@@ -721,13 +754,13 @@ func _react_to_play(column: int, side: BoardState.CellOwner, roll_path: Array[in
 		var his := BoardState.CellOwner.OPPONENT
 		if hit_other or OpponentAI.open_threes(_loop.board, his) < OpponentAI.open_threes(_board_before, his):
 			face = &"angry"
-	if face != &"":
-		_hud.react(face)
+	return face
 
 
 ## Shows what TurnLoop.last_effect did: the type's impact on its target (the
 ## target was picked first, slice §4), or a fizzle when it had none.
-func _play_effect(effect: Dictionary) -> void:
+## `face`: the portrait reaction to show as the effect starts ("" = none).
+func _play_effect(effect: Dictionary, face: StringName = &"") -> void:
 	var kind: GoobDefinition.EffectType = effect.get("kind", GoobDefinition.EffectType.NONE)
 	if kind == GoobDefinition.EffectType.NONE:
 		return
@@ -736,6 +769,8 @@ func _play_effect(effect: Dictionary) -> void:
 	# Let the landing register before the effect starts, and leave room after
 	# it before the next turn (Sean, 2026-11-19 playtest).
 	await _wait(EFFECT_LEAD_SEC)
+	if face != &"":
+		_hud.react(face)
 	await _play_effect_impact(effect, kind, cell, side)
 	await _wait(EFFECT_HOLD_SEC)
 

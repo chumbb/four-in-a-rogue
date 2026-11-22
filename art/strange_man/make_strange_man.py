@@ -25,7 +25,7 @@ Outputs (final):
   assets/strange_man/full_body.png          96x160, feet on the bottom rows of the figure
   assets/strange_man/light_pool.png         oval pool of light he stands on (game px)
   assets/strange_man/portrait_<expr>.png    64x64 bust: idle, thinking, happy, angry,
-                                            surprised, celebrating, well_played
+                                            surprised, celebrating, well_played, waiting
   assets/strange_man/portrait_crack.png     strip of 3 64x64 frames (well played, cracking)
   assets/strange_man/portrait_explode.png   strip of 6 128x128 frames (shards fly apart;
                                             the bust sits centred in each frame)
@@ -58,6 +58,9 @@ EDITS = {"c_pro3": [((64, 54, 72, 62), (64, 68))]}
 EXPRESSIONS = {  # asset name -> bust/raw_<source>.png
     "idle": "idle", "thinking": "thinking", "happy": "happy", "angry": "angry",
     "surprised": "surprised", "celebrating": "celebrating", "well_played": "well_played2",
+    # Waiting on the player (M6c playtest, Sean 2026-11-22): edit_image of idle, options
+    # bust/raw_waiting_a|b|c.png (compare_waiting.png); A until Sean picks.
+    "waiting": "waiting_a",
 }
 GOOB_X = {"blue": 72, "red": 198}  # centre x in game px, either side of him on the pool
 CRACK_DARK, CRACK_LIT = hexc("2e222f"), hexc("c7dcd0")

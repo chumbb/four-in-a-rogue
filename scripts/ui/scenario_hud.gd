@@ -33,6 +33,8 @@ const PORTRAITS := {
 	&"surprised": preload("res://assets/strange_man/portrait_surprised.png"),
 	&"celebrating": preload("res://assets/strange_man/portrait_celebrating.png"),
 	&"well_played": preload("res://assets/strange_man/portrait_well_played.png"),
+	## Waiting on you: 8 s without a touch, or the fuse (Sean, M6c playtest).
+	&"waiting": preload("res://assets/strange_man/portrait_waiting.png"),
 }
 const CRACK := preload("res://assets/strange_man/portrait_crack.png") ## 3 × 64 px
 const EXPLODE := preload("res://assets/strange_man/portrait_explode.png") ## 6 × 128 px
@@ -362,7 +364,7 @@ func _process(delta: float) -> void:
 			_show_face(_base_face)
 
 
-## The resting face: &"idle" or &"thinking". A running reaction finishes first.
+## The resting face: &"idle", &"thinking" or &"waiting". A running reaction finishes first.
 func set_base_face(face: StringName) -> void:
 	_base_face = face
 	if _reaction_left <= 0.0:
@@ -380,6 +382,10 @@ func hold_face(face: StringName) -> void:
 	_reaction_left = 0.0
 	_base_face = face
 	_show_face(face)
+
+
+func base_face() -> StringName:
+	return _base_face
 
 
 func portrait_face() -> StringName:

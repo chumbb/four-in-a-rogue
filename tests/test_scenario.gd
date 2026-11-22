@@ -81,6 +81,7 @@ func _run() -> void:
 	await _test_m6c_reactions()
 	await _test_m6c_fuse()
 	await _test_m6c_playtest()
+	await _test_m6c_waiting()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -855,6 +856,46 @@ func _test_m6c_playtest() -> void:
 	await process_frame
 	hand = scenario.get_node("%PlayerHand")
 	_check(hand.count() > 0 and hand.face_of(0) == &"sad", "playtest: hand Goobs sad on a loss (got %s)" % hand.face_of(0))
+	await _free(scenario)
+
+
+## M6c playtest: he waits on you after WAITING_AFTER_SEC without a touch and
+## during the fuse; a touch brings him back. His reactions start with the effect.
+func _test_m6c_waiting() -> void:
+	var scenario := await _make(5.0)
+	var hud: ScenarioHud = scenario._hud
+	await process_frame
+	_check(hud.base_face() == &"idle", "waiting: idle at the start of your turn")
+	scenario._idle_since_msec -= int(scenario.WAITING_AFTER_SEC * 1000.0) + 50
+	await process_frame
+	await process_frame
+	_check(hud.portrait_face() == &"waiting", "waiting: waits after 8 s without a touch (got %s)" % hud.portrait_face())
+	_touch(_col_pos(scenario, 3), true)
+	_touch(_col_pos(scenario, 3), false)
+	await process_frame
+	await process_frame
+	_check(hud.portrait_face() == &"idle", "waiting: a touch brings him back (got %s)" % hud.portrait_face())
+	await _free(scenario)
+	scenario = await _make(5.0, true, 0.0, 10.3)
+	hud = scenario._hud
+	await create_timer(0.5).timeout
+	_check(hud.portrait_face() == &"waiting", "waiting: waits while the fuse burns (got %s)" % hud.portrait_face())
+	await _free(scenario)
+	# Reaction during the effect: animated Convincing flip of his Goob → angry
+	# before the effect has finished.
+	scenario = await _make(5.0, true, 0.0, 30.0, true)
+	await _wait_input(scenario)
+	hud = scenario._hud
+	var board := _board(scenario)
+	board.drop(2, O)
+	_view(scenario).sync_from_board(board)
+	_give(scenario, CONVINCING)
+	_play_col(scenario, 3)
+	var deadline := Time.get_ticks_msec() + 4000
+	while hud.portrait_face() != &"angry" and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(hud.portrait_face() == &"angry", "reaction: angry when your effect hits him")
+	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN and scenario._opponent_timer.is_stopped(), "reaction: shown while the effect is still playing")
 	await _free(scenario)
 
 
