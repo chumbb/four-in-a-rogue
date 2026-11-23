@@ -5,8 +5,10 @@ Usage (from the repo root):
 
 All synthesised for this project (no packs needed). Outputs (Ogg Vorbis, 44.1 kHz, via
 ffmpeg) in assets/audio/sfx/:
-  press_start.ogg  title Press Start: chiptune two-note up-blip (C5 → G5)       (C)
-  ui_tap.ogg       button tap: short soft chiptune blip                         (C)
+  press_start.ogg  title Press Start: soft triangle two-note up-blip (C5 → G5)  (C)
+  ui_tap.ogg       button tap: short sine "bubble" bending up                   (C)
+  (Sean, 2026-11-23: the old square blips were too harsh; Sean picked option A for
+  press start and option C for the tap.)
   page_click.ogg   Strange Man page advance: tiny high square click             (C)
   first_sting.ogg  coin result flash + "goes first" banner: chiptune fanfare     (C)
   coin_whirr.ogg   coin spinning in the air (~0.6 s): fluttering filtered noise  (T)
@@ -27,12 +29,32 @@ def silence(sec):
     return np.zeros(int(SR * sec))
 
 
+def _env(n, attack, decay):
+    t = np.arange(n) / SR
+    return np.minimum(1.0, t / attack) * np.exp(-t / decay)
+
+
+def tri(freq, sec, vol, attack=0.012):
+    n = int(SR * sec)
+    t = np.arange(n) / SR
+    wave = 2.0 * np.abs(2.0 * ((t * freq) % 1.0) - 1.0) - 1.0
+    return wave * _env(n, attack, sec * 0.45) * vol
+
+
+def bubble(f0, f1, sec, vol):
+    n = int(SR * sec)
+    t = np.arange(n) / SR
+    freq = f0 + (f1 - f0) * np.minimum(1.0, t / (sec * 0.6))
+    phase = 2 * np.pi * np.cumsum(freq) / SR
+    return np.sin(phase) * _env(n, 0.006, sec * 0.35) * vol
+
+
 def press_start():
-    return np.concatenate([square(523.25, 0.07, duty=0.5, vol=0.22), square(783.99, 0.16, duty=0.5, vol=0.22)])
+    return np.concatenate([tri(523.25, 0.08, 0.2), tri(783.99, 0.18, 0.2)])
 
 
 def ui_tap():
-    return square(659.25, 0.05, duty=0.25, vol=0.16)
+    return bubble(520, 780, 0.06, 0.2)
 
 
 def page_click():
