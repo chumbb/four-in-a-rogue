@@ -37,6 +37,7 @@ func _initialize() -> void:
 	_test_plentiful_draws_two()
 	_test_effect_before_win_check()
 	_test_scoring_cells()
+	_test_m6e_multipliers_and_names()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -509,3 +510,15 @@ func _test_scoring_cells() -> void:
 	_check(cells.size() == 7, "scoring: crossing lines count each Goob once (got %d)" % cells.size())
 	_check(cells.slice(3) == ([Vector2i(3, 0), Vector2i(3, 1), Vector2i(3, 2), Vector2i(3, 3)] as Array[Vector2i]), "scoring: bottom to top within a column")
 	_check(t.scoring_cells(O).is_empty(), "scoring: no line, no cells")
+
+
+func _test_m6e_multipliers_and_names() -> void:
+	var specials := {CONVINCING: GoobDefinition.Category.UNIQUE, FAT: GoobDefinition.Category.DESTROY, POPULAR: GoobDefinition.Category.UNIQUE, PLENTIFUL: GoobDefinition.Category.DRAW}
+	for g: GoobDefinition in specials:
+		_check(g.multiplier == 2.0, "m6e: %s is x2" % g.id)
+		_check(g.category == specials[g], "m6e: %s category" % g.id)
+	var v := TurnLoop.VANILLA
+	_check(v.multiplier == 1.0, "m6e: Vanilla x1")
+	_check(v.display_name == "Goob", "m6e: Vanilla is shown as Goob")
+	_check(v.category == GoobDefinition.Category.NONE, "m6e: Vanilla has no category")
+	_check(POPULAR.effect_description == "Drop a Goob into a random column.", "m6e: Popular card text")

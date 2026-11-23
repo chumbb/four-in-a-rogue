@@ -743,11 +743,11 @@ func _test_scoring_sequence() -> void:
 	for c in 3:
 		board.drop(c, P)
 	_view(scenario).sync_from_board(board)
-	_give(scenario, PLENTIFUL) # ×0.5, no board change
+	_give(scenario, PLENTIFUL) # ×2, no board change
 	_play_col(scenario, 3)
 	await process_frame
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "scoring: player wins")
-	_check(scenario.sum_label != null and scenario.sum_label.text == "3.5", "scoring: sum 1+1+1+0.5 = 3.5 (got %s)" % (scenario.sum_label.text if scenario.sum_label else "none"))
+	_check(scenario.sum_label != null and scenario.sum_label.text == "5", "scoring: sum 1+1+1+2 = 5 (got %s)" % (scenario.sum_label.text if scenario.sum_label else "none"))
 	_check(scenario.score_labels.is_empty(), "scoring: multipliers collapsed into the sum")
 	_check(absf(scenario.sum_label.get_global_rect().get_center().y - scenario.gap_center().y) < 2.0, "scoring: the total shows in the gap above the board (M6c playtest)")
 	var face_up := true
@@ -860,7 +860,7 @@ func _test_m6c_reactions() -> void:
 func _test_m6c_playtest() -> void:
 	var scenario := await _make(5.0)
 	var hud: ScenarioHud = scenario._hud
-	_check(hud.caption_text() == "Vanilla Goob", "playtest: drawn Goob's name shows above the board (got '%s')" % hud.caption_text())
+	_check(hud.caption_text() == "Goob", "playtest: drawn Goob's name shows above the board (got '%s')" % hud.caption_text())
 	var board := _board(scenario)
 	for c in 3:
 		board.drop(c, P)

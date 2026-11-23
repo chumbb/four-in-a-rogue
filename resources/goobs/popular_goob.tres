@@ -6,8 +6,9 @@
 script = ExtResource("1")
 id = "popular"
 display_name = "Popular Goob"
-multiplier = 0.5
-effect_description = "Drop a Vanilla Goob into a random column."
+multiplier = 2.0
+effect_description = "Drop a Goob into a random column."
 effect_type = 3
+category = 1
 art_id = "popular"
 flavour_text = "A favourite at Gooberina's court. Wherever it lands, others follow."
