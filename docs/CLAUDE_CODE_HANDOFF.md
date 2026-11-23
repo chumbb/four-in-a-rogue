@@ -95,6 +95,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - Waiting face (b2, 8 s idle or the fuse).
   - Greeting: he tips his beanie (`portrait_greeting`, option c) during GAME START.
   - Blocked-two reaction (see above).
+- **Post-merge fix (branch `m6c-chain-loss-angry`, merged 2026-11-23):** when a chain (Fat's destroy making Goobs fall) hands you the win, he is **angry** instead of "well played" in the lead-in and before the crack (`_defeat_face()`, `play_defeat(scale, face)`).
 - **Accepted 2026-11-23:** Sean said "merge m6c to main". Next session: M6d.
 
 **Code map:**
@@ -177,12 +178,12 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `main` after the M6c merge, 904 checks)
+### Tests (all pass on `main` after the M6c merge, 908 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 431 checks
+& $g --headless -s res://tests/test_scenario.gd    # 435 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
 & $g --headless -s res://tests/test_flow_m3.gd     # 184

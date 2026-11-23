@@ -755,7 +755,7 @@ func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int
 	if effect.has("target"):
 		var target: Vector2i = effect["target"]
 		hit_other = landed.get_owner(target.x, target.y) == TurnLoop.enemy_of(side)
-		chain = effect["kind"] == GoobDefinition.EffectType.DESTROY_ADJACENT 			and not _loop.board.is_empty(target.x, target.y)
+		chain = _chained(effect)
 	var face := &""
 	if chain or roll_path.size() > 1:
 		face = &"surprised"
@@ -774,6 +774,14 @@ func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int
 		if OpponentAI.open_lines(_loop.board, other, 2, true) < OpponentAI.open_lines(_board_before, other, 2, true):
 			face = &"well_played" if side == BoardState.CellOwner.PLAYER else &"giggle"
 	return face
+
+
+## Whether `effect` set off a chain: Fat's destroy made the Goobs above fall.
+func _chained(effect: Dictionary) -> bool:
+	if not effect.has("target") or effect["kind"] != GoobDefinition.EffectType.DESTROY_ADJACENT:
+		return false
+	var target: Vector2i = effect["target"]
+	return not _loop.board.is_empty(target.x, target.y)
 
 
 ## Shows what TurnLoop.last_effect did: the type's impact on its target (the
@@ -998,7 +1006,7 @@ func _show_end() -> void:
 			await _play_scoring(BoardState.CellOwner.PLAYER)
 			if not is_inside_tree():
 				return
-			await _hud.play_defeat(Settings.anim_scale() if _animating() else 0.0)
+			await _hud.play_defeat(Settings.anim_scale() if _animating() else 0.0, _defeat_face())
 			if not is_inside_tree():
 				return
 			_board_view.highlight_cells(_loop.scoring_cells(BoardState.CellOwner.PLAYER))
@@ -1028,9 +1036,15 @@ func _lead_in(winner: BoardState.CellOwner) -> void:
 		_board_view.set_face(cell, &"celebrating")
 	var player_won := winner == BoardState.CellOwner.PLAYER
 	_hand.set_mood(&"happy" if player_won else &"sad")
-	_hud.hold_face(&"well_played" if player_won else &"celebrating")
+	_hud.hold_face(_defeat_face() if player_won else &"celebrating")
 	_sfx.play(&"win_sting" if player_won else &"lose_sting")
 	await _wait(LEAD_IN_SEC)
+
+
+## His face when you win: "well played", or angry when a chain this turn
+## handed you the four (Sean, M6c playtest 2026-11-23).
+func _defeat_face() -> StringName:
+	return &"angry" if _chained(_loop.last_effect) else &"well_played"
 
 
 ## Scoring sequence (slice §4, Balatro rhythm): first a moment of recognition

@@ -83,6 +83,7 @@ func _run() -> void:
 	await _test_m6c_playtest()
 	await _test_m6c_waiting()
 	await _test_convincing_flip_colour()
+	await _test_chain_loss_angry()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -904,6 +905,24 @@ func _test_m6c_playtest() -> void:
 ## during the fuse; a touch brings him back. His reactions start with the effect.
 ## Convincing's target keeps its old colour through the wind-up and only
 ## turns as it spins (Sean, M6c playtest: it showed the new colour first).
+## A chain that hands you the win makes him angry, not "well played"
+## (Sean, M6c playtest 2026-11-23).
+func _test_chain_loss_angry() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	loop.board.drop(1, P) # a Goob fell into the destroyed cell: a chain
+	loop.last_effect = {"kind": GoobDefinition.EffectType.DESTROY_ADJACENT, "target": Vector2i(1, 0), "cell": Vector2i(0, 0), "side": P, "fizzled": false}
+	_check(scenario._defeat_face() == &"angry", "chain loss: angry")
+	loop.last_effect = {"kind": GoobDefinition.EffectType.DESTROY_ADJACENT, "target": Vector2i(1, 1), "cell": Vector2i(0, 0), "side": P, "fizzled": false}
+	_check(scenario._defeat_face() == &"well_played", "no chain (nothing fell): well played")
+	loop.last_effect = {}
+	_check(scenario._defeat_face() == &"well_played", "plain win: well played")
+	var hud: ScenarioHud = scenario._hud
+	hud.play_defeat(1.0, &"angry")
+	_check(hud.portrait_face() == &"angry", "chain loss: the defeat starts angry, then cracks")
+	await _free(scenario)
+
+
 func _test_convincing_flip_colour() -> void:
 	var scenario := await _make(5.0, true, 0.0, 30.0, true)
 	await _wait_input(scenario)
