@@ -178,7 +178,6 @@ var sum_label: Label
 func _ready() -> void:
 	_rng.randomize()
 	_think_rng.randomize()
-	GameFlow.set_ambience(true) # forest ambience (slice §2B Sound)
 	# Art B vignette over the forest + stump, under the board and UI (it matches
 	# GameFlow's forest cover, so the board fades cleanly over the forest).
 	var vignette := GameFlow.make_vignette()

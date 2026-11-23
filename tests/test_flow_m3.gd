@@ -43,17 +43,12 @@ func _run() -> void:
 	_test_settings_saved()
 	await _test_title_options()
 	await _test_auto_flip_setting()
-	await _test_ambience()
 	_test_background_audio()
 	_settings().reset()
 	_settings().save_file()
 	_flow().player_moves_first = saved_first
 	_flow().fade_sec = _flow().FADE_SEC
 	root.size = saved_size
-	# Stop the ambience loop and let the mixer release it before quitting
-	# (a loop still playing at exit leaves "resources still in use").
-	_flow().set_ambience(false, 0.0)
-	await create_timer(0.2).timeout
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
 
@@ -366,30 +361,6 @@ func _test_auto_flip_setting() -> void:
 	cf.process_mode = Node.PROCESS_MODE_DISABLED
 	await _clear(cf)
 	st.reset()
-
-
-## M6d (slice §2B Sound): quiet forest loop during the coin flip and scenario,
-## ducked on pause, off on the other screens.
-func _test_ambience() -> void:
-	var flow := _flow()
-	flow.set_ambience(false, 0.0)
-	var title := _add(TITLE_SCENE)
-	await _frames(2)
-	_check(not flow.is_ambience_on(), "m6d: no ambience on the title")
-	await _clear(title)
-	var coin := _add(COIN_FLIP)
-	await _frames(2)
-	var player: AudioStreamPlayer = flow.get_node("Ambience")
-	_check(flow.is_ambience_on() and player.playing, "m6d: ambience plays on the coin flip")
-	_check(player.bus == &"SFX" and (player.stream as AudioStreamOggVorbis).loop, "m6d: ambience loops on the SFX bus")
-	flow.set_ambience_ducked(true)
-	_check(is_equal_approx(flow.ambience_target(), 0.3), "m6d: duck to 30 %")
-	flow.set_ambience_ducked(false)
-	_check(is_equal_approx(flow.ambience_target(), 1.0), "m6d: duck restored")
-	flow.go_to(flow.SceneKey.TITLE)
-	await _frames(2)
-	_check(not flow.is_ambience_on() and not player.playing, "m6d: ambience off back on the title")
-	await _clear(coin)
 
 
 ## M6d mobile: all audio pauses in the background, settings come back on resume.

@@ -103,7 +103,6 @@ func open() -> void:
 	_show(_menu)
 	visible = true
 	_sfx.play(&"pause_open")
-	GameFlow.set_ambience_ducked(true)
 	opened.emit()
 
 
@@ -114,7 +113,6 @@ func resume() -> void:
 	_options.visible = false
 	get_tree().paused = false
 	_sfx.play(&"pause_close")
-	GameFlow.set_ambience_ducked(false)
 	resumed.emit()
 
 

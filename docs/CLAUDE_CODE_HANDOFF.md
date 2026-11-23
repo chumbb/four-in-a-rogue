@@ -46,7 +46,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 5 | **Art pass D1** — Goob type sheets ✅ | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
-| 8 | **M6d** — Sound + smoke ← **next** | Remaining sounds + ambience, audio rules; A1–A10 smoke, known gaps | all |
+| 8 | **M6d** — Sound + smoke ← **next** | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
 | 9 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
 After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placeholders).
@@ -70,16 +70,16 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 
 ### M6d — sound completion + smoke test (built on `m6d-sound-smoke` 2026-11-23; playtest pending)
 
-- **Built:** forest ambience (`GameFlow` owns an `Ambience` player on SFX; `set_ambience(on, sec)` from coin flip / scenario `_ready`, `go_to` fades it out to other screens, `set_ambience_ducked()` from the pause menu = 30 %), `red_flash` blip, `draw_sting`, Master mute on `NOTIFICATION_APPLICATION_PAUSED` (restored by `Settings.apply_audio()`), `[audio] general/ios/session_category=0` + `mix_with_others=true`. Sounds: `art/audio/make_m6d_sounds.py`. Credits rows for M6c + M6d added.
+- **Built:** `red_flash` blip, `draw_sting`, Master mute on `NOTIFICATION_APPLICATION_PAUSED` (restored by `Settings.apply_audio()`), `[audio] general/ios/session_category=0` + `mix_with_others=true`. Sounds: `art/audio/make_m6d_sounds.py`. Credits rows for M6c + M6d added. **Removed by Sean (2026-11-23):** the forest ambience (chiptune soundtrack later) and a long-press inspect attempt (clashes with dragging; inspect stays double tap).
 - **Smoke:** `docs/SMOKE_V0.1.md` (A1–A10 pass on desktop; known gaps). Soak: `godot --headless -s res://tests/soak_m6d.gd` (8 real-time games, ~6 min).
-- **Gotcha:** a looping sound still playing when a test quits prints "resources still in use at exit"; suites call `set_ambience(false, 0.0)` and wait 0.2 s before `quit()`.
-- Test counts: scenario 439, flow 192, turn_loop 138, board_state 74, opponent_ai 77.
+- **Gotcha:** a looping sound (fuse) still playing when a test quits can print "resources still in use at exit"; stop it and wait a moment before `quit()`.
+- Test counts: scenario 437, flow 186, turn_loop 138, board_state 74, opponent_ai 77.
 
 Original scope notes:
 
 Scope (CLAUDE.md §M6d, vault slice §2B "Sound"):
 - **Remaining sound events.** Compare the vault §2B Sound table with `scripts/audio/sfx.gd` (49 sounds wired).
-- **Forest ambience loop.** Quiet, on the SFX bus, during the coin flip and the scenario; ducks about 30 % on pause. Not built yet: nothing in `scripts/` mentions ambience.
+- ~~Forest ambience loop~~ (removed by Sean 2026-11-23).
 - **Audio rules.**
   - Fast = sounds sooner, normal pitch.
   - Pause = SFX stop, including the fuse loop (already pauses with the tree).
@@ -258,7 +258,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently **M6d**: remaining sounds + forest ambience, audio rules, A1–A10 smoke) on a new branch; push it for Sean's playtest.
+3. Do the next item in CLAUDE.md §Milestones (currently **M6d**: remaining sounds, audio rules, A1–A10 smoke) on a new branch; push it for Sean's playtest.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.

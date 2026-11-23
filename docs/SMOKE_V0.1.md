@@ -4,7 +4,7 @@ Desktop only (Windows, Godot 4.7.2, 1080×1920 window). Criteria: vault `Design/
 
 ## How it was checked
 
-- **Headless suites** (all pass): `test_scenario` 439, `test_flow_m3` 192, `test_turn_loop` 138, `test_board_state` 74, `test_opponent_ai` 77 checks.
+- **Headless suites** (all pass): `test_scenario` 437, `test_flow_m3` 186, `test_turn_loop` 138, `test_board_state` 74, `test_opponent_ai` 77 checks.
 - **Real-time soak** `tests/soak_m6d.gd` (new): 8 full games with the starter deck, animations on and the real AI. 3 Normal + 3 Fast games where the player taps (win, else block, else random), plus 1 Fast + 1 Normal game where every player turn times out (2 s timer) and rolls. It fails on 20 s with no Goob landing or a stuck end screen. Result: 16 checks, 0 failures, no softlocks; every end button reached the Title. The AI won all 8 games (it looks one move ahead), so real-time player wins and draws were covered by the suites, not the soak.
 - **Windowed flow capture** `tests/capture_e2e.gd`: title → black fade → Strange Man → forest → coin flip → toss → banner → board fade → scenario, all screens reached.
 - **Sean's F5 playtest** is still the real check for feel and audio.
@@ -26,7 +26,7 @@ Desktop only (Windows, Godot 4.7.2, 1080×1920 window). Criteria: vault `Design/
 
 ## Known gaps
 
-1. **A8 wording.** The vault criterion and the `CLAUDE.md` ship checklist say "long-press inspect", but the game uses **double tap** (Sean, 2026-11-10). Docs only; the vault A8 row needs Sean's wording.
+1. **A8 wording (fixed).** The criterion said "long-press"; the game uses **double tap** (Sean, 2026-11-10). Long press was tried again on 2026-11-23 and dropped because it clashes with dragging hand Goobs, so A8 now says double tap (vault + `CLAUDE.md`).
 2. **A9 on hardware** = M7 (Pixel 11, both renderers). Low-end device check is after v0.1.
 3. **Mobile audio is untested until M7.** Built: Master is muted while the app is backgrounded; iOS session = Ambient + mix with others. Android has no silent switch, and Godot doesn't take audio focus, so the player's music should keep playing; check on the Pixel 11. iOS needs a Mac.
 4. **Sound-table differences (already Sean's calls or doubling):**
@@ -34,6 +34,6 @@ Desktop only (Windows, Godot 4.7.2, 1080×1920 window). Criteria: vault `Design/
    - The column-touch "blip" is the column tick (every column entry clicks; Sean, 2026-11-19).
    - There is no separate "toast pop": every toast already has its own sound (Column full = error, Hand full = hand full, Time's up!).
 5. **Music** comes after v0.1. The Music slider has nothing to control yet.
-6. **Ambience timing:** the forest loop fades in over 1 s when the coin flip appears, not while the Strange Man's forest comes into focus.
-7. **Exit warning (debug console only):** quitting while a looping sound plays (fuse, ambience) can print "resources still in use at exit". Players can't see it; the test suites stop the ambience first.
+6. **No ambience:** the forest ambience in the sound table was built and then removed (Sean, 2026-11-23; the game gets a retro chiptune soundtrack after v0.1).
+7. **Exit warning (debug console only):** quitting while the fuse loop plays can print "resources still in use at exit". Players can't see it.
 8. **Real-time player wins and draws** weren't reached by the soak (the AI won every soak game). Unit tests cover both. Sean's playtest should include a win.

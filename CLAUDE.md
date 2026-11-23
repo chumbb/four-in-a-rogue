@@ -145,9 +145,9 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 - **Never sound-only:** every audio cue also has a visual/text cue.
 - Buses Master → Music, SFX. Options rows: **Master / Music / SFX** sliders, each with a mute toggle; defaults 80 / 70 / 80 %; persisted in a settings file.
 - Mobile: ambient audio (respects silent switch, player's music keeps playing); pause in background.
-- No Goob voices; Strange Man only has the page-advance click. Quiet forest ambience loop (SFX bus) during coin flip + scenario.
+- No Goob voices; Strange Man only has the page-advance click. **No forest ambience** (Sean, 2026-11-23: removed after hearing it; the soundtrack will be retro chiptune).
 - Opponent sounds ~10 % lower pitch; ±5 % random pitch on repeats. Scoring ticks rise one note per Goob, sum on the top note.
-- Fast = sounds sooner, normal pitch (Skip removed 2026-11-22); each sound at most once per frame. Pause: SFX stop (incl. fuse), ambience ducks ~30 %, menu sounds play.
+- Fast = sounds sooner, normal pitch (Skip removed 2026-11-22); each sound at most once per frame. Pause: SFX stop (incl. fuse), menu sounds play.
 - Each milestone adds its own sounds (M4 replaces `scripts/audio/sfx.gd` placeholders and covers already-built events).
 
 ### Tech
@@ -347,7 +347,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 
 ### M6d — Sound completion + smoke test
 
-- [x] Remaining §Sound events + forest ambience; Fast/pause audio rules; mobile audio behaviour. Built on `m6d-sound-smoke` (playtest pending): forest ambience loop (`GameFlow.set_ambience()`, coin flip + scenario, fades out with scene changes, ducks to 30 % on pause), opponent red-flash blip, draw sting (`art/audio/make_m6d_sounds.py`); Master muted while backgrounded; iOS session Ambient + mix with others
+- [x] Remaining §Sound events; Fast/pause audio rules; mobile audio behaviour. Built on `m6d-sound-smoke` (playtest pending): opponent red-flash blip, draw sting (`art/audio/make_m6d_sounds.py`); Master muted while backgrounded; iOS session Ambient + mix with others. Forest ambience was built, then **removed** (Sean, 2026-11-23). Long press as a second inspect gesture was tried and **dropped**: it clashes with dragging hand Goobs (Sean, 2026-11-23); inspect stays double tap
 - [x] Smoke **A1–A10** on desktop: `docs/SMOKE_V0.1.md` (all pass on desktop; known gaps listed there); real-time soak `tests/soak_m6d.gd`
 
 ### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)
@@ -367,7 +367,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 - [ ] A5 Win + scoring sequence
 - [ ] A6 Lose on opponent 4
 - [ ] A7 No softlocks after end
-- [ ] A8 Goob text readable (long-press inspect)
+- [ ] A8 Goob text readable (double-tap inspect)
 - [ ] A9 Portrait touch: whole loop, single pointer, 1080×1920 + tall shape, simulated safe area, ≥ 96 px targets
 - [ ] A10 Animation speed Normal / Fast (Skip removed, Sean 2026-11-22)
 

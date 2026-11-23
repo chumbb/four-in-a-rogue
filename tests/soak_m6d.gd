@@ -52,8 +52,6 @@ func _run() -> void:
 	settings.reset()
 	settings.save_file()
 	flow.fade_sec = flow.FADE_SEC
-	flow.set_ambience(false, 0.0)
-	await create_timer(0.2).timeout
 	print("\nresults (1 player win, 2 opponent win, 3 draw): ", results)
 	print("%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)

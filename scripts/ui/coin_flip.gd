@@ -82,7 +82,6 @@ var _pressed := false
 
 func _ready() -> void:
 	rng.randomize()
-	GameFlow.set_ambience(true) # forest ambience (slice §2B Sound)
 	for colour: String in ["blue", "red"]:
 		var frames: Array[Texture2D] = []
 		for i in 8:
