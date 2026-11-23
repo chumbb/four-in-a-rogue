@@ -88,6 +88,11 @@ func _run() -> void:
 	await _test_discard_keeps_fan_in_order()
 	await _test_pills_clear_of_columns(PHONE)
 	await _test_pills_clear_of_columns(Vector2i(1080, 2340))
+	await _test_debug_give_full_hand_replaces_oldest()
+	await _test_debug_give_opponent()
+	await _test_debug_status()
+	await _test_debug_discard_opponent()
+	await _test_debug_panel_f4()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -1626,3 +1631,106 @@ func _test_pills_clear_of_columns(window: Vector2i) -> void:
 	SafeArea.simulate_insets = false
 	await _free(scenario)
 	root.size = PHONE
+
+
+## M6e debug picker: a full hand drops its oldest Goob for the given one; the
+## fan shows the new hand.
+func _test_debug_give_full_hand_replaces_oldest() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var v: GoobDefinition = TurnLoop.VANILLA
+	var convincing: GoobDefinition = load("res://resources/goobs/convincing_goob.tres")
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	var full: Array[GoobDefinition] = [convincing, v, v, v, v]
+	loop.player_deck.hand.assign(full)
+	_hand_view(scenario).rebuild(loop.player_deck.hand)
+	scenario.debug_give(fat, P)
+	var hand := loop.player_deck.hand
+	_check(hand.size() == Deck.HAND_MAX, "debug give: hand stays at 5 (got %d)" % hand.size())
+	_check(hand.size() > 0 and hand[-1] == fat, "debug give: the given Goob is last")
+	_check(not hand.has(convincing), "debug give: the oldest Goob is gone")
+	_check(_hand_view(scenario).count() == 5, "debug give: the fan shows 5 (got %d)" % _hand_view(scenario).count())
+	await _free(scenario)
+
+
+func _test_debug_give_opponent() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	var before := loop.opponent_deck.hand.size()
+	var fan_before := _hand_view(scenario).count()
+	scenario.debug_give(fat, O)
+	_check(loop.opponent_deck.hand.size() == before + 1 and loop.opponent_deck.hand[-1] == fat, "debug give: the opponent's hand gains it")
+	_check(_hand_view(scenario).count() == fan_before, "debug give: the player fan is untouched")
+	await _free(scenario)
+
+
+func _test_debug_status() -> void:
+	var scenario := await _make(5.0)
+	scenario.debug_add_status(P)
+	await process_frame
+	var buttons: Array[Button] = scenario._pills.buttons()
+	_check(buttons.size() == 1 and StatusPills.label_of(buttons[0]) == "Test", "debug status: the Test pill appears")
+	_check(scenario._loop.has_status(&"debug", P), "debug status: on the player's side")
+	await _free(scenario)
+
+
+## Discard random on the opponent's hand works at any time; on yours only while
+## your input is on.
+func _test_debug_discard_opponent() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var before := loop.opponent_deck.hand.size()
+	await scenario.debug_discard_random(O)
+	_check(loop.opponent_deck.hand.size() == before - 1 and loop.opponent_deck.discard_pile.size() == 1, "debug discard: one opponent Goob discarded")
+	var mine := loop.player_deck.hand.size()
+	scenario._set_input_enabled(false)
+	await scenario.debug_discard_random(P)
+	_check(loop.player_deck.hand.size() == mine, "debug discard: yours ignored while input is locked")
+	scenario._set_input_enabled(true)
+	await scenario.debug_discard_random(P)
+	_check(loop.player_deck.hand.size() == mine - 1 and _hand_view(scenario).count() == mine - 1, "debug discard: yours discarded while input is on (fan follows)")
+	await _free(scenario)
+
+
+func _key(keycode: Key) -> void:
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.pressed = true
+	root.push_input(event)
+
+
+## F4 opens the panel (tree paused) and closes it; its buttons are ≥ 96 px and
+## act on the chosen side; "New game with these" forces the categories.
+func _test_debug_panel_f4() -> void:
+	var scenario := await _make(5.0)
+	var panel: DebugPanel = scenario._debug
+	_check(panel != null and not panel.is_open(), "debug panel: built (debug build), closed at start")
+	_key(KEY_F4)
+	await process_frame
+	_check(panel.is_open() and paused, "debug panel: F4 opens it and pauses the tree")
+	_check(panel.button("Close").get_global_rect().size.y >= 96.0, "debug panel: buttons ≥ 96 px")
+	var loop: TurnLoop = scenario._loop
+	var before := loop.opponent_deck.hand.size()
+	panel.button("Opponent").pressed.emit()
+	panel.button("Fat Goob").pressed.emit()
+	_check(loop.opponent_deck.hand.size() == before + 1, "debug panel: a Goob button gives to the chosen side")
+	panel.button("Add test status").pressed.emit()
+	_check(loop.has_status(&"debug", O), "debug panel: test status on the chosen side")
+	_key(KEY_F4)
+	await process_frame
+	_check(not panel.is_open() and not paused, "debug panel: F4 again closes it and unpauses")
+	panel.open()
+	panel.button("Tech").pressed.emit()
+	panel.button("Move + Discard").pressed.emit()
+	var forced := panel.forced()
+	_check(forced.get("top", -1) == GoobDefinition.Category.TECH, "debug panel: top pool forced")
+	var main: Array = forced.get("main", [])
+	_check(main.size() == 2 and main.has(GoobDefinition.Category.MOVE) and main.has(GoobDefinition.Category.DISCARD), "debug panel: main pair forced")
+	panel.button("Auto top").pressed.emit()
+	panel.button("Auto main").pressed.emit()
+	_check(panel.forced().is_empty(), "debug panel: Auto clears the forcing")
+	panel.button("Close").pressed.emit()
+	_check(not panel.is_open() and not paused, "debug panel: Close unpauses")
+	await _free(scenario)
+	_check(not paused, "debug panel: never left paused")

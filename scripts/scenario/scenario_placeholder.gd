@@ -113,6 +113,8 @@ var _hud: ScenarioHud
 ## Active statuses as pills in the gap (M6e).
 var _pills: StatusPills
 var _pause: PauseMenu
+## F4 debug picker (debug builds only; null in a release build).
+var _debug: DebugPanel
 ## Set when the turn timer ran out (the HUD reads 0 until the Goob is played).
 var _timed_out := false
 var _loop := TurnLoop.new()
@@ -310,6 +312,80 @@ func _build_hud() -> void:
 	# Time paused doesn't count as the player keeping him waiting.
 	_pause.resumed.connect(func() -> void: _idle_since_msec = Time.get_ticks_msec())
 	add_child(_pause)
+	if OS.is_debug_build():
+		_build_debug_panel()
+
+
+## F4 debug picker (M6e): debug builds only.
+func _build_debug_panel() -> void:
+	_debug = DebugPanel.new()
+	_debug.set_forced(GameFlow.debug_forced_categories)
+	_debug.toggle_requested.connect(_on_debug_toggle)
+	_debug.give_requested.connect(debug_give)
+	_debug.discard_requested.connect(debug_discard_random)
+	_debug.status_requested.connect(debug_add_status)
+	_debug.new_game_requested.connect(func(forced: Dictionary) -> void:
+		GameFlow.debug_forced_categories = forced
+		GameFlow.rolled_decks = {}
+		GameFlow.replay_after_draw())
+	add_child(_debug)
+
+
+func _on_debug_toggle() -> void:
+	if _debug.is_open():
+		_debug.close()
+		_idle_since_msec = Time.get_ticks_msec()
+	elif not _pause.is_open() and not GameFlow.is_fading():
+		_end_touch() # a gesture can't finish while the tree is paused
+		_debug.open()
+
+
+## Debug: puts `goob` at the end of `side`'s hand; a full hand drops its oldest
+## (index 0) first. The player's fan is rebuilt.
+func debug_give(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
+	var hand := _loop.deck_of(side).hand
+	if hand.size() >= Deck.HAND_MAX:
+		hand.remove_at(0)
+		if side == BoardState.CellOwner.OPPONENT and _opponent_planned():
+			# His chosen Goob shifts down; if it was the dropped one, he plays
+			# the given one instead (same column).
+			_opponent_hand_index = _opponent_hand_index - 1 if _opponent_hand_index > 0 else hand.size()
+	hand.append(goob)
+	if side == BoardState.CellOwner.PLAYER:
+		_end_touch()
+		_hand.rebuild(hand)
+
+
+## Debug: discards a random Goob from `side`'s hand and shows its reveal. Yours
+## only while your input is on; his any time (never the Goob he has chosen to
+## play).
+func debug_discard_random(side: BoardState.CellOwner) -> void:
+	if side == BoardState.CellOwner.PLAYER and not _input_enabled:
+		return
+	var choices: Array[int] = []
+	for i in _loop.deck_of(side).hand.size():
+		if not (side == BoardState.CellOwner.OPPONENT and _opponent_planned() and i == _opponent_hand_index):
+			choices.append(i)
+	if choices.is_empty():
+		return
+	var index: int = choices[randi_range(0, choices.size() - 1)]
+	if side == BoardState.CellOwner.OPPONENT and _opponent_planned() and index < _opponent_hand_index:
+		_opponent_hand_index -= 1
+	if side == BoardState.CellOwner.PLAYER:
+		_end_touch()
+	var goob := _loop.discard_from(side, index)
+	await _show_discard(goob, side, index)
+
+
+## Debug: a two-turn test status on `side`.
+func debug_add_status(side: BoardState.CellOwner) -> void:
+	_loop.add_status(&"debug", side, "Test", "A test status from the debug panel.", 2)
+	_refresh_hud()
+
+
+## True while the opponent has chosen his move and not played it yet.
+func _opponent_planned() -> bool:
+	return _loop.phase == TurnLoop.Phase.OPPONENT_TURN and _opponent_hand_index != -1
 
 
 ## The zones reserve the HUD block's height above the board.
