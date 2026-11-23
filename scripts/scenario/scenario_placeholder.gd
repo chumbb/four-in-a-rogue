@@ -20,7 +20,7 @@ extends Control
 ##
 ## M6b: pixel HUD (ScenarioHud: portrait, objective, scenario, timer emblem,
 ## Pause bottom left), turn banners, the pause menu (tree paused) with Options,
-## haptics, the Screen shake option, and Normal / Fast / Skip on the play
+## haptics, the Screen shake option, and Normal / Fast on the play
 ## animations (Settings).
 
 const OBJECTIVE := "Get four in a row"
@@ -63,7 +63,7 @@ const COLOR_SCORE_OUTLINE := Color(0.13, 0.08, 0.1)
 const SCORE_RECOGNISE_SEC := 1.0
 ## Win/lose lead-in (faces + sting) before the scoring recognition.
 const LEAD_IN_SEC := 0.8
-## Shortest time a drawn Goob's name stays up (Fast, Skip).
+## Shortest time a drawn Goob's name stays up (Fast).
 const CAPTION_MIN_SEC := 1.0
 ## The opponent starts waiting after this long without a touch on your turn,
 ## and always while the fuse burns (Sean, M6c playtest).
@@ -83,8 +83,7 @@ const SCORE_HOLD_SEC := 1.0
 ## effect before the next turn (Sean, 2026-11-19).
 const EFFECT_LEAD_SEC := 0.2
 const EFFECT_HOLD_SEC := 0.6
-## Turn banner length (Normal). Fast halves it; Skip keeps the Fast length so
-## whose turn it is still reads (banners are not play animations).
+## Turn banner length (Normal). Fast halves it.
 const TURN_BANNER_SEC := 0.9
 ## "Game start" banner, then a beat before the first turn banner.
 const GAME_START_SEC := 1.3
@@ -308,8 +307,8 @@ func _on_pause_pressed() -> void:
 	_pause.open()
 
 
-## Normal / Fast / Skip (Settings; also when changed from the pause menu).
-## Skip turns the play animations off; tests' animate_drops = false does too.
+## Normal / Fast (Settings; also when changed from the pause menu). Tests'
+## animate_drops = false turns the play animations off.
 func _apply_speed() -> void:
 	var on := _animating()
 	_board_view.animate = on
@@ -320,10 +319,10 @@ func _apply_speed() -> void:
 
 
 func _animating() -> bool:
-	return animate_drops and not Settings.is_skip()
+	return animate_drops
 
 
-## The opponent's think delay: halved on Fast, and on Skip (it still reads).
+## The opponent's think delay: halved on Fast.
 ## `hard` (blocking / close call) adds THINK_HARD_SEC; 0 base = no delay.
 func _think_sec(hard: bool = false) -> float:
 	if opponent_delay_sec <= 0.0:
@@ -331,8 +330,6 @@ func _think_sec(hard: bool = false) -> float:
 	var sec := opponent_delay_sec + _think_rng.randf_range(-THINK_JITTER_SEC, THINK_JITTER_SEC)
 	if hard:
 		sec += THINK_HARD_SEC
-	if Settings.is_skip():
-		return sec / Settings.FAST_SCALE
 	return sec / Settings.anim_scale()
 
 
@@ -726,7 +723,7 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 	if face != &"" and roll_path.size() > 1:
 		_hud.react(face)
 		face = &""
-	await _board_view.play_drop(column, row, side, roll_path, goob, from_behind)
+	await _board_view.play_drop(column, row, side, roll_path, goob, from_behind, side == BoardState.CellOwner.PLAYER)
 	_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 	if side == BoardState.CellOwner.PLAYER:
 		Settings.vibrate() # one pulse when your Goob lands (slice §2B)
@@ -906,7 +903,7 @@ func _show_turn_draw() -> void:
 
 
 ## A drawn Goob pops into the hand while its name shows in the gap above the
-## board (Sean, M6c playtest). The name stays readable on Fast and Skip.
+## board (Sean, M6c playtest). The name stays readable on Fast.
 func _reveal_drawn(goob: GoobDefinition) -> void:
 	var sec := HandView.REVEAL_POP_SEC + HandView.REVEAL_HOLD_SEC + HandView.REVEAL_FLY_SEC
 	_hud.show_caption(goob.display_name, maxf(sec / Settings.anim_scale() if _animating() else 0.0, CAPTION_MIN_SEC))
@@ -945,11 +942,14 @@ func _run_opponent_turn() -> void:
 	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng)
 	_opponent_column = move["column"]
 	_opponent_hand_index = move["hand_index"]
-	_hud.set_base_face(&"thinking")
 	var wait := _think_sec(move["blocking"] or move["close"])
+	# The red banner first, then he thinks (Sean, M6c playtest: the delay was
+	# hidden under the banner).
 	if animate_drops:
-		_show_turn_banner(false)
-		wait = maxf(wait, _banner_sec())
+		await _show_turn_banner(false)
+		if not is_inside_tree() or _loop.phase != TurnLoop.Phase.OPPONENT_TURN:
+			return
+	_hud.set_base_face(&"thinking")
 	if wait > 0.0:
 		_opponent_timer.start(wait)
 	else:
@@ -957,7 +957,7 @@ func _run_opponent_turn() -> void:
 
 
 func _choose_opponent_move() -> void:
-	var flash := Settings.anim_sec(opponent_flash_sec) # Fast halves, Skip removes
+	var flash := Settings.anim_sec(opponent_flash_sec) # Fast halves
 	if flash > 0.0:
 		_show_flash(_opponent_column, COLOR_FLASH_OPPONENT)
 		_flash_timer.start(flash)
@@ -1025,8 +1025,7 @@ func _lead_in(winner: BoardState.CellOwner) -> void:
 	var player_won := winner == BoardState.CellOwner.PLAYER
 	_hand.set_mood(&"happy" if player_won else &"sad")
 	_hud.hold_face(&"well_played" if player_won else &"celebrating")
-	if not Settings.is_skip(): # Skip keeps only result sounds
-		_sfx.play(&"win_sting" if player_won else &"lose_sting")
+	_sfx.play(&"win_sting" if player_won else &"lose_sting")
 	await _wait(LEAD_IN_SEC)
 
 
@@ -1042,10 +1041,7 @@ func _play_scoring(side: BoardState.CellOwner) -> void:
 	# Recognition first (Sean, 2026-11-20): the scored Goobs light up in gold
 	# and hop together before any multiplier appears.
 	_board_view.recognise_cells(cells)
-	# Skip plays only the result sounds: here the final sum (slice §2B Sound).
-	var ticks := not Settings.is_skip()
-	if ticks:
-		_sfx.play(&"score_recognise")
+	_sfx.play(&"score_recognise")
 	await _wait(SCORE_RECOGNISE_SEC)
 	var total := 0.0
 	# One label per Goob, made up front (hidden) so the row in the gap can be
@@ -1065,8 +1061,7 @@ func _play_scoring(side: BoardState.CellOwner) -> void:
 	for i in cells.size():
 		var cell := cells[i]
 		var label := score_labels[i]
-		if ticks:
-			_sfx.play(ladder[mini(i, ladder.size() - 1)])
+		_sfx.play(ladder[mini(i, ladder.size() - 1)])
 		await _board_view.flip_cell(cell, true)
 		if not is_inside_tree():
 			return
@@ -1086,8 +1081,7 @@ func _play_scoring(side: BoardState.CellOwner) -> void:
 		await _wait(maxf(0.0, SCORE_STEP_SEC - SCORE_SHOW_SEC - SCORE_FLOAT_SEC))
 	await _wait(SCORE_PAUSE_SEC)
 	var centre := gap
-	if ticks:
-		_sfx.play(&"score_collapse")
+	_sfx.play(&"score_collapse")
 	if _animating():
 		var collapse := create_tween().set_parallel().set_speed_scale(Settings.anim_scale())
 		for label in score_labels:
@@ -1134,8 +1128,8 @@ func _place_centered(control: Control, pos: Vector2) -> void:
 
 
 ## Waits `sec` (at the animation speed) on a child timer (freed with the
-## scene, so a pending wait just stops; paused with the tree). No wait on Skip
-## or when animations are off (tests).
+## scene, so a pending wait just stops; paused with the tree). No wait when
+## animations are off (tests).
 func _wait(sec: float) -> void:
 	if not _animating() or sec <= 0.0:
 		return

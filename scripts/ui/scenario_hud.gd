@@ -396,7 +396,7 @@ func portrait_face() -> StringName:
 
 ## Player win: "well played", then the bust cracks and explodes, leaving the
 ## portrait slot empty. `scale` divides every step (Fast = 2); 0 = jump to
-## the end (Skip).
+## the end (no animation; tests).
 func play_defeat(scale: float = 1.0) -> void:
 	hold_face(&"well_played")
 	if scale <= 0.0:

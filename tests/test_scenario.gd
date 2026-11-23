@@ -4,7 +4,7 @@ extends SceneTree
 ## full-column entry error, red opponent flash, turn timer + timeout roll, drop
 ## and roll animations, end overlay, draw replay, and the portrait layout with
 ## simulated safe-area insets; M6b pixel HUD, turn banners, pause menu,
-## Normal / Fast / Skip, haptics + screen shake options. Window sizes are physical (project stretch maps
+## Normal / Fast, haptics + screen shake options. Window sizes are physical (project stretch maps
 ## 1080x1920 to the 720x1280 base).
 ## Run: godot --headless -s res://tests/test_scenario.gd
 
@@ -76,7 +76,7 @@ func _run() -> void:
 	await _test_turn_banners()
 	await _test_pause_menu()
 	await _test_speed_settings()
-	await _test_skip_scoring_sounds()
+	_test_skip_removed()
 	await _test_screen_shake_option()
 	await _test_m6c_reactions()
 	await _test_m6c_fuse()
@@ -568,6 +568,13 @@ func _test_drop_animation_locks_input() -> void:
 	var token: Sprite2D = view._tokens[Vector2i(2, 0)]
 	_check(token.position == Vector2(view.cell_position(2, 0).x, BoardView2D.TOP_Y), "Goob appears on top of the board over its column")
 	_check(scenario._opponent_timer.is_stopped(), "opponent waits for the landing")
+	_check(not view.is_preview_visible(), "the faint aim ghost is gone once the drop commits")
+	_check(is_equal_approx(view._preview.modulate.a, BoardView2D.GHOST_ALPHA), "the aim float is a faint ghost")
+	# It flips into place vertically first (M6c playtest), for every type.
+	await create_timer(BoardView2D.FLIP_IN_SEC * 0.5).timeout
+	var pitch := TurnLoop.VANILLA.pitch_frames(P)
+	_check(pitch.has(token.texture) or token.position.y < BoardView2D.TOP_Y, "Goob flips in vertically on top of the board")
+	await create_timer(BoardView2D.FLIP_IN_SEC * 0.5 + 0.03).timeout
 	await create_timer(BoardView2D.TOP_PAUSE_SEC * 0.5).timeout
 	_check(token.position.y == BoardView2D.TOP_Y, "Goob pauses on top of the board")
 	await create_timer(BoardView2D.TOP_PAUSE_SEC * 0.5 + 0.1).timeout
@@ -575,7 +582,7 @@ func _test_drop_animation_locks_input() -> void:
 	_check(token.position == token.position.round(), "Goob moves on whole game pixels")
 	await create_timer(0.6).timeout
 	_check(token.position == view.cell_position(2, 0), "Goob landed in its hole")
-	_check(not scenario._opponent_timer.is_stopped(), "opponent turn started after the landing")
+	_check(scenario._hud.is_banner_visible() or not scenario._opponent_timer.is_stopped(), "opponent turn started after the landing (red banner, then his think delay)")
 	await _free(scenario)
 
 
@@ -599,7 +606,7 @@ func _test_roll_animation() -> void:
 	await create_timer(0.3).timeout
 	_check(board.get_owner(4, 0) == P, "timeout Goob lands in column 4")
 	var token: Sprite2D = view._tokens[Vector2i(4, 0)]
-	_check(token.position == Vector2(view.cell_position(6, 0).x, BoardView2D.TOP_Y), "Goob appears on top of the full column first (%s)" % token.position)
+	_check(token.position.x == view.cell_position(6, 0).x and token.position.y <= BoardView2D.TOP_Y, "Goob appears on top of the full column first (%s)" % token.position)
 	_check(not scenario._input_enabled, "input locked while rolling")
 	var rolled_on_top := false
 	var deadline := Time.get_ticks_msec() + 1500
@@ -1292,8 +1299,8 @@ func _test_sounds() -> void:
 	_touch(_off_board(scenario), false)
 	_check(_heard(scenario, &"cancel"), "sound: cancel fly-back")
 	_play_col(scenario, 3)
-	await create_timer(0.1).timeout
-	_check(_heard(scenario, &"rest"), "sound: rest on top")
+	await create_timer(0.1 + BoardView2D.FLIP_IN_SEC).timeout
+	_check(_heard(scenario, &"goob_flip") and _heard(scenario, &"rest"), "sound: flip in, then rest on top")
 	await create_timer(0.6).timeout
 	_check(_heard(scenario, &"fall") and _heard(scenario, &"land"), "sound: fall + land")
 	await _free(scenario)
@@ -1377,6 +1384,12 @@ func _test_turn_banners() -> void:
 	_check(hud.is_banner_visible() and hud.banner_text() == "Opponent's turn", "banner: red Opponent's turn after Game start")
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_RED, "banner: red ribbon")
 	_check(_heard(scenario, &"turn_whoosh"), "banner: whoosh on the opponent's turn too")
+	_check(hud.portrait_face() != &"thinking" and scenario._opponent_timer.is_stopped(), "think delay waits for the red banner (M6c playtest)")
+	var deadline := Time.get_ticks_msec() + 3000
+	while hud.is_banner_visible() and Time.get_ticks_msec() < deadline:
+		await process_frame
+	await process_frame
+	_check(hud.portrait_face() == &"thinking" and not scenario._opponent_timer.is_stopped(), "then he thinks (got %s)" % hud.portrait_face())
 	await _free(scenario)
 
 
@@ -1423,39 +1436,22 @@ func _test_speed_settings() -> void:
 	settings.set_speed(1) # Fast
 	_check(view.animate and view.speed_scale == 2.0 and hand.speed_scale == 2.0, "speed: Fast doubles the play animations")
 	_check(is_equal_approx(settings.anim_sec(0.6), 0.3), "speed: Fast halves waits")
-	settings.set_speed(2) # Skip
-	_check(not view.animate and not hand.animate, "speed: Skip turns play animations off")
-	_check(settings.anim_sec(0.6) == 0.0, "speed: Skip has no waits")
-	# Skip: no red flash, the opponent goes straight after its think delay.
-	_play_col(scenario, 3)
-	await process_frame
-	_check(not scenario._flash.visible, "speed: Skip removes the opponent flash")
-	var deadline := Time.get_ticks_msec() + 3000
-	while _count(_board(scenario), O) == 0 and Time.get_ticks_msec() < deadline:
-		await process_frame
-	_check(_count(_board(scenario), O) == 1, "speed: Skip opponent still plays")
-	_check(view._tokens[Vector2i(3, 0)].position == view.cell_position(3, 0), "speed: Skip lands at once")
 	settings.reset()
 	_check(view.animate and view.speed_scale == 1.0, "speed: back to Normal applies live")
 	await _free(scenario)
 
 
-## Skip plays only result sounds: the scoring sequence keeps just the sum note.
-func _test_skip_scoring_sounds() -> void:
-	_settings().set_speed(2)
-	var scenario := await _make(5.0)
-	var board := _board(scenario)
-	for c in 3:
-		board.drop(c, P)
-	_view(scenario).sync_from_board(board)
-	_play_col(scenario, 3)
-	await process_frame
-	var history: Array[StringName] = scenario._sfx.history
-	var ladder := history.filter(func(s: StringName) -> bool: return String(s).begins_with("score_"))
-	_check(ladder == [&"score_4"], "skip: scoring plays only the sum note (got %s)" % str(ladder))
-	_check(scenario.sum_label != null and scenario.sum_label.text == "4", "skip: sum still shown")
+## Skip was removed (Sean, M6c playtest): a saved Skip loads as Normal, and
+## Options offers Normal / Fast only.
+func _test_skip_removed() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("play", "speed", 2)
+	cfg.save(_settings().path)
+	_settings().load_file()
+	_check(_settings().speed == 0, "skip removed: a saved Skip loads as Normal")
+	var panel_script: GDScript = load("res://scripts/ui/options_panel.gd")
+	_check(panel_script.get_script_constant_map()["SPEEDS"].size() == 2, "skip removed: Options shows Normal / Fast")
 	_settings().reset()
-	await _free(scenario)
 
 
 func _test_screen_shake_option() -> void:

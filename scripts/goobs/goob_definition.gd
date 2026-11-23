@@ -47,8 +47,12 @@ func yaw_frames(side: BoardState.CellOwner) -> Array[Texture2D]:
 ## The 8 frames this Goob flips with (face → edge → back → edge): pitch
 ## when it flips vertically, else yaw. Frame 4 is its back.
 func flip_frames(side: BoardState.CellOwner) -> Array[Texture2D]:
-	if not flips_vertically:
-		return yaw_frames(side)
+	return pitch_frames(side) if flips_vertically else yaw_frames(side)
+
+
+## The 8 end-over-end frames for `side` (face → edge → back → edge). Every
+## played Goob flips into place with these (Sean, M6c playtest).
+func pitch_frames(side: BoardState.CellOwner) -> Array[Texture2D]:
 	var frames: Array[Texture2D] = []
 	for i in 8:
 		frames.append(load((ART_DIR % [art_id, team_of(side), "pitch"]) + "/frame_%02d.png" % i))
