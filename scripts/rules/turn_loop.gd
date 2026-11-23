@@ -229,6 +229,27 @@ func _collapse_goobs(column: int, from_row: int) -> void:
 			_cell_goobs.erase(Vector2i(column, r))
 
 
+## Rolls the Goob at `cell` sideways (`dir` -1 or +1) while the cell beside it
+## is empty, falling to the top of that column. Returns the cells it passed
+## through after leaving `cell` (empty = didn't move). Keeps owner and
+## definition; the Goobs above its old cell fall.
+func roll_goob(cell: Vector2i, dir: int) -> Array[Vector2i]:
+	var path: Array[Vector2i] = []
+	var owner := board.get_owner(cell.x, cell.y)
+	var goob: GoobDefinition = _cell_goobs.get(cell)
+	while true:
+		var next := cell.x + dir
+		if not board.is_valid_column(next) or board.get_owner(next, cell.y) != BoardState.CellOwner.EMPTY:
+			break
+		board.destroy_cell(cell.x, cell.y)
+		_collapse_goobs(cell.x, cell.y)
+		var row := board.drop(next, owner)
+		cell = Vector2i(next, row)
+		_cell_goobs[cell] = goob
+		path.append(cell)
+	return path
+
+
 ## Discards `side`'s hand Goob at `index`; returns it (null if out of range).
 func discard_from(side: BoardState.CellOwner, index: int) -> GoobDefinition:
 	var goob := deck_of(side).discard(index)
