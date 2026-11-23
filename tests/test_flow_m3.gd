@@ -350,6 +350,7 @@ func _test_auto_flip_setting() -> void:
 	var cf := _add(COIN_FLIP)
 	await create_timer(1.8).timeout
 	_check(cf.tossed, "auto-flip: Options Auto-flip tosses by itself")
+	_check(cf._arrow.modulate.a == 0.0 and (cf._arrow_tween == null or not cf._arrow_tween.is_valid()), "auto-flip: no swipe arrow")
 	cf.process_mode = Node.PROCESS_MODE_DISABLED
 	await _clear(cf)
 	st.set_auto_flip(false)

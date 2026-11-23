@@ -574,11 +574,10 @@ func _test_drop_animation_locks_input() -> void:
 	await create_timer(BoardView2D.FLIP_IN_SEC * 0.5).timeout
 	var pitch := TurnLoop.VANILLA.pitch_frames(P)
 	_check(pitch.has(token.texture) or token.position.y < BoardView2D.TOP_Y, "Goob flips in vertically on top of the board")
-	await create_timer(BoardView2D.FLIP_IN_SEC * 0.5 + 0.03).timeout
-	await create_timer(BoardView2D.TOP_PAUSE_SEC * 0.5).timeout
-	_check(token.position.y == BoardView2D.TOP_Y, "Goob pauses on top of the board")
-	await create_timer(BoardView2D.TOP_PAUSE_SEC * 0.5 + 0.1).timeout
-	_check(token.position.y > BoardView2D.TOP_Y, "then falls")
+	await create_timer(BoardView2D.FLIP_IN_SEC * 0.5 + 0.02).timeout
+	_check(token.position.y == BoardView2D.TOP_Y, "Goob rests on top of the board after the flip")
+	await create_timer(BoardView2D.FLIPPED_PAUSE_SEC + 0.1).timeout
+	_check(token.position.y > BoardView2D.TOP_Y, "then falls after a short rest (M6c playtest)")
 	_check(token.position == token.position.round(), "Goob moves on whole game pixels")
 	await create_timer(0.6).timeout
 	_check(token.position == view.cell_position(2, 0), "Goob landed in its hole")

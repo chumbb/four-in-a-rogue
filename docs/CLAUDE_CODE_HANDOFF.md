@@ -75,6 +75,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Blocked two (done, Sean "for now"):** when either side blocks the other's two (a side-by-side pair, `OpponentAI.open_lines(board, side, 2, true)`), the portrait shows the **well played** face as a normal 1.5 s reaction. This replaced the nod (`4d205bd`, removed).
 - **Playtest 10 (Sean, done):** AI strength is fun (retest once all effects exist); win sequence OK; **Vanilla flips vertically** (`GoobDefinition.flips_vertically` + `flip_frames()`, pitch frames); **scoring**: each Goob flips to its back (`BoardView2D.flip_cell()`), its multiplier shows there then floats up into the gap, total in the gap (`gap_center()`); **all toasts in the gap** (`_place_toast()`). End buttons per Sean: "View board" / "Back to title". Screenshots: `tests/capture_scoring.gd -- <dir>`.
 - **Playtest 11 (Sean), built:** Fast + Skip work. (1) **Remove Skip** from the game (Options shows Normal / Fast; a saved Skip loads as Normal). (2) **Aim ghost:** while aiming with a Goob selected, a *faint* copy floats over the column, arriving with a **horizontal** (yaw) flip; when the column is chosen the faint copy disappears and the real Goob **flips into place vertically** (pitch) on top of the board, then drops. All types. (3) **Think delay starts after** the red opponent banner (`_run_opponent_turn` awaits the banner). Code: `BoardView2D.GHOST_ALPHA`, `_flip_in()`, `play_drop(..., flip_in)`, `GoobDefinition.pitch_frames()`; the opponent's rise from behind also uses pitch frames. Next: Sean playtests the ghost + flips; then merge.
+- **Playtest 12 (Sean):** think timing and Options OK. Rest after a flip into place shortened (`BoardView2D.FLIPPED_PAUSE_SEC` 0.06, was the 0.2 `TOP_PAUSE_SEC`; plain drops keep 0.2). Auto-flip coin: no swipe arrow.
 - **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
 - **Playtest changes so far:**
   - Drawn Goob's name shows above the board.
@@ -173,7 +174,7 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6c-ai-animations-reactions`, 901 checks)
+### Tests (all pass on `m6c-ai-animations-reactions`, 902 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
@@ -181,7 +182,7 @@ $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_
 & $g --headless -s res://tests/test_scenario.gd    # 429 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
-& $g --headless -s res://tests/test_flow_m3.gd     # 183
+& $g --headless -s res://tests/test_flow_m3.gd     # 184
 & $g --headless -s res://tests/test_opponent_ai.gd # 77
 ```
 

@@ -28,6 +28,9 @@ const GOOB_OFFSET := Vector2i(0, -1)
 ## for a moment (Sean, 2026-11-12; the M6 flip lands here), then falls in.
 const TOP_Y := -31 ## Goob resting on the top rail
 const TOP_PAUSE_SEC := 0.2
+## Shorter rest after a flip into place (the flip already held the Goob on
+## top; Sean, M6c playtest: it lingered too long before dropping).
+const FLIPPED_PAUSE_SEC := 0.06
 ## Drop: gravity in game px/s², tuned so a fall from the top of the board to
 ## the bottom row takes ~0.32 s; then a small settle bounce.
 const GRAVITY := 3800.0
@@ -349,7 +352,7 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 			return
 	var tween := _tween()
 	tween.tween_callback(drop_sound.emit.bind(&"rest", side))
-	tween.tween_interval(TOP_PAUSE_SEC)
+	tween.tween_interval(FLIPPED_PAUSE_SEC if from_behind or flip_in else TOP_PAUSE_SEC)
 	if roll_path.size() > 1:
 		_queue_roll(tween, token, roll_path, side)
 	tween.tween_callback(drop_sound.emit.bind(&"fall", side))
