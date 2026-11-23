@@ -57,7 +57,7 @@ POOL_CX, POOL_Y = 135, 300  # pool centre in game px; his feet stand on it
 # above it covers the patch.
 EDITS = {"c_pro3": [((64, 54, 72, 62), (64, 68))]}
 EXPRESSIONS = {  # asset name -> bust/raw_<source>.png
-    "idle": "idle", "thinking": "thinking", "happy": "happy", "angry": "angry",
+    "idle": "idle", "thinking": "thinking", "happy": "giggle_a", "angry": "angry",
     "surprised": "surprised", "celebrating": "celebrating", "well_played": "well_played2",
     # Waiting on the player (M6c playtest, Sean 2026-11-22): edit_image of idle, options
     # bust/raw_waiting_a|b|c.png (compare_waiting.png); Sean picked B "with a raised
@@ -68,8 +68,9 @@ EXPRESSIONS = {  # asset name -> bust/raw_<source>.png
     "greeting": "greeting_c",
     # M6c playtest (Sean 2026-11-23): giggle when he blocks your two, sad (disappointed)
     # when you block his three; edit_image of idle, options bust/raw_giggle|sad_a|b|c.png
-    # (compare_giggle.png, compare_sad.png); Sean picked giggle A, sad B.
-    "giggle": "giggle_a", "sad": "sad_b",
+    # (compare_giggle.png, compare_sad.png); Sean picked giggle A, sad B, then swapped
+    # (compare_giggle_happy.png): the old happy face is now giggle, giggle A is now happy.
+    "giggle": "happy", "sad": "sad_b",
 }
 GOOB_X = {"blue": 72, "red": 198}  # centre x in game px, either side of him on the pool
 CRACK_DARK, CRACK_LIT = hexc("2e222f"), hexc("c7dcd0")
