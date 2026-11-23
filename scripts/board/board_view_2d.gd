@@ -89,6 +89,7 @@ const FLIP_NEW_FRAMES: Array[int] = [6, 7, 0] ## edge → face, new colour
 const FLIP_FRAME_SEC := 0.06
 const FLIP_HOP_PX := 12
 const SCORE_FLIP_HOP_PX := 4
+const SCORE_FLIP_FRAME_SEC := 0.04 ## scoring flips run quicker than effect flips
 const HOP_PX := 4 ## scoring bounce (doubled)
 ## Fat: slower, higher wind-up, harder lunge, hit-stop on the white target.
 const FAT_CHARGE_PX := 7
@@ -591,14 +592,14 @@ func flip_cell(cell: Vector2i, to_back: bool) -> void:
 	token.set_meta(&"busy", true)
 	if animate:
 		var base_y := cell_position(cell.x, cell.y).y
-		var sec := FLIP_FRAME_SEC * steps.size()
+		var sec := SCORE_FLIP_FRAME_SEC * steps.size()
 		var hop := _tween()
 		hop.tween_method(_set_y.bind(token), base_y, base_y - SCORE_FLIP_HOP_PX, sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		hop.tween_method(_set_y.bind(token), base_y - SCORE_FLIP_HOP_PX, base_y, sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		var spin := _tween()
 		for i in steps:
 			spin.tween_callback(_set_texture.bind(token, frames[i]))
-			spin.tween_interval(FLIP_FRAME_SEC)
+			spin.tween_interval(SCORE_FLIP_FRAME_SEC)
 		await spin.finished
 	if not is_instance_valid(token):
 		return

@@ -59,8 +59,9 @@ const COLOR_FULL_GREY := Color(0.08, 0.08, 0.1, 0.55)
 const COLOR_WIN := Color(1.0, 0.85, 0.3)
 const COLOR_LOSE := Color(1.0, 0.3, 0.3)
 const COLOR_SCORE_OUTLINE := Color(0.13, 0.08, 0.1)
-## Scoring sequence timing (slice §4: ~0.6 s per Goob, short pause, collapse).
-const SCORE_RECOGNISE_SEC := 1.0
+## Scoring sequence timing (slice §4; snappier per Sean, M6c playtest 2026-11-23:
+## ~0.55 s per Goob, was ~0.85).
+const SCORE_RECOGNISE_SEC := 0.7
 ## Win/lose lead-in (faces + sting) before the scoring recognition.
 const LEAD_IN_SEC := 0.8
 ## Shortest time a drawn Goob's name stays up (Fast).
@@ -69,15 +70,15 @@ const CAPTION_MIN_SEC := 1.0
 ## and always while the fuse burns (Sean, M6c playtest).
 const WAITING_AFTER_SEC := 8.0
 const FUSE_BURN := preload("res://assets/audio/sfx/fuse_burn.ogg")
-const SCORE_STEP_SEC := 0.6
+const SCORE_STEP_SEC := 0.4
 ## Scoring (Sean, M6c playtest): each Goob flips to its back, its multiplier
 ## shows there for SCORE_SHOW_SEC, then floats up into the gap between the HUD
 ## and the board (SCORE_FLOAT_SEC) as the Goob flips back; the total ends there.
-const SCORE_SHOW_SEC := 0.25
-const SCORE_FLOAT_SEC := 0.3
+const SCORE_SHOW_SEC := 0.15
+const SCORE_FLOAT_SEC := 0.2
 const SCORE_SLOT_GAP := 10.0
-const SCORE_PAUSE_SEC := 0.4
-const SCORE_COLLAPSE_SEC := 0.3
+const SCORE_PAUSE_SEC := 0.25
+const SCORE_COLLAPSE_SEC := 0.25
 const SCORE_HOLD_SEC := 1.0
 ## Beat between a special's landing and its effect, and the pause after the
 ## effect before the next turn (Sean, 2026-11-19).
