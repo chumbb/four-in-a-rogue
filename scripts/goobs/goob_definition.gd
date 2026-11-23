@@ -7,6 +7,16 @@ enum EffectType {
 	DESTROY_ADJACENT,
 	EXTRA_VANILLA_DROP,
 	DRAW_TWO,
+	# M6e Move (Sean, 2026-11-23; vault Special Goobs "M6e Move rules")
+	PUSH_LEFT, ## Sinister
+	PUSH_RIGHT, ## Dexterous
+	ROLL_LEFT, ## Lopsided: on land and when it falls
+	ROLL_RIGHT, ## Tipsy
+	BOUNCY, ## passive: Goobs landing on it bounce to the next column
+	SLIPPERY, ## passive: Goobs played on it roll
+	ROLL_HIGHEST, ## Blustery
+	SPRINGY, ## passive: rolling Goobs bounce off it
+	ROLL_IN_ROW, ## Fidgety
 }
 
 ## Deck-building pool (M6e framework).
@@ -27,6 +37,9 @@ enum Category { NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW }
 ## Flips end over end (its <team>_pitch frames) instead of spinning sideways
 ## (Sean, M6c playtest: Vanilla).
 @export var flips_vertically: bool = false
+
+## Effects that do nothing when played; they act while on the board.
+const PASSIVE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY]
 
 const ART_DIR := "res://assets/goobs/%s/%s_%s"
 

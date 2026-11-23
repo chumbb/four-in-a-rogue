@@ -467,7 +467,7 @@ func set_autoplay(on: bool) -> void:
 ## OPPONENT), then thinks like him before playing it.
 func _run_autoplay_turn() -> void:
 	var deck := _loop.player_deck
-	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng)
+	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs())
 	if move["column"] == -1:
 		set_autoplay(false) # nothing it can play: auto-play off, your turn as usual
 		_set_input_enabled(true)
@@ -926,7 +926,7 @@ func _play_player(column: int, hand_index: int, roll_path: Array[int] = [], in_f
 		_hand.remove(hand_index)
 	var goob: GoobDefinition = _loop.player_deck.hand[hand_index]
 	_board_before = _loop.board.copy()
-	var row := _loop.play(column, hand_index)
+	var row := _loop.play(column, hand_index, roll_dir(roll_path))
 	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path, goob, from_behind)
 	return row
 
@@ -943,7 +943,7 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 	# as it starts rolling, an effect's outcome as the effect starts, anything
 	# else (a three, a block) as the Goob lands.
 	var face := _reaction_for(column, side, roll_path, effect)
-	var on_effect := face != &"" and (effect.has("target") or effect.has("extra"))
+	var on_effect := face != &"" and (effect.has("target") or effect.has("extra") or effect.has("motions"))
 	if face != &"" and roll_path.size() > 1:
 		_hud.react(face)
 		face = &""
@@ -953,8 +953,9 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 		Settings.vibrate() # one pulse when your Goob lands (slice §2B)
 	if face != &"" and not on_effect:
 		_hud.react(face)
+	var effect_index := steps.find(effect) # a Bouncy / Slippery step can come first
 	for i in steps.size():
-		await _play_effect(steps[i], face if on_effect and i == 0 else &"")
+		await _play_effect(steps[i], face if on_effect and i == effect_index else &"")
 		if not is_inside_tree():
 			return
 	_board_view.sync_from_board(_loop.board)
@@ -1001,8 +1002,12 @@ func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int
 	return face
 
 
-## Whether `effect` set off a chain: Fat's destroy made the Goobs above fall.
+## Whether `effect` set off a chain: Fat's destroy made the Goobs above
+## fall, or a Lopsided / Tipsy rolled after falling (M6e).
 func _chained(effect: Dictionary) -> bool:
+	for step in _loop.effect_steps:
+		if step.get("chain", false):
+			return true
 	if not effect.has("target") or effect["kind"] != GoobDefinition.EffectType.DESTROY_ADJACENT:
 		return false
 	var target: Vector2i = effect["target"]
@@ -1017,8 +1022,14 @@ func _play_effect(effect: Dictionary, face: StringName = &"") -> void:
 	var kind: GoobDefinition.EffectType = effect.get("kind", GoobDefinition.EffectType.NONE)
 	if kind == GoobDefinition.EffectType.NONE and not effect.has("discarded"):
 		return
+	if effect.get("passive", false):
+		return # Bouncy / Slippery / Springy act later, while on the board
 	var cell: Vector2i = effect["cell"]
 	var side: BoardState.CellOwner = effect["side"]
+	if effect.get("instant", false):
+		# A Bouncy / Slippery under the played Goob moves it straight away.
+		await _board_view.play_move(cell, effect["motions"], Vector2i(-1, -1), false)
+		return
 	# Let the landing register before the effect starts, and leave room after
 	# it before the next turn (Sean, 2026-11-19 playtest).
 	await _wait(EFFECT_LEAD_SEC)
@@ -1034,6 +1045,10 @@ func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, ce
 		return
 	if effect["fizzled"]:
 		await _board_view.play_fizzle(cell)
+		return
+	if effect.has("motions"):
+		# Move Goobs (M6e): a chain roll has no wind-up.
+		await _board_view.play_move(cell, effect["motions"], effect.get("rolled", Vector2i(-1, -1)), not effect.get("chain", false))
 		return
 	match kind:
 		GoobDefinition.EffectType.FLIP_ADJACENT:
@@ -1099,6 +1114,14 @@ func _on_turn_timeout() -> void:
 func _finish_timeout() -> void:
 	_hide_aim()
 	_play_player(_timeout_column, _timeout_hand_index, _timeout_path, false)
+
+
+## The direction (-1 / +1) a timeout roll along `path` was going when it
+## fell (0 = no roll), for a Bouncy it lands on (M6e).
+static func roll_dir(path: Array[int]) -> int:
+	if path.size() < 2:
+		return 0
+	return signi(path[-1] - path[-2])
 
 
 ## Columns a Goob played into full `column` rolls over before it falls, for
@@ -1202,7 +1225,7 @@ func _shake_screen() -> void:
 func _run_opponent_turn() -> void:
 	_set_input_enabled(false)
 	var deck := _loop.opponent_deck
-	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng)
+	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs())
 	_opponent_column = move["column"]
 	_opponent_hand_index = move["hand_index"]
 	var wait := _think_sec(move["blocking"] or move["close"])

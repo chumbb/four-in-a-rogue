@@ -36,6 +36,8 @@ const BOUNCE_SEC := 0.1
 ## Roll (timeout into a full column): from the top, column by column.
 const ROLL_SEC_PER_COLUMN := 0.11
 const ROLL_BUMP_PX := 6 ## nudge into the board edge on a bounce
+const HOP_SEC := 0.24 ## M6e bounce (Bouncy, Springy)
+const HOP_ARC_PX := 14
 const HIGHLIGHT_MODULATE := Color(1.5, 1.5, 1.5)
 ## Aim preview: while the player holds a legal column, their Goob floats on top
 ## of the board over it (Sean, 2026-11-13), bobbing gently.
@@ -505,6 +507,106 @@ func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner) -> v
 	arc.tween_method(_set_arc.bind(ghost, base, to), 0.0, 1.0, SUMMON_ARC_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await arc.finished
 	ghost.queue_free()
+
+
+## Move Goobs (M6e): `source` winds up (unless `wind_up` is off), a rolled
+## `marked` Goob blinks, then the motions play (TurnLoop move step format).
+func play_move(source: Vector2i, motions: Array, marked: Vector2i = Vector2i(-1, -1), wind_up := true) -> void:
+	if animate and wind_up and _tokens.has(source):
+		await _charge(source)
+		_settle(source)
+	if animate and marked.x >= 0:
+		await _telegraph(marked)
+	await play_motions(motions)
+
+
+## Plays TurnLoop motions in order; a run sharing a group > 0 (one gravity
+## pass) plays together. Each Goob is re-keyed to its new cell as it starts.
+func play_motions(motions: Array) -> void:
+	var i := 0
+	while i < motions.size():
+		var batch: Array = [motions[i]]
+		var group: int = motions[i].get("group", 0)
+		i += 1
+		while group > 0 and i < motions.size() and motions[i].get("group", 0) == group:
+			batch.append(motions[i])
+			i += 1
+		var moving: Array = []
+		for m: Dictionary in batch:
+			moving.append(_take_token(m["from"]))
+		var last: Tween = null
+		for k in batch.size():
+			var entry: Dictionary = moving[k]
+			if entry.is_empty():
+				continue
+			var to: Vector2i = batch[k]["to"]
+			_tokens[to] = entry["token"]
+			_token_owner[to] = entry["owner"]
+			_token_goob[to] = entry["goob"]
+			if not animate:
+				entry["token"].position = cell_position(to.x, to.y)
+				continue
+			last = _queue_motion(entry["token"], batch[k]["points"], entry["owner"])
+			set_face(to, &"surprised", REACTION_SEC)
+		if last != null:
+			await last.finished
+			drop_sound.emit(&"land", moving[0].get("owner", BoardState.CellOwner.PLAYER))
+
+
+## Takes the token off `cell`: {token, owner, goob}, {} if there is none.
+func _take_token(cell: Vector2i) -> Dictionary:
+	if not _tokens.has(cell):
+		return {}
+	var entry := {"token": _tokens[cell], "owner": _token_owner[cell], "goob": _token_goob.get(cell, VANILLA)}
+	_tokens.erase(cell)
+	_token_owner.erase(cell)
+	_token_goob.erase(cell)
+	return entry
+
+
+## A motion's tween: slides roll, falls drop, hops arc (in front of the
+## board), edge points bump the edge and come back.
+func _queue_motion(token: Sprite2D, points: Array, side: BoardState.CellOwner) -> Tween:
+	var tween := _tween()
+	var pos := token.position
+	for point: Dictionary in points:
+		var at: Vector2i = point["at"]
+		var to := _point_position(at)
+		match point["how"]:
+			&"slide":
+				tween.tween_callback(drop_sound.emit.bind(&"roll", side))
+				tween.tween_method(_set_x.bind(token), pos.x, to.x, ROLL_SEC_PER_COLUMN)
+				pos.x = to.x
+			&"fall":
+				_queue_fall(tween, token, pos.y, Vector2(pos.x, to.y))
+				pos.y = to.y
+			&"hop":
+				tween.tween_callback(drop_sound.emit.bind(&"bounce", side))
+				tween.tween_callback(token.reparent.bind(_fx, false))
+				tween.tween_method(_set_hop.bind(token, pos, to), 0.0, 1.0, HOP_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+				tween.tween_callback(token.reparent.bind(_goobs, false))
+				pos = to
+			&"edge":
+				var wall := pos.x + signf(to.x - pos.x) * ROLL_BUMP_PX
+				tween.tween_method(_set_x.bind(token), pos.x, wall, ROLL_SEC_PER_COLUMN * 0.4)
+				tween.tween_callback(drop_sound.emit.bind(&"bounce", side))
+				tween.tween_method(_set_x.bind(token), wall, pos.x, ROLL_SEC_PER_COLUMN * 0.4)
+	return tween
+
+
+## Where a motion point sits: a cell, or (row ROWS) on top of the board.
+func _point_position(at: Vector2i) -> Vector2:
+	if at.y >= ROWS:
+		return Vector2(_column_x(at.x), TOP_Y)
+	return cell_position(at.x, at.y)
+
+
+## A bounce: a parabola from `from` to `to`, peaking HOP_ARC_PX above the
+## higher end.
+func _set_hop(t: float, token: Sprite2D, from: Vector2, to: Vector2) -> void:
+	if is_instance_valid(token):
+		var lift := HOP_ARC_PX + absf(from.y - to.y) * 0.5
+		token.position = (from.lerp(to, t) - Vector2(0, sin(t * PI) * lift)).round()
 
 
 ## A sparkle on the Goob in `cell` (e.g. Popular's Vanilla as it lands).

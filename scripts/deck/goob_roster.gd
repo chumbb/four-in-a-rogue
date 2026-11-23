@@ -9,6 +9,15 @@ const PATHS: Array[String] = [
 	"res://resources/goobs/fat_goob.tres",
 	"res://resources/goobs/popular_goob.tres",
 	"res://resources/goobs/plentiful_goob.tres",
+	"res://resources/goobs/sinister_goob.tres",
+	"res://resources/goobs/dexterous_goob.tres",
+	"res://resources/goobs/lopsided_goob.tres",
+	"res://resources/goobs/tipsy_goob.tres",
+	"res://resources/goobs/bouncy_goob.tres",
+	"res://resources/goobs/slippery_goob.tres",
+	"res://resources/goobs/blustery_goob.tres",
+	"res://resources/goobs/springy_goob.tres",
+	"res://resources/goobs/fidgety_goob.tres",
 ]
 
 

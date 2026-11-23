@@ -73,7 +73,16 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6d** Sound + smoke | ✅ Accepted and merged 2026-11-23 (sound grill done) |
 | **M6e framework** | ✅ Accepted and merged 2026-11-23 |
 
-### M6e Move category ← **next session** (start a fresh conversation)
+### M6e Move category ← **built on `m6e-move`, playtest pending** (2026-11-23)
+
+- **Rules approved by Sean** (2 rounds): vault spec `Design/Special Goobs.md` → "M6e Move rules", Decision-Log 2026-11-23.
+- **Engine** (`TurnLoop`): `_roll` (roll rule + Springy hop + Bouncy bounce; a bounce ends a roll), `_hop` (onto a column top, or the timeout-style roll from the top of a full one), `_apply_gravity` (one group), `_settle` (gravity, then fallen Lopsided/Tipsy roll, repeat). Motions go into the step's `"motions"` (format in the code comment above `_move_step`). `_land_and_resolve` = land → Bouncy/Slippery (an `"instant"` step) → the Goob's own effect. `_pick` replaces direct rng calls so `play_outcomes` can enumerate every random pick for the AI. `roll_goob` now runs on the same engine.
+- **View:** `BoardView2D.play_move(source, motions, marked, wind_up)` / `play_motions`; scenario `_play_effect` skips `"passive"` steps (Bouncy/Slippery/Springy played) and plays `"instant"` ones without the lead wait; `roll_dir(path)` passes the timeout roll direction to `TurnLoop.play`.
+- **Claude's calls to confirm in the playtest:** Bouncy → Bouncy keeps its direction; Bouncy with no column that way bounces back; sliding across a Bouncy's top counts as landing; Slippery boxed in just stays; Blustery fizzles if nothing in the highest row can move.
+- **Test in F5:** F4 → category deck main = Move + another → "New game with these", or give yourself each Goob; » auto-play to watch the AI. Fuzz: `godot --headless -s res://tests/fuzz_m6e_move.gd` (~3 min).
+- Then playtest → merge → the Destroy session.
+
+#### Original plan (for reference)
 
 - **Branch:** `m6e-move` from `main`.
 - **Step 1, before any code:** propose rules for each move Goob to Sean and get his approval: name ("<Adjective> Goob"), one-line card text, edge cases, AI value. Use the vault spec `Design/Special Goobs.md` ("2026-11-23 update" wins over the older per-Goob rules below it). Don't invent mechanics; ask. Log his answers in the Decision-Log and the spec.

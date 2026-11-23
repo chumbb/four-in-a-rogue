@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## Every (hand Goob, legal column) pair is simulated with its effect; random
 ## effects are averaged over all their equally likely outcomes
-## (TurnLoop.effect_outcomes). Each resulting board is scored:
+## (TurnLoop.play_outcomes, M6e move Goobs included). Each resulting board is scored:
 ##   1. its own four wins; a player four (or a mutual four) is avoided,
 ##   2. leaving the player an immediate winning drop is nearly as bad
 ##      (this is the block, and "never play under the player's winning cell"),
@@ -39,8 +39,10 @@ const _DIRECTIONS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1
 ## The opponent's move: {column, hand_index, blocking, close}. column = -1 when
 ## the board is full or the hand is empty. `blocking` = the player had an
 ## immediate winning drop before this move; `close` = a near-equal runner-up.
-## Does not mutate `board` or `hand`.
-static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_count: int, rng: RandomNumberGenerator) -> Dictionary:
+## Does not mutate `board` or `hand`. `goobs`: the board's cell ->
+## GoobDefinition map (TurnLoop.cell_goobs()), so Goobs that act while on
+## the board (Bouncy, Slippery, Springy, Lopsided, Tipsy) are simulated.
+static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_count: int, rng: RandomNumberGenerator, goobs: Dictionary = {}) -> Dictionary:
 	var move := {"column": -1, "hand_index": -1, "blocking": false, "close": false}
 	var legal := TurnLoop.open_columns(board)
 	if legal.is_empty() or hand.is_empty():
@@ -55,7 +57,7 @@ static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_cou
 			continue
 		seen_types[key] = true
 		for column in legal:
-			var value := _play_value(board, goob, column, hand.size(), deck_count)
+			var value := _play_value(board, goob, column, hand.size(), deck_count, goobs)
 			scored.append({"column": column, "hand_index": i, "value": value,
 				"vanilla": goob.effect_type == GoobDefinition.EffectType.NONE})
 	var best := -INF
@@ -90,10 +92,8 @@ static func choose_column(board: BoardState, rng: RandomNumberGenerator) -> int:
 
 
 ## Expected score of playing `goob` into `column`.
-static func _play_value(board: BoardState, goob: GoobDefinition, column: int, hand_size: int, deck_count: int) -> float:
-	var landed := board.copy()
-	var row := landed.drop(column, _O)
-	var outcomes := TurnLoop.effect_outcomes(landed, goob.effect_type, Vector2i(column, row), _O)
+static func _play_value(board: BoardState, goob: GoobDefinition, column: int, hand_size: int, deck_count: int, goobs: Dictionary = {}) -> float:
+	var outcomes := TurnLoop.play_outcomes(board, goobs, goob, column, _O)
 	var total := 0.0
 	for outcome in outcomes:
 		total += score_board(outcome)
