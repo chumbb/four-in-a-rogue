@@ -69,5 +69,5 @@ The category sessions should each only have to add Goob resources plus their eff
 - **Categories with no built Goobs yet** (move, discard, tech today) can still be rolled, and their slots become plain Goobs until that category exists. A category with only one or two types repeats them (per "no duplicates while there are enough types"). Today's decks are therefore 11–19 plain Goobs + Convincing/Popular + some Fats/Plentifuls, and they fill up as categories land. Rolling only from categories that have Goobs would give 8–9 Fats per deck.
 - The picker **replaces the oldest Goob** when the hand is full.
 - **Auto-play turns itself off at the end screen**, so the next game starts manual.
-- Pills sit in one row along the bottom edge of the gap: yours from the left, his from the right. Toasts and banners still play centred over them.
+- Pills sit in one row in the strip of the gap above the aim lane (never over a column hit area): yours from the left, his from the right. Toasts and banners still play centred over them. (Ruling during build: the bottom of the gap is the aim lane.)
 - The F4 panel holds the category deck setting (not Options), so Options stays player-facing.
