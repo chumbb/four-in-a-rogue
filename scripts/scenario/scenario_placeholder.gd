@@ -445,11 +445,12 @@ func _run_autoplay_turn() -> void:
 
 
 func _play_autoplay_move() -> void:
-	if _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+	if GameFlow.autoplay and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
 		_play_player(_autoplay_column, _autoplay_hand_index)
 
 
-## A draw with auto-play on presses Replay by itself.
+## A draw with auto-play on presses Replay by itself (while you view the
+## board it waits; set_reviewing(false) arms it again).
 func _auto_replay() -> void:
 	if GameFlow.autoplay and _end_overlay.visible:
 		_on_end_pressed()
@@ -1411,6 +1412,8 @@ func set_reviewing(on: bool) -> void:
 	_hud.set_show_result_visible(on)
 	if sum_label:
 		sum_label.visible = not on
+	if not on and GameFlow.autoplay and _loop.result == TurnLoop.Result.DRAW and _loop.phase == TurnLoop.Phase.OVER:
+		_replay_timer.start(AUTOPLAY_REPLAY_SEC)
 
 
 func is_reviewing() -> bool:

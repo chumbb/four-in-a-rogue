@@ -153,6 +153,7 @@ func replay_after_draw() -> void:
 
 func return_to_title() -> void:
 	rolled_decks = {}
+	autoplay = false # leaving the game ends debug auto-play
 	go_to(SceneKey.TITLE)
 
 

@@ -100,6 +100,9 @@ func _run() -> void:
 	await _test_autoplay_draw_replay_keeps_decks()
 	await _test_autoplay_off_at_win()
 	await _test_autoplay_button_hidden_by_setting()
+	await _test_autoplay_off_on_return_to_title()
+	await _test_autoplay_replay_after_view_board()
+	await _test_autoplay_move_needs_flag()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -1893,4 +1896,57 @@ func _test_autoplay_button_hidden_by_setting() -> void:
 	_check(not button.visible, "autoplay button: hidden when the option is off")
 	_settings().set_autoplay_button(true)
 	_check(button.visible, "autoplay button: back when the option is on")
+	await _free(scenario)
+
+
+## Fix round 1: quitting to the title (pause Quit, Back to title) turns it off.
+func _test_autoplay_off_on_return_to_title() -> void:
+	_flow().fade_sec = 0.0
+	_flow().autoplay = true
+	_flow().return_to_title()
+	_check(not _flow().autoplay, "autoplay: return to title turns it off")
+	await process_frame
+	await process_frame
+	if current_scene != null:
+		current_scene.free()
+	current_scene = null
+	_flow().fade_sec = _flow().FADE_SEC
+
+
+## Fix round 1: "View board" inside the 1 s doesn't lose the draw's auto Replay.
+func _test_autoplay_replay_after_view_board() -> void:
+	_flow().fade_sec = 0.0
+	var scenario := await _make(0.0)
+	var board := _board(scenario)
+	for column in BoardState.COLUMNS:
+		for row in BoardState.ROWS:
+			if column == 6 and row == 5:
+				continue
+			board.drop(column, _fill_owner(column, row))
+	_view(scenario).sync_from_board(board)
+	scenario.set_autoplay(true)
+	await process_frame
+	scenario.set_reviewing(true)
+	await create_timer(1.3).timeout
+	_check(current_scene == null or current_scene.name != "CoinFlip", "autoplay review: no Replay while viewing the board")
+	scenario.set_reviewing(false)
+	var deadline := Time.get_ticks_msec() + 3000
+	while (current_scene == null or current_scene.name != "CoinFlip") and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(current_scene != null and current_scene.name == "CoinFlip", "autoplay review: Replay after Show result")
+	_flow().autoplay = false
+	if current_scene != null:
+		current_scene.free()
+	current_scene = null
+	_flow().fade_sec = _flow().FADE_SEC
+	await _free(scenario)
+
+
+## Fix round 1: the planned auto move doesn't play once the flag is off.
+func _test_autoplay_move_needs_flag() -> void:
+	var scenario := await _make(0.5)
+	scenario.set_autoplay(true)
+	_flow().autoplay = false # cleared without set_autoplay()
+	await create_timer(1.5).timeout
+	_check(_count(_board(scenario), P) == 0, "autoplay guard: no move once the flag is off")
 	await _free(scenario)
