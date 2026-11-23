@@ -737,7 +737,7 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 ## 2026-11-22): surprised on a chain (Fat's destroy making Goobs fall) or a
 ## timeout roll; for his play, happy when he makes a new open three or his
 ## effect hits you; for yours, angry when you break up his threes (a block)
-## or your effect hits him. Otherwise surprised when either side blocks the
+## or your effect hits him. Otherwise he nods when either side blocks the
 ## other's two (a side-by-side pair) from becoming a three (Sean, M6c playtest). Game over is left
 ## to the end lead-in.
 func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> StringName:
@@ -765,7 +765,7 @@ func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int
 	if face == &"":
 		var other := TurnLoop.enemy_of(side)
 		if OpponentAI.open_lines(_loop.board, other, 2, true) < OpponentAI.open_lines(_board_before, other, 2, true):
-			face = &"surprised"
+			face = &"nod" # acknowledgement, not surprise (Sean, M6c playtest)
 	return face
 
 

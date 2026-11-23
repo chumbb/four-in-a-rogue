@@ -44,6 +44,11 @@ const CRACK_FRAMES := 3
 const EXPLODE_FRAMES := 6
 ## Reaction faces hold this long, then the base face returns (slice §2B).
 const REACTION_SEC := 1.5
+## Acknowledging nod (a blocked two; Sean, M6c playtest): the head dips
+## NOD_DIP_PX game px and back, twice. The bust shifts down inside its own
+## rect (bottom rows cropped), so it never covers the gold bar.
+const NOD_DIP_PX := 2
+const NOD_STEP_SEC := 0.12
 ## Player win (Normal speed): well played, cracks, explodes.
 const WELL_PLAYED_SEC := 0.9
 const CRACK_FRAME_SEC := 0.18
@@ -373,10 +378,38 @@ func set_base_face(face: StringName) -> void:
 		_show_face(face)
 
 
-## A short reaction (&"happy", &"angry", &"surprised"), then the base face.
+## A short reaction (&"happy", &"angry", &"surprised", or &"nod"), then the base face.
 func react(face: StringName) -> void:
+	if face == &"nod":
+		nod()
+		return
 	_reaction_left = REACTION_SEC
 	_show_face(face)
+
+
+## He nods: idle face, head dips and comes back up twice (portrait_face() is
+## &"nod" until it finishes).
+func nod() -> void:
+	_reaction_left = NOD_STEP_SEC * 4.0 + 0.05
+	_show_face(&"idle")
+	_face = &"nod"
+	var tween := create_tween()
+	for dip in [NOD_DIP_PX, 0, NOD_DIP_PX, 0]:
+		tween.tween_callback(_dip.bind(dip))
+		tween.tween_interval(NOD_STEP_SEC)
+
+
+func _dip(px: int) -> void:
+	if _face != &"nod":
+		return # another face took over
+	var still: Texture2D = PORTRAITS[&"idle"]
+	var h := still.get_height() - px
+	var atlas := AtlasTexture.new()
+	atlas.atlas = still
+	atlas.region = Rect2(0, 0, still.get_width(), h)
+	_portrait.texture = atlas
+	_portrait.position.y = PORTRAIT_INSET + px
+	_portrait.size.y = h
 
 
 ## Holds `face` until the scene ends (celebrating on his win).
@@ -421,6 +454,8 @@ func play_defeat(scale: float = 1.0) -> void:
 func _show_face(face: StringName) -> void:
 	_face = face
 	_portrait.visible = true
+	_portrait.position.y = PORTRAIT_INSET
+	_portrait.size.y = PORTRAIT.get_height()
 	_portrait.texture = PORTRAITS.get(face, PORTRAIT)
 
 
