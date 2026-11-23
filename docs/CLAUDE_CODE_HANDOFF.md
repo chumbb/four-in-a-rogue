@@ -68,7 +68,14 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **Specials design grill** | Confirmed 2026-11-22 (vault `Design/Special Goobs.md`) |
 | **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
 
-### Next: M6d — sound completion + smoke test
+### M6d — sound completion + smoke test (built on `m6d-sound-smoke` 2026-11-23; playtest pending)
+
+- **Built:** forest ambience (`GameFlow` owns an `Ambience` player on SFX; `set_ambience(on, sec)` from coin flip / scenario `_ready`, `go_to` fades it out to other screens, `set_ambience_ducked()` from the pause menu = 30 %), `red_flash` blip, `draw_sting`, Master mute on `NOTIFICATION_APPLICATION_PAUSED` (restored by `Settings.apply_audio()`), `[audio] general/ios/session_category=0` + `mix_with_others=true`. Sounds: `art/audio/make_m6d_sounds.py`. Credits rows for M6c + M6d added.
+- **Smoke:** `docs/SMOKE_V0.1.md` (A1–A10 pass on desktop; known gaps). Soak: `godot --headless -s res://tests/soak_m6d.gd` (8 real-time games, ~6 min).
+- **Gotcha:** a looping sound still playing when a test quits prints "resources still in use at exit"; suites call `set_ambience(false, 0.0)` and wait 0.2 s before `quit()`.
+- Test counts: scenario 439, flow 192, turn_loop 138, board_state 74, opponent_ai 77.
+
+Original scope notes:
 
 Scope (CLAUDE.md §M6d, vault slice §2B "Sound"):
 - **Remaining sound events.** Compare the vault §2B Sound table with `scripts/audio/sfx.gd` (49 sounds wired).

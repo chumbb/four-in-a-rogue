@@ -347,8 +347,8 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 
 ### M6d — Sound completion + smoke test
 
-- [ ] Remaining §Sound events + forest ambience; Fast/pause audio rules; mobile audio behaviour
-- [ ] Smoke **A1–A10**; known gaps documented
+- [x] Remaining §Sound events + forest ambience; Fast/pause audio rules; mobile audio behaviour. Built on `m6d-sound-smoke` (playtest pending): forest ambience loop (`GameFlow.set_ambience()`, coin flip + scenario, fades out with scene changes, ducks to 30 % on pause), opponent red-flash blip, draw sting (`art/audio/make_m6d_sounds.py`); Master muted while backgrounded; iOS session Ambient + mix with others
+- [x] Smoke **A1–A10** on desktop: `docs/SMOKE_V0.1.md` (all pass on desktop; known gaps listed there); real-time soak `tests/soak_m6d.gd`
 
 ### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)
 
