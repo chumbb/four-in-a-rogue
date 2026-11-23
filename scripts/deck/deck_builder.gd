@@ -2,7 +2,8 @@ class_name DeckBuilder
 extends RefCounted
 ## Rolls one side's 21-Goob deck (M6e): 11 plain Goobs + 10 specials.
 ##
-## Specials: 1-2 from one "top" category (UNIQUE or TECH), and two different
+## Specials: 1-2 from one mixed UNIQUE + TECH "top" pool (forced.top restricts
+## it to one of the two), and two different
 ## MOVE / DESTROY / DISCARD pools of 4-5 each, 10 in total. DRAW Goobs take
 ## 0-1 slots of one random pool and 0-2 of the other. A pool picks distinct
 ## types while it can, cycling when it runs out; a category with no Goobs

@@ -106,11 +106,11 @@ Before M6e: **17× Vanilla, 1× Convincing, 1× Fat, 1× Popular, 1× Plentiful*
 
 | Goob | Mult | Effect (8-way adjacency from **landed** cell) | Card text (exact) |
 |------|------|-----------------------------------------------|-------------------|
-| Vanilla | 1.0 | — | (none) |
-| Convincing | 0.5 | Flip random **adjacent opposing** Goob to yours | “Flip a random adjacent enemy Goob to your side.” |
-| Fat | 0.5 | Destroy random **adjacent** Goob; Goobs above it fall | “Destroy a random adjacent Goob.” |
-| Popular | 0.5 | Extra **Vanilla** (your side) in random column (gravity) | “Drop a Vanilla Goob into a random column.” |
-| Plentiful | 0.5 | Draw 2 after it lands, before win check (fewer if deck short), on top of the turn draw | “Draw 2 Goobs.” |
+| Goob | 1.0 | — | (none) |
+| Convincing | 2.0 | Flip random **adjacent opposing** Goob to yours | “Flip a random adjacent enemy Goob to your side.” |
+| Fat | 2.0 | Destroy random **adjacent** Goob; Goobs above it fall | “Destroy a random adjacent Goob.” |
+| Popular | 2.0 | Extra **Goob** (your side) in random column (gravity) | “Drop a Goob into a random column.” |
+| Plentiful | 2.0 | Draw 2 after it lands, before win check (fewer if deck short), on top of the turn draw | “Draw 2 Goobs.” |
 
 Card text = immediate effect only. Random targets: game picks the target first, then that Goob's impact animation plays on it.
 
@@ -377,6 +377,7 @@ Grill + decisions: vault Decision-Log 2026-11-23, spec `Design/Special Goobs.md`
 ### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)
 
 - [ ] Android debug build on the **Pixel 11** (Mobile renderer, then Compatibility); **Pixel 8** if available as the older phone; true low-end check = known gap; A9 on hardware. Retroid Pocket Nova (4:3) saved for the landscape version; iOS when a Mac is available
+- The M7 Android build is a debug export, so the » auto-play button and F4 panel exist on the phone; turn Options → Auto-play button off for the A9 check.
 
 **After v0.1:** Art pass E (per-type pixel impact VFX), polish of rough art, music, landscape/Steam, low-end device check.
 

@@ -81,6 +81,7 @@ Next: Sean playtests the framework, then the Move category session. APIs the cat
   - `discard_from(side, index)` appends a discard step (`"kind"` NONE, `"discarded"`, `"index"`, `"side"`).
   - `effect_steps` holds every step of a resolution; `last_effect = effect_steps[0]`.
   - `statuses` with `add_status(id, side, label, text, turns_left)`, `remove_status(id, side)`, `has_status(id, side)`; hooks `_on_turn_start(side)` / `_on_turn_end(side)`.
+  - Status semantics: `turns_left` ticks at every turn start of **either** side inside `play()`, so a status added during an effect with `turns_left` 1 is gone before anyone sees it, and "for N of his turns" ≈ `2N`; steps appended from `_on_turn_start` during `start()` are not shown.
   - `roll_goob(cell, dir)`: a Goob moves while the next column's surface is strictly lower than its row. Logic only, no animation yet.
 - **View:** `StatusPills` (`scripts/ui/status_pills.gd`) sits in the gap strip above the aim lane and never over a column hit rect. Scenario `_show_discard(goob, side, index)` (centre pop, name, off screen; never sped up by Fast).
 - **Debug (debug builds only):** F4 `DebugPanel` (`scripts/debug/debug_panel.gd`): give a Goob, discard random, add status, category deck + "New game with these". Scenario helpers `debug_give`, `debug_discard_random`, `debug_add_status`.
@@ -110,6 +111,7 @@ Next: Sean playtests the framework, then the Move category session. APIs the cat
   - the whole-number pixel scale at the phone's width
   - both renderers (the shader baker at export)
 - **Don't change rules or art in M7.** Fixes from the device go on short branches for Sean to check.
+- The M7 Android build is a debug export, so the » auto-play button and F4 panel exist on the phone; turn Options → Auto-play button off for the A9 check.
 
 ### M6d — sound completion + smoke test (accepted and merged to `main` 2026-11-23)
 
