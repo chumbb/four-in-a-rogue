@@ -346,7 +346,7 @@ def brr(x, block=16):
     return y
 
 
-def snes_sampled(x, rate, echo_ms=128, feedback=0.4, wet=0.3):
+def snes_sampled(x, rate, echo_ms=128, feedback=0.4, wet=0.3, top_hz=7000):
     """Play x like a SNES sample: stored at `rate` Hz, BRR-squashed, Gaussian-
     interpolated up to the 32 kHz DSP, then the echo unit."""
     from math import gcd
@@ -355,7 +355,7 @@ def snes_sampled(x, rate, echo_ms=128, feedback=0.4, wet=0.3):
     lo = brr(lo / np.max(np.abs(lo)) * 0.9)
     g2 = gcd(rate, 32000)
     y = resample_poly(lo, 32000 // g2, rate // g2)
-    y = sosfilt(butter(2, min(0.42 * rate, 7000), "lowpass", fs=32000, output="sos"), y)
+    y = sosfilt(butter(2, min(0.42 * rate, top_hz), "lowpass", fs=32000, output="sos"), y)
     d = int(32 * echo_ms)
     buf = np.zeros(len(y))
     for i in range(d + 3, len(y)):
@@ -365,11 +365,11 @@ def snes_sampled(x, rate, echo_ms=128, feedback=0.4, wet=0.3):
     return y[: keep[-1] + 1]
 
 
-def snes_horn(freq, sec, release):
+def snes_horn(freq, sec, release, bright=4.5):
     """A short 'recorded' horn: the swell is the sample attack, then the sustain
     is a short loop repeated (no evolving tone), SNES ADSR release."""
     attack_sec, loop_sec = 0.08, 0.03
-    one = horn(freq, attack_sec + loop_sec, bright=4.5, vib=0.0, release=0.001)
+    one = horn(freq, attack_sec + loop_sec, bright=bright, vib=0.0, release=0.001)
     a_n, l_n = int(SR * attack_sec), int(SR * loop_sec)
     loop = one[a_n : a_n + l_n]
     period = SR / freq
@@ -381,18 +381,36 @@ def snes_horn(freq, sec, release):
     return out * np.minimum(1.0, (sec - t) / release) * np.exp(-t / 2.5)
 
 
-def snes_section(rate):
+def snes_section(rate, bright=4.5, hi_gain=0.45, hi_bright=None, top_hz=7000, shelf_db=0.0):
+    """C4 -> G4 horn + the octave above. Defaults = C1 (Sean's first pick)."""
     gap = np.zeros(int(SR * 0.02))
-    def line(f1, f2, detune=1.0):
-        return np.concatenate([snes_horn(f1 * detune, 0.2, 0.03), gap, snes_horn(f2 * detune, 0.75, 0.25)])
-    x = line(261.63, 392.0) + 0.45 * line(523.25, 783.99, 1.003)
-    return snes_sampled(x, rate)
+    def line(f1, f2, detune, b):
+        return np.concatenate([snes_horn(f1 * detune, 0.2, 0.03, b), gap, snes_horn(f2 * detune, 0.75, 0.25, b)])
+    x = line(261.63, 392.0, 1.0, bright) + hi_gain * line(523.25, 783.99, 1.003, hi_bright or bright)
+    if shelf_db:
+        x = high_shelf(x, 2500, shelf_db)
+    return snes_sampled(x, rate, top_hz=top_hz)
 
 
 def build_game_start_snes():
     """Sean (2026-11-23): "C horn section BUT SNES"."""
     for name, rate in {"C1_snes": 22050, "C2_snes_crunchy": 11025}.items():
         write_ogg(norm(snes_section(rate), 0.3), f"4_game_start_{name}.ogg")
+
+
+def build_game_start_bright():
+    """Sean (2026-11-23): C1 is "too warm. it should still sound bright, but horns"."""
+    variants = {
+        # D1: a bit brighter: the horns open up more, octave horn louder.
+        "D1_brighter": dict(bright=7.0, hi_gain=0.6, top_hz=8000),
+        # D2: bright: brassier blat, upper horn leads, presence lift above 2.5 kHz.
+        "D2_bright": dict(bright=9.0, hi_gain=0.8, hi_bright=10.0, top_hz=9000, shelf_db=4.0),
+        # D3: brightest: trumpet-like upper horn on top, 32 kHz sample (the SNES max).
+        "D3_brightest": dict(bright=10.0, hi_gain=1.0, hi_bright=13.0, top_hz=10000, shelf_db=6.0),
+    }
+    for name, kw in variants.items():
+        rate = 32000 if name.startswith("D3") else 22050
+        write_ogg(norm(snes_section(rate, **kw), 0.3), f"4_game_start_{name}.ogg")
 
 
 def main():
@@ -404,6 +422,7 @@ def main():
     build_fizzle_soft()
     build_game_start()
     build_game_start_snes()
+    build_game_start_bright()
     print("wrote options to", fx.OUT_DIR)
 
 
