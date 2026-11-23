@@ -44,7 +44,7 @@ const STREAMS := {
 	# M6a flow (art/audio/make_flow_sounds.py): chiptune UI, tactile coin.
 	&"press_start": preload("res://assets/audio/sfx/press_start.ogg"),
 	&"ui_tap": preload("res://assets/audio/sfx/ui_tap.ogg"),
-	# Every UI press is the soft ui_tap bubble (Sean, 2026-11-23).
+	# Every UI press is the dull ui_tap felt tap (Sean, 2026-11-23).
 	&"page": preload("res://assets/audio/sfx/ui_tap.ogg"),
 	&"goob_pop": preload("res://assets/audio/sfx/draw_pop.ogg"),
 	&"coin_swipe": preload("res://assets/audio/sfx/fly_swish.ogg"),

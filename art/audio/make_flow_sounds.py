@@ -6,9 +6,10 @@ Usage (from the repo root):
 All synthesised for this project (no packs needed). Outputs (Ogg Vorbis, 44.1 kHz, via
 ffmpeg) in assets/audio/sfx/:
   press_start.ogg  title Press Start: soft triangle two-note up-blip (C5 → G5)  (C)
-  ui_tap.ogg       button tap: short sine "bubble" bending up                   (C)
+  ui_tap.ogg       every UI press: dull felt tap (low thump + muffled click)    (T)
   (Sean, 2026-11-23: the old square blips were too harsh; Sean picked option A for
-  press start and option C for the tap.)
+  press start; the tap is option D "felt tap", after the C bubble was too bright
+  and wobbly.)
   first_sting.ogg  coin result flash + "goes first" banner: chiptune fanfare     (C)
   coin_whirr.ogg   coin spinning in the air (~0.6 s): fluttering filtered noise  (T)
   coin_clink.ogg   coin lands: short wooden clink (two damped partials + tick)   (T)
@@ -22,6 +23,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
 from make_effect_sounds import SR, square, write_ogg  # noqa: E402
+from make_reaction_sounds import _lowpass  # noqa: E402
 
 
 def silence(sec):
@@ -40,20 +42,18 @@ def tri(freq, sec, vol, attack=0.012):
     return wave * _env(n, attack, sec * 0.45) * vol
 
 
-def bubble(f0, f1, sec, vol):
-    n = int(SR * sec)
-    t = np.arange(n) / SR
-    freq = f0 + (f1 - f0) * np.minimum(1.0, t / (sec * 0.6))
-    phase = 2 * np.pi * np.cumsum(freq) / SR
-    return np.sin(phase) * _env(n, 0.006, sec * 0.35) * vol
-
-
 def press_start():
     return np.concatenate([tri(523.25, 0.08, 0.2), tri(783.99, 0.18, 0.2)])
 
 
 def ui_tap():
-    return bubble(520, 780, 0.06, 0.2)
+    """Dull felt tap: a low sine thump with a very short muffled click, no pitch
+    movement (Sean's pick D, 2026-11-23)."""
+    t = np.arange(int(SR * 0.07)) / SR
+    body = np.sin(2 * np.pi * 180 * t) * np.exp(-t / 0.018)
+    click = _lowpass(np.random.default_rng(1).standard_normal(len(t)), 0.02) * np.exp(-t / 0.004)
+    out = (body * 0.9 + click * 0.6) * np.minimum(1.0, t / 0.002)
+    return out / np.max(np.abs(out)) * 0.22
 
 
 def first_sting():
