@@ -10,7 +10,8 @@ Outputs (Ogg Vorbis, 44.1 kHz, via ffmpeg) in assets/audio/sfx/:
   effect_flip.ogg     Convincing: spin swish + click (Kenney tile-swap + placement-a)
   effect_crunch.ogg   Fat: destroy crunch (Kenney break)
   effect_popular.ogg  Popular: the extra Vanilla pops out (Kenney tile-land)
-  effect_fizzle.ogg   no target: soft low "nothing happens" (Noah Kuehne BACKWARD, lowered, quieter)
+  effect_fizzle.ogg   no target: water putting out a candle, a soft "tsst" (synthesised,
+                      fizzle A1 in make_snes_coin_fizzle_options.py; Sean 2026-11-23)
   score_0..8.ogg      scoring ladder: chiptune square blips, one major-scale step each (C5 up)
   score_collapse.ogg  multipliers collapse into the sum: quick chiptune down-up sweep
   score_recognise.ogg the scored Goobs light up: bright chiptune up-arpeggio (G4 C5 E5 G5 C6)
@@ -63,6 +64,11 @@ def square(freq, sec, duty=0.25, vol=0.28):
     return wave_ * env * vol
 
 
+def write_fizzle():
+    import make_snes_coin_fizzle_options as opt  # lazy: that module imports this one
+    write_ogg(opt.fizzle_a1(), "effect_fizzle.ogg")
+
+
 def main():
     packs = sys.argv[1]
     out = lambda n: os.path.join(OUT_DIR, n)
@@ -74,9 +80,7 @@ def main():
            "-map", "[m]", "-ac", "1", "-ar", str(SR), "-c:a", "libvorbis", "-q:a", "6", out("effect_flip.ogg"))
     ffmpeg("-i", find(packs, "break.ogg"), "-ac", "1", "-ar", str(SR), "-c:a", "libvorbis", "-q:a", "6", out("effect_crunch.ogg"))
     ffmpeg("-i", find(packs, "tile-land.ogg"), "-ac", "1", "-ar", str(SR), "-c:a", "libvorbis", "-q:a", "6", out("effect_popular.ogg"))
-    ffmpeg("-i", find(packs, "Menu_Sounds_V2_Minimalistic_BACKWARD.wav"), "-af",
-           f"asetrate={SR}*0.8,aresample={SR},lowpass=f=2500,volume=0.6",
-           "-ac", "1", "-c:a", "libvorbis", "-q:a", "6", out("effect_fizzle.ogg"))
+    write_fizzle()
     for i, hz in enumerate(LADDER_HZ):
         write_ogg(square(hz, 0.16), f"score_{i}.ogg")
     sweep = np.concatenate([square(hz, 0.035, vol=0.2) for hz in [1046.5, 783.99, 659.25, 523.25, 659.25, 783.99]])

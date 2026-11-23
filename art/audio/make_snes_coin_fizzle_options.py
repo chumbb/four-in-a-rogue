@@ -39,6 +39,19 @@ def bp(x, lo, hi, order=2):
     return sosfilt(butter(order, [lo, hi], "bandpass", fs=SR, output="sos"), x)
 
 
+def high_shelf(x, f0, gain_db, q=0.707):
+    """RBJ biquad high shelf: gentle boost/cut above f0."""
+    from scipy.signal import lfilter
+    a_ = 10 ** (gain_db / 40)
+    w0 = 2 * np.pi * f0 / SR
+    alpha = np.sin(w0) / (2 * q)
+    cw = np.cos(w0)
+    sa = 2 * np.sqrt(a_) * alpha
+    b = [a_ * ((a_ + 1) + (a_ - 1) * cw + sa), -2 * a_ * ((a_ - 1) + (a_ + 1) * cw), a_ * ((a_ + 1) + (a_ - 1) * cw - sa)]
+    a = [(a_ + 1) - (a_ - 1) * cw + sa, 2 * ((a_ - 1) - (a_ + 1) * cw), (a_ + 1) - (a_ - 1) * cw - sa]
+    return lfilter(b, a, x)
+
+
 def norm(x, peak):
     return x / np.max(np.abs(x)) * peak
 
@@ -252,13 +265,19 @@ def build_fizzle():
         write_ogg(norm(x, 0.25), f"3_fizzle_{name}.ogg")
 
 
+def fizzle_a1():
+    """A1 "softer" candle snuff (Sean's pick, 2026-11-23)."""
+    sec = 0.6
+    return norm(lp(hiss(sec, 2000, 6500, 41, attack=0.008, decay=0.09) + sputter(sec, 4, 41, 0.2), 5500), 0.21)
+
+
 def build_fizzle_soft():
     """Sean (2026-11-23): A, but softer and warmer. Lower band, slower onset,
     darker low-pass, gentler crackles, a little quieter."""
     sec = 0.6
     variants = {
         # A1: a touch softer: band down a bit, crackles halved.
-        "A1_softer": (lp(hiss(sec, 2000, 6500, 41, attack=0.008, decay=0.09) + sputter(sec, 4, 41, 0.2), 5500), 0.21),
+        "A1_softer": (fizzle_a1(), 0.21),
         # A2: warmer: mid band, slow onset, dark top.
         "A2_warmer": (lp(hiss(sec, 1300, 4500, 41, attack=0.012, decay=0.1) + sputter(sec, 3, 41, 0.15), 4000), 0.2),
         # A3: softest: low hiss with a breath under it, barely any crackle.

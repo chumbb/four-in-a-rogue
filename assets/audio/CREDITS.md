@@ -39,5 +39,5 @@ The store listing says CC0, but the pack's own `License.txt` says CC-BY 4.0, so 
 | `sfx/land.ogg` | same CLICK, pitched down ~5 semitones (`art/audio/make_drop_sounds.py`) |
 | `sfx/hand_full.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_LOCKED.wav` |
 | `sfx/times_up.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_UP_MYSTERY.wav` |
-| `sfx/effect_fizzle.ogg` | `Minimalistic/Menu_Sounds_V2_Minimalistic_BACKWARD.wav` (lowered, low-passed, quieter) |
+| `sfx/effect_fizzle.ogg` | Replaced 2026-11-23: now made for this project (synthesised candle snuff, `make_effect_sounds.py` `write_fizzle()`) |
 | `sfx/error.ogg` | `Minimalistic/Menu_Sounds_V2_Minimalistic_ERROR.wav` |

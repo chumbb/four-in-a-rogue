@@ -31,9 +31,11 @@ def silence(sec):
 
 
 # Sean (2026-11-23): "cut some of the highs on the ui sounds, reduce the shrillness
-# of the coin flip". Extra low-pass on top of the picked sounds.
+# of the coin flip". UI: low-pass. Coin: the 3.8 kHz low-pass was too washed out,
+# Sean "just wanted to cut 5k+ a bit": a gentle high shelf instead.
 UI_TOP_HZ = 1400
-COIN_TOP_HZ = 3800
+COIN_SHELF_HZ = 5000
+COIN_SHELF_DB = -6.0
 
 
 def chorus_delay(x, sec_tail=0.9):
@@ -74,12 +76,12 @@ def first_sting():
 
 def coin_whirr():
     """Thumb flick of a warm metal coin (flick B, Sean's pick 2026-11-23)."""
-    return opt.norm(opt.lp(opt.coin_flick(2500, decay_scale=1.0, spin=(24, 16), seed=12), COIN_TOP_HZ, 4), 0.3)
+    return opt.norm(opt.high_shelf(opt.coin_flick(2500, decay_scale=1.0, spin=(24, 16), seed=12), COIN_SHELF_HZ, COIN_SHELF_DB), 0.3)
 
 
 def coin_clink():
     """Coin lands on wood and settles (Sean's pick 2026-11-23)."""
-    return opt.norm(opt.lp(opt.land_table(), COIN_TOP_HZ, 4), 0.3)
+    return opt.norm(opt.high_shelf(opt.land_table(), COIN_SHELF_HZ, COIN_SHELF_DB), 0.3)
 
 
 def main():
