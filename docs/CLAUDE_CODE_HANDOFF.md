@@ -95,6 +95,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - Waiting face (b2, 8 s idle or the fuse).
   - Greeting: he tips his beanie (`portrait_greeting`, option c) during GAME START.
   - Blocked-two reaction (see above).
+- **Post-merge fix (branch `m6c-chain-loss-angry`, 2026-11-23):** when a chain (Fat's destroy making Goobs fall) hands you the win, he is **angry** instead of "well played" in the lead-in and before the crack (`_defeat_face()`, `play_defeat(scale, face)`).
 - **Accepted 2026-11-23:** Sean said "merge m6c to main". Next session: M6d.
 
 **Code map:**
