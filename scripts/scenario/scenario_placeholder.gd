@@ -1101,6 +1101,7 @@ func _run_opponent_turn() -> void:
 
 func _play_opponent_move() -> void:
 	var hand_index := _opponent_hand_index
+	_opponent_hand_index = -1 # played: no plan until his next turn chooses one
 	var goob: GoobDefinition = _loop.opponent_deck.hand[hand_index]
 	_hud.set_base_face(&"idle")
 	_board_before = _loop.board.copy()

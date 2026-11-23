@@ -92,6 +92,7 @@ func _run() -> void:
 	await _test_debug_give_opponent()
 	await _test_debug_status()
 	await _test_debug_discard_opponent()
+	await _test_debug_no_stale_opponent_plan()
 	await _test_debug_panel_f4()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
@@ -1734,3 +1735,21 @@ func _test_debug_panel_f4() -> void:
 	_check(not panel.is_open() and not paused, "debug panel: Close unpauses")
 	await _free(scenario)
 	_check(not paused, "debug panel: never left paused")
+
+
+## Fix: after his play the chosen hand index is cleared, so in the window
+## before his next move is chosen a debug discard isn't blocked by a stale one.
+func _test_debug_no_stale_opponent_plan() -> void:
+	var scenario := await _make(0.0)
+	var loop: TurnLoop = scenario._loop
+	_play_col(scenario, 3)
+	await _wait_input(scenario)
+	_check(_count(_board(scenario), O) == 1, "stale plan: the opponent replied")
+	_check(not scenario._opponent_planned(), "stale plan: no plan after his play")
+	loop.phase = TurnLoop.Phase.OPPONENT_TURN # the window before his next choice
+	var one: Array[GoobDefinition] = [TurnLoop.VANILLA]
+	loop.opponent_deck.hand.assign(one)
+	await scenario.debug_discard_random(O)
+	_check(loop.opponent_deck.hand.is_empty(), "stale plan: his only Goob is discarded")
+	loop.phase = TurnLoop.Phase.PLAYER_TURN
+	await _free(scenario)
