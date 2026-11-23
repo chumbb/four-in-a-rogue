@@ -21,7 +21,8 @@ static func roll(rng: RandomNumberGenerator, forced := {}) -> Array[GoobDefiniti
 
 
 static func roll_from(rng: RandomNumberGenerator, roster: Array[GoobDefinition], forced := {}) -> Array[GoobDefinition]:
-	var top: GoobDefinition.Category = forced.get("top", TOP_CATEGORIES[rng.randi_range(0, 1)])
+	# Unforced, the top slots share one mixed UNIQUE + TECH pool.
+	var top: Array = [forced["top"]] if forced.has("top") else TOP_CATEGORIES
 	var main: Array = forced.get("main", [])
 	if main.size() != 2:
 		var pool: Array = MAIN_CATEGORIES.duplicate()
@@ -52,11 +53,13 @@ static func roll_from(rng: RandomNumberGenerator, roster: Array[GoobDefinition],
 	return goobs
 
 
-## `count` Goobs of a category: its types shuffled and taken in order, cycling
+## `count` Goobs of a category (or of several categories mixed): its types shuffled and taken in order, cycling
 ## when exhausted; plain Goobs when the category is empty.
-static func _pick(category: GoobDefinition.Category, count: int, roster: Array[GoobDefinition], rng: RandomNumberGenerator) -> Array[GoobDefinition]:
+static func _pick(category, count: int, roster: Array[GoobDefinition], rng: RandomNumberGenerator) -> Array[GoobDefinition]:
 	var picked: Array[GoobDefinition] = []
-	var types: Array = GoobRoster.specials(category, roster)
+	var types: Array = []
+	for c in (category if category is Array else [category]):
+		types.append_array(GoobRoster.specials(c, roster))
 	_shuffle(types, rng)
 	for i in count:
 		picked.append(types[i % types.size()] if not types.is_empty() else GoobRoster.plain())

@@ -545,8 +545,8 @@ func _test_deck_builder_shape() -> void:
 		var specials_ok := true
 		for g in goobs:
 			specials_ok = specials_ok and roster.has(g)
-		ok = ok and goobs.size() == 21 and _count_category(goobs, GoobDefinition.Category.NONE) >= 11 and top <= 2 and specials_ok
-	_check(ok, "deck builder: 21 Goobs, >= 11 plain, at most 2 top, all from the roster (seeds 1..200)")
+		ok = ok and goobs.size() == 21 and _count_category(goobs, GoobDefinition.Category.NONE) >= 11 and top >= 1 and top <= 2 and specials_ok
+	_check(ok, "deck builder: 21 Goobs, >= 11 plain, 1-2 UNIQUE/TECH, all from the roster (seeds 1..200)")
 	var has_top := true
 	for s in range(1, 201):
 		var goobs := DeckBuilder.roll(_seeded(s), {"top": GoobDefinition.Category.UNIQUE})
