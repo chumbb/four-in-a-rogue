@@ -141,7 +141,7 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 ### Sound (Sean, 2026-11-13 sound grill — vault slice §2B "Sound")
 
 - **All SFX ship in v0.1; music after v0.1** (chiptune). Free Godot asset store packs, **CC0 only** (CC-BY fallback credited in `assets/audio/CREDITS.md`).
-- **Hybrid style:** tactile for physical things (drop, land, roll, coin, hand, effects); chiptune for UI, banners, scoring, win/lose stings. Full event list: vault slice §2B Sound table.
+- **Hybrid style:** tactile for physical things (drop, land, roll, coin, hand, effects); chiptune for UI, banners, scoring, win/lose stings. **UI presses are SNES-like (16-bit)**: a dry wood block tap, press start = the same wood block C5 → G5 with the SNES echo (Sean, 2026-11-23). **Coin flip = a real metal coin flicked off a thumb** (nail click + ringing, shimmering spin), landing on wood with a settling rattle (Sean, 2026-11-23). Full event list: vault slice §2B Sound table.
 - **Never sound-only:** every audio cue also has a visual/text cue.
 - Buses Master → Music, SFX. Options rows: **Master / Music / SFX** sliders, each with a mute toggle; defaults 80 / 70 / 80 %; persisted in a settings file.
 - Mobile: ambient audio (respects silent switch, player's music keeps playing); pause in background.

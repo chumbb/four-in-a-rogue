@@ -20,7 +20,7 @@ fallback credited here). Files in `sfx/` were trimmed / converted to Ogg Vorbis.
 | `sfx/effect_crunch.ogg` | Kenney — Starter Kit 3D Platformer | `sounds/break.ogg` |
 | `sfx/effect_popular.ogg` | Kenney — Starter Kit Match-3 | `sounds/tile-land.ogg` |
 | `sfx/score_0..8.ogg`, `sfx/score_collapse.ogg`, `sfx/score_recognise.ogg` | Made for this project (`art/audio/make_effect_sounds.py`: chiptune square blips, 2026-11-19) | — |
-| `sfx/press_start.ogg`, `sfx/ui_tap.ogg`, `sfx/first_sting.ogg`, `sfx/coin_whirr.ogg`, `sfx/coin_clink.ogg` | Made for this project (`art/audio/make_flow_sounds.py`: chiptune blips + synthesised whirr/clink, 2026-11-20) | — |
+| `sfx/press_start.ogg`, `sfx/ui_tap.ogg`, `sfx/first_sting.ogg`, `sfx/coin_whirr.ogg`, `sfx/coin_clink.ogg` | Made for this project (`art/audio/make_flow_sounds.py` + `make_snes_coin_fizzle_options.py`: SNES-style wood block UI, synthesised metal coin flick + landing, 2026-11-23) | — |
 | `sfx/turn_whoosh.ogg` | Made for this project (`art/audio/make_menu_sounds.py`: chiptune blips; soft turn-banner whoosh, 2026-11-20) | — |
 | `sfx/game_start.ogg`, `sfx/goob_flip.ogg`, `sfx/fuse_burn.ogg`, `sfx/win_sting.ogg`, `sfx/lose_sting.ogg`, `sfx/portrait_crack.ogg`, `sfx/portrait_explode.ogg` | Made for this project (`art/audio/make_reaction_sounds.py`: chiptune stings, synthesised flick/fuse/crack/burst, 2026-11-22) | — |
 | `sfx/inspect_close.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookClose.ogg` (low-passed, quieter, softened attack) |
