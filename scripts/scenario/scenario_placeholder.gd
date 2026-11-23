@@ -70,6 +70,12 @@ const CAPTION_MIN_SEC := 1.0
 const WAITING_AFTER_SEC := 8.0
 const FUSE_BURN := preload("res://assets/audio/sfx/fuse_burn.ogg")
 const SCORE_STEP_SEC := 0.6
+## Scoring (Sean, M6c playtest): each Goob flips to its back, its multiplier
+## shows there for SCORE_SHOW_SEC, then floats up into the gap between the HUD
+## and the board (SCORE_FLOAT_SEC) as the Goob flips back; the total ends there.
+const SCORE_SHOW_SEC := 0.25
+const SCORE_FLOAT_SEC := 0.3
+const SCORE_SLOT_GAP := 10.0
 const SCORE_PAUSE_SEC := 0.4
 const SCORE_COLLAPSE_SEC := 0.3
 const SCORE_HOLD_SEC := 1.0
@@ -1041,23 +1047,45 @@ func _play_scoring(side: BoardState.CellOwner) -> void:
 	if ticks:
 		_sfx.play(&"score_recognise")
 	await _wait(SCORE_RECOGNISE_SEC)
-	var cell_px := _board_view.column_rect(0).size.x
 	var total := 0.0
-	for i in cells.size():
-		var cell := cells[i]
+	# One label per Goob, made up front (hidden) so the row in the gap can be
+	# laid out: slot i, centred on the gap, labels evenly spaced.
+	var widths := 0.0
+	for cell in cells:
 		var goob := _loop.goob_at(cell.x, cell.y)
 		# Only tests place Goobs without a definition; count those as Vanilla.
 		var multiplier := goob.multiplier if goob != null else TurnLoop.VANILLA.multiplier
 		total += multiplier
-		_board_view.bounce_cell(cell)
 		var label := _make_score_label("×" + format_score(multiplier), &"Mono2", Color.WHITE)
-		_place_centered(label, _board_view.cell_center(cell) - Vector2(0.0, cell_px * 0.5 + label.size.y * 0.5))
+		label.visible = false
 		score_labels.append(label)
+		widths = maxf(widths, label.size.x)
+	var gap := gap_center()
+	var spacing := minf(widths + SCORE_SLOT_GAP, size.x * 0.9 / maxf(1.0, cells.size()))
+	for i in cells.size():
+		var cell := cells[i]
+		var label := score_labels[i]
 		if ticks:
 			_sfx.play(ladder[mini(i, ladder.size() - 1)])
-		await _wait(SCORE_STEP_SEC)
+		await _board_view.flip_cell(cell, true)
+		if not is_inside_tree():
+			return
+		_place_centered(label, _board_view.cell_center(cell))
+		label.visible = true
+		await _wait(SCORE_SHOW_SEC)
+		var slot := gap + Vector2((i - (cells.size() - 1) * 0.5) * spacing, 0.0)
+		_board_view.flip_cell(cell, false)
+		if _animating():
+			var ui_scale := float(get_window().size.x) / get_viewport_rect().size.x
+			var to := ((slot - label.size * 0.5) * ui_scale).round() / ui_scale
+			var float_up := create_tween().set_speed_scale(Settings.anim_scale())
+			float_up.tween_property(label, "global_position", to, SCORE_FLOAT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+			await float_up.finished
+		else:
+			_place_centered(label, slot)
+		await _wait(maxf(0.0, SCORE_STEP_SEC - SCORE_SHOW_SEC - SCORE_FLOAT_SEC))
 	await _wait(SCORE_PAUSE_SEC)
-	var centre := _board_view.grid_center()
+	var centre := gap
 	if ticks:
 		_sfx.play(&"score_collapse")
 	if _animating():
@@ -1128,9 +1156,15 @@ func _reject_placement(message: String) -> void:
 
 
 ## Toasts sit just above the aim lane.
+## Every text notification goes in the gap between the HUD and the board
+## (Sean, M6c playtest), like the turn banners and the drawn Goob's name.
 func _place_toast() -> void:
-	var lane := _aim_lane.get_global_rect()
-	_toast.position = Vector2((size.x - _toast.size.x) * 0.5, lane.position.y - _toast.size.y - 8.0)
+	_place_centered(_toast, gap_center())
+
+
+## Centre of the gap between the HUD and the board (viewport px).
+func gap_center() -> Vector2:
+	return Vector2(size.x * 0.5, (_hud.bottom() + _board_view.get_global_rect().position.y) * 0.5)
 
 
 func _refresh_hud() -> void:

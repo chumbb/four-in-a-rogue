@@ -73,6 +73,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 **Where we are (handoff 2026-11-22, after playtest 8):**
 
 - **Blocked two (done, Sean "for now"):** when either side blocks the other's two (a side-by-side pair, `OpponentAI.open_lines(board, side, 2, true)`), the portrait shows the **well played** face as a normal 1.5 s reaction. This replaced the nod (`4d205bd`, removed).
+- **Playtest 10 (Sean, done):** AI strength is fun (retest once all effects exist); win sequence OK; **Vanilla flips vertically** (`GoobDefinition.flips_vertically` + `flip_frames()`, pitch frames); **scoring**: each Goob flips to its back (`BoardView2D.flip_cell()`), its multiplier shows there then floats up into the gap, total in the gap (`gap_center()`); **all toasts in the gap** (`_place_toast()`). End buttons per Sean: "View board" / "Back to title". Screenshots: `tests/capture_scoring.gd -- <dir>`.
 - **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
 - **Playtest changes so far:**
   - Drawn Goob's name shows above the board.
@@ -87,11 +88,9 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - Greeting: he tips his beanie (`portrait_greeting`, option c) during GAME START.
   - Blocked-two reaction (see above).
 - **Still for Sean to confirm before merging:**
-  - AI strength.
   - Play flips.
-  - Win/lose lead-ins.
   - Fast/Skip games.
-  - Judgment calls: the flip starts when the aim float appears; the think delay is often hidden under the red banner (offer: start it after the banner); the longer win sequence; the labels "View board" and "Show result".
+  - Judgment calls: the flip starts when the aim float appears; the think delay is often hidden under the red banner (offer: start it after the banner).
 - **On acceptance:** merge into `main`, push, mark M6c accepted in CLAUDE.md, this file and the vault, then stop. M6d is next.
 
 **Code map:**

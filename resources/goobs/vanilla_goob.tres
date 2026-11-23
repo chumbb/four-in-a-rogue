@@ -9,4 +9,5 @@ display_name = "Vanilla Goob"
 multiplier = 1.0
 effect_description = ""
 effect_type = 0
+flips_vertically = true
 flavour_text = "A common Goob. It sits contentedly in any hole it is given."

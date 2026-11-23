@@ -83,6 +83,7 @@ const FLIP_OLD_FRAMES: Array[int] = [0, 1, 2, 3, 4, 5] ## face → edge → back
 const FLIP_NEW_FRAMES: Array[int] = [6, 7, 0] ## edge → face, new colour
 const FLIP_FRAME_SEC := 0.06
 const FLIP_HOP_PX := 12
+const SCORE_FLIP_HOP_PX := 4
 const HOP_PX := 4 ## scoring bounce (doubled)
 ## Fat: slower, higher wind-up, harder lunge, hit-stop on the white target.
 const FAT_CHARGE_PX := 7
@@ -377,8 +378,8 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	hop.tween_method(_set_y.bind(token), base_y, base_y - FLIP_HOP_PX, spin_sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	hop.tween_method(_set_y.bind(token), base_y - FLIP_HOP_PX, base_y, spin_sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	var frames := _tween()
-	var old_yaw := goob.yaw_frames(old)
-	var new_yaw := goob.yaw_frames(side)
+	var old_yaw := goob.flip_frames(old)
+	var new_yaw := goob.flip_frames(side)
 	for i in FLIP_OLD_FRAMES:
 		frames.tween_callback(_set_texture.bind(token, old_yaw[i]))
 		frames.tween_interval(FLIP_FRAME_SEC)
@@ -566,6 +567,49 @@ func bounce_cell(cell: Vector2i) -> void:
 	tween.tween_method(_set_y.bind(token), base_y - HOP_PX * 2, base_y, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
+## Scoring reveal (Sean, M6c playtest): the Goob at `cell` flips over in
+## place with a small hop, to its back (`to_back`) or back to its face. It
+## stays on its back (busy) until flipped again. Await to know when it lands.
+func flip_cell(cell: Vector2i, to_back: bool) -> void:
+	var token: Sprite2D = _tokens.get(cell)
+	if token == null:
+		return
+	var side: BoardState.CellOwner = _token_owner[cell]
+	var goob: GoobDefinition = _token_goob.get(cell, VANILLA)
+	var frames := goob.flip_frames(side)
+	var steps: Array[int] = [1, 2, 3, 4]
+	if not to_back:
+		steps = [5, 6, 7]
+	token.set_meta(&"busy", true)
+	if animate:
+		var base_y := cell_position(cell.x, cell.y).y
+		var sec := FLIP_FRAME_SEC * steps.size()
+		var hop := _tween()
+		hop.tween_method(_set_y.bind(token), base_y, base_y - SCORE_FLIP_HOP_PX, sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		hop.tween_method(_set_y.bind(token), base_y - SCORE_FLIP_HOP_PX, base_y, sec * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		var spin := _tween()
+		for i in steps:
+			spin.tween_callback(_set_texture.bind(token, frames[i]))
+			spin.tween_interval(FLIP_FRAME_SEC)
+		await spin.finished
+	if not is_instance_valid(token):
+		return
+	if to_back:
+		token.texture = frames[4]
+	else:
+		token.texture = goob.still(side)
+		token.set_meta(&"busy", false)
+
+
+## Whether the Goob at `cell` is showing its back (scoring reveal; tests).
+func shows_back(cell: Vector2i) -> bool:
+	var token: Sprite2D = _tokens.get(cell)
+	if token == null:
+		return false
+	var goob: GoobDefinition = _token_goob.get(cell, VANILLA)
+	return token.texture == goob.flip_frames(_token_owner[cell])[4]
+
+
 ## Centre of the Goob in `cell`, in viewport coordinates (logical px).
 func cell_center(cell: Vector2i) -> Vector2:
 	return _to_global(cell_position(cell.x, cell.y) + Vector2(CELL, CELL) * 0.5)
@@ -584,7 +628,7 @@ func _rise_from_behind(token: Sprite2D, goob: GoobDefinition, side: BoardState.C
 	token.reparent(_behind, false)
 	token.position = Vector2(rest.x, BEHIND_START_Y) - _behind.position
 	drop_sound.emit(&"goob_flip", side)
-	var yaw := goob.yaw_frames(side)
+	var yaw := goob.flip_frames(side)
 	var frames := _tween()
 	for i in yaw.size():
 		frames.tween_callback(_set_texture.bind(token, yaw[(i + 4) % yaw.size()])) # back first
@@ -656,7 +700,7 @@ func _fly_preview(spot: Vector2, art: GoobDefinition, side: BoardState.CellOwner
 	_preview.position = from
 	_preview.set_meta(&"busy", true)
 	drop_sound.emit(&"goob_flip", side)
-	var yaw := art.yaw_frames(side)
+	var yaw := art.flip_frames(side)
 	_preview_flight = _tween()
 	_preview_flight.set_parallel()
 	var mid := (from + spot) * 0.5 - Vector2(0, HAND_FLIP_ARC_PX)

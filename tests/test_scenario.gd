@@ -318,6 +318,8 @@ func _test_full_column_entry() -> void:
 	_touch(_col_pos(scenario, 3), true)
 	_check(scenario._toast._label.text == Toast.MSG_COLUMN_FULL, "toast says Column full")
 	_check(scenario._toast.modulate.a > 0.9, "toast visible on entry")
+	var toast_mid: Vector2 = scenario._toast.get_global_rect().get_center()
+	_check(absf(toast_mid.y - scenario.gap_center().y) < 2.0 and toast_mid.y < view.get_global_rect().position.y, "toast sits in the gap between the HUD and the board (M6c playtest)")
 	_check(scenario._sfx.history.back() == &"error", "error sound on entry")
 	_check(not scenario._flash.visible, "no flash on a full column")
 	_check(not view.is_preview_visible(), "no floating Goob over a full column")
@@ -743,6 +745,13 @@ func _test_scoring_sequence() -> void:
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "scoring: player wins")
 	_check(scenario.sum_label != null and scenario.sum_label.text == "3.5", "scoring: sum 1+1+1+0.5 = 3.5 (got %s)" % (scenario.sum_label.text if scenario.sum_label else "none"))
 	_check(scenario.score_labels.is_empty(), "scoring: multipliers collapsed into the sum")
+	_check(absf(scenario.sum_label.get_global_rect().get_center().y - scenario.gap_center().y) < 2.0, "scoring: the total shows in the gap above the board (M6c playtest)")
+	var face_up := true
+	for c in 4:
+		face_up = face_up and not _view(scenario).shows_back(Vector2i(c, 0))
+	_check(face_up, "scoring: every Goob flipped back to its face")
+	_check(TurnLoop.VANILLA.flip_frames(P)[4].resource_path.contains("blue_pitch"), "Vanilla flips vertically (pitch frames)")
+	_check(PLENTIFUL.flip_frames(O)[4].resource_path.contains("red_yaw"), "other types keep the sideways spin")
 	var history: Array[StringName] = scenario._sfx.history
 	var ladder := history.filter(func(s: StringName) -> bool: return String(s).begins_with("score_"))
 	_check(ladder == [&"score_recognise", &"score_0", &"score_1", &"score_2", &"score_3", &"score_collapse", &"score_4"], "scoring: rising ladder, collapse, sum on the top note (got %s)" % str(ladder))

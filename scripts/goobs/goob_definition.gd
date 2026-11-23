@@ -20,6 +20,9 @@ enum EffectType {
 ## (frame_00 = board + hand still), <team>_pitch/, <team>_frames.tres
 ## (SpriteFrames, one looping animation per expression). Team: blue = player.
 @export var art_id: String = "vanilla"
+## Flips end over end (its <team>_pitch frames) instead of spinning sideways
+## (Sean, M6c playtest: Vanilla).
+@export var flips_vertically: bool = false
 
 const ART_DIR := "res://assets/goobs/%s/%s_%s"
 
@@ -38,6 +41,17 @@ func yaw_frames(side: BoardState.CellOwner) -> Array[Texture2D]:
 	var frames: Array[Texture2D] = []
 	for i in 8:
 		frames.append(load((ART_DIR % [art_id, team_of(side), "yaw"]) + "/frame_%02d.png" % i))
+	return frames
+
+
+## The 8 frames this Goob flips with (face → edge → back → edge): pitch
+## when it flips vertically, else yaw. Frame 4 is its back.
+func flip_frames(side: BoardState.CellOwner) -> Array[Texture2D]:
+	if not flips_vertically:
+		return yaw_frames(side)
+	var frames: Array[Texture2D] = []
+	for i in 8:
+		frames.append(load((ART_DIR % [art_id, team_of(side), "pitch"]) + "/frame_%02d.png" % i))
 	return frames
 
 
