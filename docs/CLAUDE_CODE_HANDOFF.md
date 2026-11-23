@@ -77,6 +77,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Playtest 11 (Sean), built:** Fast + Skip work. (1) **Remove Skip** from the game (Options shows Normal / Fast; a saved Skip loads as Normal). (2) **Aim ghost:** while aiming with a Goob selected, a *faint* copy floats over the column, arriving with a **horizontal** (yaw) flip; when the column is chosen the faint copy disappears and the real Goob **flips into place vertically** (pitch) on top of the board, then drops. All types. (3) **Think delay starts after** the red opponent banner (`_run_opponent_turn` awaits the banner). Code: `BoardView2D.GHOST_ALPHA`, `_flip_in()`, `play_drop(..., flip_in)`, `GoobDefinition.pitch_frames()`; the opponent's rise from behind also uses pitch frames. Next: Sean playtests the ghost + flips; then merge.
 - **Playtest 12 (Sean):** think timing and Options OK. Rest after a flip into place shortened (`BoardView2D.FLIPPED_PAUSE_SEC` 0.06, was the 0.2 `TOP_PAUSE_SEC`; plain drops keep 0.2). Auto-flip coin: no swipe arrow.
 - **Playtest 13 (Sean):** the player's Goob **drops from the ghost** (no flip-in; `_flip_in` removed); the opponent's still **flips into place** from behind the board (pitch frames). Rest before the drop = `BoardView2D.PLAY_PAUSE_SEC` 0.1 s for both (plain drops keep `TOP_PAUSE_SEC` 0.2).
+- **Playtest 14 (Sean):** player's Goob rests the usual 0.2 s (`TOP_PAUSE_SEC`) after replacing the ghost; opponent's flip into place + rest = 0.2 s (`OPPONENT_PLAY_SEC`: rise 0.12 + settle 0.05 + rest 0.03). `PLAY_PAUSE_SEC` removed.
 - **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
 - **Playtest changes so far:**
   - Drawn Goob's name shows above the board.
@@ -175,12 +176,12 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6c-ai-animations-reactions`, 902 checks)
+### Tests (all pass on `m6c-ai-animations-reactions`, 903 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 429 checks
+& $g --headless -s res://tests/test_scenario.gd    # 430 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
 & $g --headless -s res://tests/test_flow_m3.gd     # 184

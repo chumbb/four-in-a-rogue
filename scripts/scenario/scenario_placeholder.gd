@@ -723,7 +723,7 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 	if face != &"" and roll_path.size() > 1:
 		_hud.react(face)
 		face = &""
-	await _board_view.play_drop(column, row, side, roll_path, goob, from_behind, side == BoardState.CellOwner.PLAYER)
+	await _board_view.play_drop(column, row, side, roll_path, goob, from_behind)
 	_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 	if side == BoardState.CellOwner.PLAYER:
 		Settings.vibrate() # one pulse when your Goob lands (slice §2B)

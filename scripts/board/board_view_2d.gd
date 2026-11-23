@@ -28,9 +28,10 @@ const GOOB_OFFSET := Vector2i(0, -1)
 ## for a moment (Sean, 2026-11-12; the M6 flip lands here), then falls in.
 const TOP_Y := -31 ## Goob resting on the top rail
 const TOP_PAUSE_SEC := 0.2
-## Shorter rest before a played Goob drops (Sean, M6c playtest): after the
-## opponent's flip into place, or as the player's Goob replaces its ghost.
-const PLAY_PAUSE_SEC := 0.1
+## The opponent's flip into place (rise + settle) plus its rest on top takes
+## OPPONENT_PLAY_SEC in all (Sean, M6c playtest); the player's Goob rests the
+## usual TOP_PAUSE_SEC after replacing its ghost.
+const OPPONENT_PLAY_SEC := 0.2
 ## Drop: gravity in game px/s², tuned so a fall from the top of the board to
 ## the bottom row takes ~0.32 s; then a small settle bounce.
 const GRAVITY := 3800.0
@@ -56,8 +57,8 @@ const GHOST_ALPHA := 0.45
 const HAND_FLIP_ARC_PX := 16
 const BEHIND_START_Y := 2 ## game px: hidden behind the top of the panel
 const BEHIND_RISE_PX := 10 ## rises this far above the rest spot, then settles
-const BEHIND_RISE_SEC := 0.22
-const BEHIND_SETTLE_SEC := 0.1
+const BEHIND_RISE_SEC := 0.12
+const BEHIND_SETTLE_SEC := 0.05
 
 const TEX_BACK := preload("res://assets/board/board_back.png")
 const TEX_FRONT := preload("res://assets/board/board_front.png")
@@ -326,8 +327,7 @@ func sync_from_board(board: BoardState) -> void:
 ## off that edge. The Goob counts as on the board at once, so a sync during
 ## the animation does not duplicate it. `goob` picks its art (null = Vanilla).
 ## Await this to know when it has landed.
-## `from_ghost`: a player's play replacing the faint aim ghost (short rest).
-func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false, from_ghost: bool = false) -> void:
+func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false) -> void:
 	hide_preview()
 	var cell := Vector2i(column, row)
 	_remove_token(cell)
@@ -346,7 +346,8 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 			return
 	var tween := _tween()
 	tween.tween_callback(drop_sound.emit.bind(&"rest", side))
-	tween.tween_interval(PLAY_PAUSE_SEC if from_behind or from_ghost else TOP_PAUSE_SEC)
+	var rest := OPPONENT_PLAY_SEC - BEHIND_RISE_SEC - BEHIND_SETTLE_SEC if from_behind else TOP_PAUSE_SEC
+	tween.tween_interval(maxf(0.0, rest))
 	if roll_path.size() > 1:
 		_queue_roll(tween, token, roll_path, side)
 	tween.tween_callback(drop_sound.emit.bind(&"fall", side))
