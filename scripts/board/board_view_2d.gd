@@ -28,9 +28,9 @@ const GOOB_OFFSET := Vector2i(0, -1)
 ## for a moment (Sean, 2026-11-12; the M6 flip lands here), then falls in.
 const TOP_Y := -31 ## Goob resting on the top rail
 const TOP_PAUSE_SEC := 0.2
-## Shorter rest after a flip into place (the flip already held the Goob on
-## top; Sean, M6c playtest: it lingered too long before dropping).
-const FLIPPED_PAUSE_SEC := 0.06
+## Shorter rest before a played Goob drops (Sean, M6c playtest): after the
+## opponent's flip into place, or as the player's Goob replaces its ghost.
+const PLAY_PAUSE_SEC := 0.1
 ## Drop: gravity in game px/s², tuned so a fall from the top of the board to
 ## the bottom row takes ~0.32 s; then a small settle bounce.
 const GRAVITY := 3800.0
@@ -49,11 +49,10 @@ const FLOAT_BOB_SEC := 0.4
 ## from behind the board's top edge to the same spot, then drops.
 const HAND_FLIP_SEC := 0.22
 ## Aim ghost (Sean, M6c playtest): the float over the aimed column is a faint
-## copy of the Goob, arriving with a horizontal flip. When the drop commits it
-## disappears and the Goob itself flips into place vertically, then drops.
+## copy of the Goob, arriving with a horizontal flip. When the drop commits the
+## Goob drops into place from the ghost's spot (the opponent's flips up from
+## behind the board instead).
 const GHOST_ALPHA := 0.45
-const FLIP_IN_SEC := 0.24
-const FLIP_IN_HOP_PX := 6
 const HAND_FLIP_ARC_PX := 16
 const BEHIND_START_Y := 2 ## game px: hidden behind the top of the panel
 const BEHIND_RISE_PX := 10 ## rises this far above the rest spot, then settles
@@ -327,9 +326,8 @@ func sync_from_board(board: BoardState) -> void:
 ## off that edge. The Goob counts as on the board at once, so a sync during
 ## the animation does not duplicate it. `goob` picks its art (null = Vanilla).
 ## Await this to know when it has landed.
-## `flip_in`: the Goob flips into place vertically on top of the board first
-## (a player's play: the faint aim ghost has just gone).
-func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false, flip_in: bool = false) -> void:
+## `from_ghost`: a player's play replacing the faint aim ghost (short rest).
+func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false, from_ghost: bool = false) -> void:
 	hide_preview()
 	var cell := Vector2i(column, row)
 	_remove_token(cell)
@@ -346,13 +344,9 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 		await _rise_from_behind(token, goob if goob else VANILLA, side)
 		if not is_instance_valid(token):
 			return
-	elif flip_in:
-		await _flip_in(token, goob if goob else VANILLA, side)
-		if not is_instance_valid(token):
-			return
 	var tween := _tween()
 	tween.tween_callback(drop_sound.emit.bind(&"rest", side))
-	tween.tween_interval(FLIPPED_PAUSE_SEC if from_behind or flip_in else TOP_PAUSE_SEC)
+	tween.tween_interval(PLAY_PAUSE_SEC if from_behind or from_ghost else TOP_PAUSE_SEC)
 	if roll_path.size() > 1:
 		_queue_roll(tween, token, roll_path, side)
 	tween.tween_callback(drop_sound.emit.bind(&"fall", side))
@@ -638,28 +632,6 @@ func grid_center() -> Vector2:
 
 ## The opponent's Goob flips up from behind the board's top edge (clipped so
 ## it never shows through the holes), overshoots and settles on its rest spot.
-## The played Goob flips end over end into place on top of the board (back
-## first), with a small hop.
-func _flip_in(token: Sprite2D, goob: GoobDefinition, side: BoardState.CellOwner) -> void:
-	var rest := token.position
-	token.set_meta(&"busy", true)
-	drop_sound.emit(&"goob_flip", side)
-	var frames := goob.pitch_frames(side)
-	var spin := _tween()
-	for i in frames.size():
-		spin.tween_callback(_set_texture.bind(token, frames[(i + 4) % frames.size()]))
-		spin.tween_interval(FLIP_IN_SEC / frames.size())
-	var hop := _tween()
-	hop.tween_method(_set_y.bind(token), rest.y, rest.y - FLIP_IN_HOP_PX, FLIP_IN_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	hop.tween_method(_set_y.bind(token), rest.y - FLIP_IN_HOP_PX, rest.y, FLIP_IN_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	await spin.finished
-	if not is_instance_valid(token):
-		return
-	token.position = rest
-	token.texture = goob.still(side)
-	token.set_meta(&"busy", false)
-
-
 func _rise_from_behind(token: Sprite2D, goob: GoobDefinition, side: BoardState.CellOwner) -> void:
 	var rest := token.position
 	token.set_meta(&"busy", true)

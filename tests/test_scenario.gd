@@ -570,13 +570,11 @@ func _test_drop_animation_locks_input() -> void:
 	_check(scenario._opponent_timer.is_stopped(), "opponent waits for the landing")
 	_check(not view.is_preview_visible(), "the faint aim ghost is gone once the drop commits")
 	_check(is_equal_approx(view._preview.modulate.a, BoardView2D.GHOST_ALPHA), "the aim float is a faint ghost")
-	# It flips into place vertically first (M6c playtest), for every type.
-	await create_timer(BoardView2D.FLIP_IN_SEC * 0.5).timeout
-	var pitch := TurnLoop.VANILLA.pitch_frames(P)
-	_check(pitch.has(token.texture) or token.position.y < BoardView2D.TOP_Y, "Goob flips in vertically on top of the board")
-	await create_timer(BoardView2D.FLIP_IN_SEC * 0.5 + 0.02).timeout
-	_check(token.position.y == BoardView2D.TOP_Y, "Goob rests on top of the board after the flip")
-	await create_timer(BoardView2D.FLIPPED_PAUSE_SEC + 0.1).timeout
+	# It drops from the ghost's spot after a short rest, no flip (M6c playtest).
+	_check(view.shows_goob(Vector2i(2, 0), TurnLoop.VANILLA, P), "your Goob replaces the ghost face up (no flip)")
+	await create_timer(BoardView2D.PLAY_PAUSE_SEC * 0.4).timeout
+	_check(token.position.y == BoardView2D.TOP_Y, "Goob rests on top of the board")
+	await create_timer(BoardView2D.PLAY_PAUSE_SEC + 0.1).timeout
 	_check(token.position.y > BoardView2D.TOP_Y, "then falls after a short rest (M6c playtest)")
 	_check(token.position == token.position.round(), "Goob moves on whole game pixels")
 	await create_timer(0.6).timeout
@@ -1298,8 +1296,8 @@ func _test_sounds() -> void:
 	_touch(_off_board(scenario), false)
 	_check(_heard(scenario, &"cancel"), "sound: cancel fly-back")
 	_play_col(scenario, 3)
-	await create_timer(0.1 + BoardView2D.FLIP_IN_SEC).timeout
-	_check(_heard(scenario, &"goob_flip") and _heard(scenario, &"rest"), "sound: flip in, then rest on top")
+	await create_timer(0.05).timeout
+	_check(_heard(scenario, &"rest"), "sound: rest on top")
 	await create_timer(0.6).timeout
 	_check(_heard(scenario, &"fall") and _heard(scenario, &"land"), "sound: fall + land")
 	await _free(scenario)

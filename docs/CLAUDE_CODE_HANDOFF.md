@@ -76,6 +76,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Playtest 10 (Sean, done):** AI strength is fun (retest once all effects exist); win sequence OK; **Vanilla flips vertically** (`GoobDefinition.flips_vertically` + `flip_frames()`, pitch frames); **scoring**: each Goob flips to its back (`BoardView2D.flip_cell()`), its multiplier shows there then floats up into the gap, total in the gap (`gap_center()`); **all toasts in the gap** (`_place_toast()`). End buttons per Sean: "View board" / "Back to title". Screenshots: `tests/capture_scoring.gd -- <dir>`.
 - **Playtest 11 (Sean), built:** Fast + Skip work. (1) **Remove Skip** from the game (Options shows Normal / Fast; a saved Skip loads as Normal). (2) **Aim ghost:** while aiming with a Goob selected, a *faint* copy floats over the column, arriving with a **horizontal** (yaw) flip; when the column is chosen the faint copy disappears and the real Goob **flips into place vertically** (pitch) on top of the board, then drops. All types. (3) **Think delay starts after** the red opponent banner (`_run_opponent_turn` awaits the banner). Code: `BoardView2D.GHOST_ALPHA`, `_flip_in()`, `play_drop(..., flip_in)`, `GoobDefinition.pitch_frames()`; the opponent's rise from behind also uses pitch frames. Next: Sean playtests the ghost + flips; then merge.
 - **Playtest 12 (Sean):** think timing and Options OK. Rest after a flip into place shortened (`BoardView2D.FLIPPED_PAUSE_SEC` 0.06, was the 0.2 `TOP_PAUSE_SEC`; plain drops keep 0.2). Auto-flip coin: no swipe arrow.
+- **Playtest 13 (Sean):** the player's Goob **drops from the ghost** (no flip-in; `_flip_in` removed); the opponent's still **flips into place** from behind the board (pitch frames). Rest before the drop = `BoardView2D.PLAY_PAUSE_SEC` 0.1 s for both (plain drops keep `TOP_PAUSE_SEC` 0.2).
 - **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
 - **Playtest changes so far:**
   - Drawn Goob's name shows above the board.
@@ -91,7 +92,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - Blocked-two reaction (see above).
 - **Still for Sean to confirm before merging:**
   - Play flips.
-  - The ghost + vertical flip-in (playtest 11).
+  - The ghost + drop, and the opponent's flip-in (playtest 13).
 - **On acceptance:** merge into `main`, push, mark M6c accepted in CLAUDE.md, this file and the vault, then stop. M6d is next.
 
 **Code map:**
