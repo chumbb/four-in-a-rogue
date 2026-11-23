@@ -348,6 +348,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 ### M6d — Sound completion + smoke test
 
 - [x] Remaining §Sound events; Fast/pause audio rules; mobile audio behaviour. Built on `m6d-sound-smoke` (playtest pending): draw sting (`art/audio/make_m6d_sounds.py`); Master muted while backgrounded; iOS session Ambient + mix with others. Forest ambience was built, then **removed** (Sean, 2026-11-23). Long press as a second inspect gesture was tried and **dropped**: it clashes with dragging hand Goobs (Sean, 2026-11-23); inspect stays double tap. Playtest 2: opponent red column flash removed; full column = dark highlight + toast while hovering, shake + error sound only when you let go there
+- [ ] **Sound grill** (Sean, 2026-11-23): Sean doesn't like any of the sound effects M6d added. The ambience and red-flash blip are already gone; the draw sting is a placeholder until a separate grill decides how to fix the M6d sounds
 - [x] Smoke **A1–A10** on desktop: `docs/SMOKE_V0.1.md` (all pass on desktop; known gaps listed there); real-time soak `tests/soak_m6d.gd`
 
 ### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)
