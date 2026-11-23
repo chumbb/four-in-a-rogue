@@ -4,7 +4,9 @@ extends Control
 ## the gap above the aim lane (between the HUD and the aim lane: column input
 ## always wins, so no pill covers a column's hit area): yours from the left in
 ## blue, his from the right in red. Each pill is a button on the game-pixel
-## grid (toast-pill 9-slice, Monogram 1×) as tall as that strip; pressing it
+## grid (toast-pill 9-slice, Monogram 1×) as tall as that strip, at least
+## 10 game px (over the HUD block's bottom edge when the strip is shorter);
+## pressing it
 ## emits its explanation for the scenario to toast. Placeholder look: the
 ## 96 px height floor is knowingly relaxed (Art pass G revisits).
 
@@ -86,7 +88,7 @@ func _layout() -> void:
 		return
 	var top := ceilf((_top - stage.canvas.position.y) / stage.k)
 	var bottom := floorf((_bottom - stage.canvas.position.y) / stage.k)
-	var height := maxf(0.0, bottom - top)
+	var strip := maxf(0.0, bottom - top)
 	var min_w := ceilf(MIN_WIDTH / stage.k)
 	var left := stage.safe.position.x + SIDE_X
 	var right := stage.safe.end.x - SIDE_X
@@ -94,14 +96,18 @@ func _layout() -> void:
 		var button := _buttons[i]
 		var label: Label = button.get_node("Text")
 		label.reset_size()
+		# Never hidden: at least the pill's minimum height (10 game px), its
+		# bottom on the aim lane's top; with no room it overhangs the HUD
+		# block's bottom edge, which has no touch targets (M6e ruling).
+		var height := maxf(strip, button.get_minimum_size().y)
 		button.size = Vector2(maxf(label.size.x + PAD_X * 2.0, min_w), height)
-		button.visible = height >= button.get_minimum_size().y
 		label.size.x = button.size.x
+		var y := bottom - height
 		label.position = Vector2(0, floorf((height - LINE_H) * 0.5))
 		if _sides[i] == BoardState.CellOwner.PLAYER:
-			button.position = Vector2(left, top)
+			button.position = Vector2(left, y)
 			left += button.size.x + SPACING
 		else:
 			right -= button.size.x
-			button.position = Vector2(right, top)
+			button.position = Vector2(right, y)
 			right -= SPACING

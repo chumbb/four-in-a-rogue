@@ -1591,8 +1591,9 @@ func _test_discard_keeps_fan_in_order() -> void:
 
 
 ## M6e fix: column input always wins, so no pill covers a column's hit area
-## (column + aim lane), with simulated insets. Pills fill the strip above the
-## aim lane; at 1080×1920 with insets that strip is empty, so they hide.
+## (column + aim lane), with simulated insets. Pills sit on the aim lane's
+## top, at least 10 game px tall (over the HUD block's edge when the strip
+## above the lane is shorter), always visible, clear of the Pause button.
 func _test_pills_clear_of_columns(window: Vector2i) -> void:
 	root.size = window
 	SafeArea.simulate_insets = true
@@ -1604,26 +1605,24 @@ func _test_pills_clear_of_columns(window: Vector2i) -> void:
 	scenario._refresh_hud()
 	await process_frame
 	await process_frame
+	var tag := str(window)
 	var buttons: Array[Button] = scenario._pills.buttons()
+	var pause_rect: Rect2 = scenario._hud.pause_button().get_global_rect()
 	var lane_top: float = scenario.get_node("%AimLane").get_global_rect().position.y
-	var strip: float = lane_top - scenario._hud.bottom()
-	var clear := buttons.size() == 3
-	var shown := 0
+	_check(buttons.size() == 3, "%s: three pills" % tag)
 	for pill in buttons:
-		if not pill.is_visible_in_tree():
-			continue
-		shown += 1
 		var rect := pill.get_global_rect()
-		clear = clear and rect.size.x >= 96.0 and rect.position.y >= scenario._hud.bottom() - 0.5
+		_check(pill.is_visible_in_tree(), "%s: pill visible" % tag)
+		_check(rect.size.x >= 96.0, "%s: pill ≥ 96 px wide" % tag)
+		_check(rect.size.y >= 10.0 * scenario._pills.stage.k - 0.5, "%s: pill ≥ 10 game px tall (%s)" % [tag, rect])
+		_check(rect.end.y <= lane_top + 0.5, "%s: pill bottom on the aim lane's top (%s)" % [tag, rect])
+		var clear := not rect.intersects(pause_rect)
 		for column in BoardState.COLUMNS:
 			if rect.intersects(scenario.column_hit_rect(column)):
 				clear = false
-	_check(clear, "%s: visible pills clear of every column hit rect" % str(window))
-	if strip >= 26.0: # room for a pill (10 game px at 1080 wide)
-		_check(shown == 3, "%s: pills shown in the strip (%d)" % [str(window), shown])
-		_check(buttons[0].get_global_rect().get_center().x < scenario.size.x * 0.5 and buttons[2].get_global_rect().get_center().x > scenario.size.x * 0.5, "%s: yours left, his right" % str(window))
-	else:
-		_check(shown == 0, "%s: no strip above the aim lane, pills hidden" % str(window))
+		_check(clear, "%s: pill clear of column hit rects and Pause (%s)" % [tag, rect])
+	if buttons.size() == 3:
+		_check(buttons[0].get_global_rect().get_center().x < scenario.size.x * 0.5 and buttons[2].get_global_rect().get_center().x > scenario.size.x * 0.5, "%s: yours left, his right" % tag)
 	SafeArea.simulate_insets = false
 	await _free(scenario)
 	root.size = PHONE
