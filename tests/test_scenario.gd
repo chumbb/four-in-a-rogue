@@ -108,6 +108,7 @@ func _run() -> void:
 	await _test_debug_discard_player_guards()
 	await _test_pills_refresh_on_autoplay_turn_start()
 	await _test_autoplay_no_move_turns_off()
+	await _test_autoplay_flips_up_from_behind()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -2066,5 +2067,31 @@ func _test_autoplay_no_move_turns_off() -> void:
 	_check(not _flow().autoplay, "autoplay no move: the flag is off")
 	_check(not scenario._hud.is_autoplay_lit(), "autoplay no move: the button is unlit")
 	_check(scenario._input_enabled, "autoplay no move: your turn as usual")
+	_flow().autoplay = false
+	await _free(scenario)
+
+
+## Sean (2026-11-23): auto-play's Goob flips up from behind the board like the
+## opponent's.
+func _test_autoplay_flips_up_from_behind() -> void:
+	var scenario := await _make(0.3, true, 30.0, true) # short think: auto-play thinks like him
+	var ready_by := Time.get_ticks_msec() + 10000
+	while Time.get_ticks_msec() < ready_by and not scenario._input_enabled:
+		await process_frame # GAME START, banner, first draw reveal
+	_check(scenario._input_enabled, "auto-play rise: your turn is ready")
+	var behind: Node = scenario._board_view._behind
+	scenario.set_autoplay(true)
+	var seen := false
+	var until := Time.get_ticks_msec() + 4000
+	while Time.get_ticks_msec() < until and not seen:
+		await process_frame
+		seen = behind.get_child_count() > 0
+	_check(seen, "auto-play: a Goob rises from behind the board")
+	var theirs := 0
+	for column in BoardState.COLUMNS:
+		for row in BoardState.ROWS:
+			if scenario._loop.board.get_owner(column, row) == O:
+				theirs += 1
+	_check(seen and theirs == 0, "auto-play: it is your Goob (he hasn't played yet)")
 	_flow().autoplay = false
 	await _free(scenario)

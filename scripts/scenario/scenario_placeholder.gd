@@ -483,7 +483,7 @@ func _run_autoplay_turn() -> void:
 
 func _play_autoplay_move() -> void:
 	if GameFlow.autoplay and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
-		_play_player(_autoplay_column, _autoplay_hand_index)
+		_play_player(_autoplay_column, _autoplay_hand_index, [], true, true)
 
 
 ## A draw with auto-play on presses Replay by itself (while you view the
@@ -918,21 +918,24 @@ func _play_selected(column: int) -> void:
 ## `in_fan`: false when the card already left the fan (the timeout removes it
 ## as "Time's up!" shows; removing it again dropped the next card from the
 ## fan, so taps played the wrong Goob from then on: Sean, M6c playtest).
-func _play_player(column: int, hand_index: int, roll_path: Array[int] = [], in_fan := true) -> int:
+## `from_behind`: the Goob flips up from behind the board like the
+## opponent's (auto-play; Sean, 2026-11-23).
+func _play_player(column: int, hand_index: int, roll_path: Array[int] = [], in_fan := true, from_behind := false) -> int:
 	_set_input_enabled(false) # locked until the drop finishes
 	if in_fan:
 		_hand.remove(hand_index)
 	var goob: GoobDefinition = _loop.player_deck.hand[hand_index]
 	_board_before = _loop.board.copy()
 	var row := _loop.play(column, hand_index)
-	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path, goob)
+	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path, goob, from_behind)
 	return row
 
 
 ## The Goob falls (or rolls) into place, its effect steps play in order
 ## (TurnLoop.effect_steps), then the next turn starts. §4.2 order: land → special effect → win check last (TurnLoop has
 ## already resolved all three; this shows them in that order).
-## `from_behind`: the opponent's Goob flips up from behind the board first.
+## `from_behind`: the Goob (the opponent's, or yours on auto-play) flips up
+## from behind the board first.
 func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false) -> void:
 	var effect := _loop.last_effect
 	var steps := _loop.effect_steps.duplicate()
