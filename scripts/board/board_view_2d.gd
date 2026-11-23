@@ -583,7 +583,16 @@ func _queue_motion(token: Sprite2D, points: Array, side: BoardState.CellOwner) -
 			&"hop":
 				tween.tween_callback(drop_sound.emit.bind(&"bounce", side))
 				tween.tween_callback(token.reparent.bind(_fx, false))
-				tween.tween_method(_set_hop.bind(token, pos, to), 0.0, 1.0, HOP_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+				# It bounces up to the space above where it lands, then falls
+				# into place (Sean, M6e Move playtest).
+				var apex := to if at.y >= ROWS else _point_position(at + Vector2i(0, 1))
+				if apex.y <= pos.y:
+					tween.tween_method(_set_x.bind(token), pos.x, apex.x, HOP_SEC)
+					tween.parallel().tween_method(_set_y.bind(token), pos.y, apex.y, HOP_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+				else:
+					tween.tween_method(_set_hop.bind(token, pos, apex), 0.0, 1.0, HOP_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+				if apex != to:
+					_queue_fall(tween, token, apex.y, to)
 				tween.tween_callback(token.reparent.bind(_goobs, false))
 				pos = to
 			&"edge":
