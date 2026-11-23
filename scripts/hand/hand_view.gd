@@ -26,6 +26,12 @@ const DISCARD_HOLD_SEC := 0.8
 const DISCARD_SEC := REVEAL_POP_SEC + DISCARD_HOLD_SEC + REVEAL_FLY_SEC
 const COLOR_OUTLINE := Color(0.08, 0.05, 0.1, 1.0)
 const COLOR_OUTLINE_SELECTED := Color(0.85, 0.95, 1.0, 1.0)
+## Testing aid (Sean, 2026-11-23): specials still on the plain Goob art (M6e,
+## until Art pass F) show their name below them in the hand.
+const NAME_WIDTH := 200.0
+const NAME_GAP := 2.0
+const COLOR_NAME := Color(1.0, 0.93, 0.7)
+const COLOR_NAME_OUTLINE := Color(0.08, 0.05, 0.1)
 
 ## Sound cues: &"draw_pop" (drawn Goob pops in), &"fly" (it flies to the fan).
 signal hand_sound(kind: StringName)
@@ -114,6 +120,7 @@ func set_pixel_size(px: float) -> void:
 	_px = px
 	for card in _cards:
 		(card.get_node("Sprite") as Sprite2D).scale = Vector2(_px, _px)
+		_place_name(card)
 	layout(false)
 
 
@@ -373,8 +380,31 @@ func _make_card(goob: GoobDefinition, side := BoardState.CellOwner.PLAYER) -> No
 	sprite.material = _outline
 	sprite.scale = Vector2(_px, _px)
 	card.add_child(sprite)
+	if goob.art_id == "vanilla" and goob.effect_type != GoobDefinition.EffectType.NONE:
+		var label := Label.new()
+		label.name = "Name"
+		label.text = goob.display_name.trim_suffix(" Goob")
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_font_override("font", UiTheme.FONT)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.add_theme_color_override("font_color", COLOR_NAME)
+		label.add_theme_color_override("font_outline_color", COLOR_NAME_OUTLINE)
+		label.add_theme_constant_override("outline_size", 6)
+		card.add_child(label)
+		_place_name(card)
 	add_child(card)
 	return card
+
+
+## Puts a card's name label (if any) centred just below its Goob.
+func _place_name(card: Node2D) -> void:
+	var label := card.get_node_or_null("Name") as Label
+	if label != null:
+		# Monogram on the UI pixel unit (the root theme doesn't reach Controls
+		# under the card's Node2D).
+		label.add_theme_font_size_override("font_size", UiTheme.font_size(get_window(), 1) if is_inside_tree() else UiTheme.NATIVE_SIZE)
+		label.size = Vector2(NAME_WIDTH, 0.0)
+		label.position = Vector2(-NAME_WIDTH * 0.5, GOOB_PX * _px * 0.5 + NAME_GAP)
 
 
 func _kill_tween(card: Node2D) -> void:
