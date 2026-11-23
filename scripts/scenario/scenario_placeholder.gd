@@ -395,7 +395,9 @@ func debug_give(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
 func debug_discard_random(side: BoardState.CellOwner) -> void:
 	var replan := false
 	if side == BoardState.CellOwner.PLAYER:
-		if not _hand_stable():
+		# Taking your last Goob skips this turn, unless your last turn was
+		# skipped too (never two in a row; Sean, 2026-11-23).
+		if not _hand_stable() or (_loop.player_deck.hand.size() <= 1 and _loop.was_skipped_last(BoardState.CellOwner.PLAYER)):
 			_show_not_now()
 			return
 		replan = not _autoplay_timer.is_stopped()

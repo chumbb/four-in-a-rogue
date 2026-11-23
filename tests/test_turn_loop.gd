@@ -799,9 +799,10 @@ func _test_skip_turn_mid_turn() -> void:
 		t.discard_from(P, 0)
 	t.skip_turn()
 	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN, "skip mid-turn: opponent's turn")
-	_check(t.last_skipped == [P], "skip mid-turn: player recorded")
+	_check(t.last_skipped == [P] and t.was_skipped_last(P), "skip mid-turn: player recorded")
 	t.play(0)
 	_check(t.phase == TurnLoop.Phase.PLAYER_TURN and t.player_deck.hand.size() == 1 and t.last_skipped.is_empty(), "skip mid-turn: next turn draws 1")
+	_check(not t.was_skipped_last(P), "skip mid-turn: cleared once the player has a turn")
 
 
 func _test_turn_start_skip_empty_hand() -> void:
@@ -815,6 +816,8 @@ func _test_turn_start_skip_empty_hand() -> void:
 
 
 func _test_both_skip_is_stalemate() -> void:
+	# Sean (2026-11-23): back-to-back skips are NOT a draw; turn order goes on,
+	# and the same side is never skipped twice in a row.
 	var t := NoDrawLoop.new()
 	t.start(true, _seeded(42), _vanilla())
 	t.opponent_deck.hand.clear()
@@ -822,5 +825,9 @@ func _test_both_skip_is_stalemate() -> void:
 	t.player_deck.hand.assign(only)
 	t.no_draw = [P, O]
 	t.play(0)
-	_check(t.last_skipped == [O, P], "both skip: both recorded")
-	_check(t.result == TurnLoop.Result.DRAW and t.phase == TurnLoop.Phase.OVER, "both skip: stalemate draw")
+	_check(t.last_skipped == [O, P], "both skip: opponent then player skipped")
+	_check(t.result == TurnLoop.Result.NONE, "both skip: not a draw")
+	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN and t.opponent_deck.hand.size() == 1, "both skip: opponent's turn again, and he draws despite the block (skipped last turn)")
+	t.play(0)
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN and t.player_deck.hand.size() == 1 and t.last_skipped.is_empty(), "both skip: player draws despite the block (never skipped twice in a row)")
+	_check(t.result == TurnLoop.Result.NONE, "both skip: game still running")

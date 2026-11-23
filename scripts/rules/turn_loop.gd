@@ -53,6 +53,9 @@ var last_draw_hand_full := false
 ## Sides whose turn was skipped (empty hand) in the latest turn change, in
 ## order, for the view's "Turn skipped" toast.
 var last_skipped: Array[BoardState.CellOwner] = []
+## Side -> whether its latest turn was skipped; that side's next turn draw
+## always happens, so no side is skipped twice in a row.
+var _skipped_last: Dictionary = {}
 
 ## What the last play's special effect did (M5), for the view:
 ##   kind: GoobDefinition.EffectType of the played Goob
@@ -97,6 +100,7 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	statuses = []
 	board.reset()
 	_cell_goobs.clear()
+	_skipped_last.clear()
 	result = Result.NONE
 	if deck.is_empty():
 		player_goobs = DeckBuilder.roll(rng, forced)
@@ -369,10 +373,10 @@ func scoring_cells(side: BoardState.CellOwner) -> Array[Vector2i]:
 
 ## Gives the turn to `next` if that side has Goobs, else back to the other
 ## side; if neither has any, the scenario is a draw. Then the turn's draw.
-func _begin_turn(next: Phase, skips := 0) -> void:
+func _begin_turn(next: Phase, chained := false) -> void:
 	last_draw = []
 	last_draw_hand_full = false
-	if skips == 0:
+	if not chained:
 		last_skipped = []
 	var other := Phase.OPPONENT_TURN if next == Phase.PLAYER_TURN else Phase.PLAYER_TURN
 	if _deck_for_phase(next).has_goobs():
@@ -389,23 +393,30 @@ func _begin_turn(next: Phase, skips := 0) -> void:
 				statuses.remove_at(i)
 	_on_turn_start(current_side())
 	var deck := current_deck()
-	var count := _turn_draw_count(current_side())
+	var side := current_side()
+	var count := _turn_draw_count(side)
+	if _skipped_last.get(side, false):
+		count = maxi(count, TURN_DRAW) # never two skipped turns in a row
 	last_draw_hand_full = deck.draw_blocked_by_hand(count)
 	last_draw = deck.draw(count)
-	# Nothing in hand after the draw (a discard plus a prevented draw): the
-	# turn is skipped (Sean, 2026-11-23). Both sides in a row = stalemate.
+	# No playable Goob (empty hand) after the draw, e.g. a discard plus a
+	# prevented draw: this turn is skipped and turn order goes on as normal
+	# (Sean, 2026-11-23; skips are never a draw).
+	_skipped_last[side] = deck.hand.is_empty()
 	if deck.hand.is_empty():
-		last_skipped.append(current_side())
-		if skips >= 1:
-			_finish(Result.DRAW)
-		else:
-			_begin_turn(other if phase == next else next, skips + 1)
+		last_skipped.append(side)
+		_begin_turn(other if phase == next else next, true)
 
 
 ## How many Goobs `side` draws at its turn start. Draw effects (M6e draw
 ## session) change this.
 func _turn_draw_count(_side: BoardState.CellOwner) -> int:
 	return TURN_DRAW
+
+
+## Whether `side`'s latest turn was skipped (its next turn can't be).
+func was_skipped_last(side: BoardState.CellOwner) -> bool:
+	return _skipped_last.get(side, false)
 
 
 ## The current side's hand ran out during its own turn (e.g. its last Goob was
@@ -415,6 +426,7 @@ func skip_turn() -> void:
 		return
 	var side := current_side()
 	_begin_turn(Phase.OPPONENT_TURN if phase == Phase.PLAYER_TURN else Phase.PLAYER_TURN)
+	_skipped_last[side] = true
 	last_skipped.push_front(side)
 
 
