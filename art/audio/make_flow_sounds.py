@@ -30,15 +30,21 @@ def silence(sec):
     return np.zeros(int(SR * sec))
 
 
+# Sean (2026-11-23): "cut some of the highs on the ui sounds, reduce the shrillness
+# of the coin flip". Extra low-pass on top of the picked sounds.
+UI_TOP_HZ = 1400
+COIN_TOP_HZ = 3800
+
+
 def press_start():
     """SNES wood block C5 → G5 with the SNES echo (Sean's pick, 2026-11-23)."""
     x = np.concatenate([opt.woodblock(523.25, 0.09), opt.woodblock(783.99, 0.25, 0.06)])
-    return opt.norm(opt.snes(x, 90, 0.35, 0.25), 0.22)
+    return opt.norm(opt.lp(opt.snes(x, 90, 0.35, 0.25), UI_TOP_HZ, 4), 0.22)
 
 
 def ui_tap():
     """SNES wood block tap, dry: mid register, low-passed, no pitch movement."""
-    return opt.norm(opt.snes(opt.woodblock(740)), 0.22)
+    return opt.norm(opt.lp(opt.snes(opt.woodblock(740)), UI_TOP_HZ, 4), 0.22)
 
 
 def first_sting():
@@ -50,12 +56,12 @@ def first_sting():
 
 def coin_whirr():
     """Thumb flick of a warm metal coin (flick B, Sean's pick 2026-11-23)."""
-    return opt.coin_flick(2500, decay_scale=1.0, spin=(24, 16), seed=12)
+    return opt.norm(opt.lp(opt.coin_flick(2500, decay_scale=1.0, spin=(24, 16), seed=12), COIN_TOP_HZ, 4), 0.3)
 
 
 def coin_clink():
     """Coin lands on wood and settles (Sean's pick 2026-11-23)."""
-    return opt.land_table()
+    return opt.norm(opt.lp(opt.land_table(), COIN_TOP_HZ, 4), 0.3)
 
 
 def main():
