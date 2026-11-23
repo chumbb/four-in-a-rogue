@@ -28,10 +28,6 @@ const GOOB_OFFSET := Vector2i(0, -1)
 ## for a moment (Sean, 2026-11-12; the M6 flip lands here), then falls in.
 const TOP_Y := -31 ## Goob resting on the top rail
 const TOP_PAUSE_SEC := 0.2
-## The opponent's flip into place (rise + settle) plus its rest on top takes
-## OPPONENT_PLAY_SEC in all (Sean, M6c playtest); the player's Goob rests the
-## usual TOP_PAUSE_SEC after replacing its ghost.
-const OPPONENT_PLAY_SEC := 0.2
 ## Drop: gravity in game px/s², tuned so a fall from the top of the board to
 ## the bottom row takes ~0.32 s; then a small settle bounce.
 const GRAVITY := 3800.0
@@ -57,8 +53,8 @@ const GHOST_ALPHA := 0.45
 const HAND_FLIP_ARC_PX := 16
 const BEHIND_START_Y := 2 ## game px: hidden behind the top of the panel
 const BEHIND_RISE_PX := 10 ## rises this far above the rest spot, then settles
-const BEHIND_RISE_SEC := 0.12
-const BEHIND_SETTLE_SEC := 0.05
+const BEHIND_RISE_SEC := 0.22
+const BEHIND_SETTLE_SEC := 0.1
 
 const TEX_BACK := preload("res://assets/board/board_back.png")
 const TEX_FRONT := preload("res://assets/board/board_front.png")
@@ -346,8 +342,9 @@ func play_drop(column: int, row: int, side: BoardState.CellOwner, roll_path: Arr
 			return
 	var tween := _tween()
 	tween.tween_callback(drop_sound.emit.bind(&"rest", side))
-	var rest := OPPONENT_PLAY_SEC - BEHIND_RISE_SEC - BEHIND_SETTLE_SEC if from_behind else TOP_PAUSE_SEC
-	tween.tween_interval(maxf(0.0, rest))
+	# Every played Goob rests TOP_PAUSE_SEC on top (the opponent's after its
+	# full flip up from behind; Sean, M6c playtest).
+	tween.tween_interval(TOP_PAUSE_SEC)
 	if roll_path.size() > 1:
 		_queue_roll(tween, token, roll_path, side)
 	tween.tween_callback(drop_sound.emit.bind(&"fall", side))

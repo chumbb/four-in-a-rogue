@@ -576,7 +576,6 @@ func _test_drop_animation_locks_input() -> void:
 	_check(token.position.y == BoardView2D.TOP_Y, "Goob rests on top of the board")
 	await create_timer(BoardView2D.TOP_PAUSE_SEC * 0.5 + 0.1).timeout
 	_check(token.position.y > BoardView2D.TOP_Y, "then falls")
-	_check(is_equal_approx(BoardView2D.OPPONENT_PLAY_SEC, 0.2) and BoardView2D.BEHIND_RISE_SEC + BoardView2D.BEHIND_SETTLE_SEC <= 0.2, "opponent flip + rest = 0.2 s (M6c playtest)")
 	_check(token.position == token.position.round(), "Goob moves on whole game pixels")
 	await create_timer(0.6).timeout
 	_check(token.position == view.cell_position(2, 0), "Goob landed in its hole")
