@@ -9,11 +9,10 @@ ffmpeg) in assets/audio/sfx/:
   ui_tap.ogg       button tap: short sine "bubble" bending up                   (C)
   (Sean, 2026-11-23: the old square blips were too harsh; Sean picked option A for
   press start and option C for the tap.)
-  page_click.ogg   Strange Man page advance: tiny high square click             (C)
   first_sting.ogg  coin result flash + "goes first" banner: chiptune fanfare     (C)
   coin_whirr.ogg   coin spinning in the air (~0.6 s): fluttering filtered noise  (T)
   coin_clink.ogg   coin lands: short wooden clink (two damped partials + tick)   (T)
-Reused, not built here: swipe whoosh = fly_swish.ogg, intro Goobs pop = draw_pop.ogg.
+Reused, not built here: Strange Man page advance = ui_tap.ogg (Sean, 2026-11-23), swipe whoosh = fly_swish.ogg, intro Goobs pop = draw_pop.ogg.
 Slice §2B Sound: UI/banners chiptune (C), physical things tactile (T).
 """
 import os
@@ -57,10 +56,6 @@ def ui_tap():
     return bubble(520, 780, 0.06, 0.2)
 
 
-def page_click():
-    return square(1318.5, 0.025, duty=0.5, vol=0.12)
-
-
 def first_sting():
     notes = [523.25, 659.25, 783.99]
     parts = [square(hz, 0.07, duty=0.5, vol=0.2) for hz in notes]
@@ -97,7 +92,6 @@ def coin_clink(sec=0.22):
 def main():
     write_ogg(press_start(), "press_start.ogg")
     write_ogg(ui_tap(), "ui_tap.ogg")
-    write_ogg(page_click(), "page_click.ogg")
     write_ogg(first_sting(), "first_sting.ogg")
     write_ogg(coin_whirr(), "coin_whirr.ogg")
     write_ogg(coin_clink(), "coin_clink.ogg")

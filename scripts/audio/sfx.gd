@@ -4,7 +4,8 @@ extends Node
 ## play(&"name"). Sounds come from CC0 / credited packs (assets/audio/CREDITS.md).
 ##
 ## Repeats get ±5 % random pitch; opponent sounds are ~10 % lower; each sound
-## plays at most once per frame. Everything plays on the SFX bus (volume and
+## plays at most once per frame (by sample, so names sharing ui_tap.ogg don't
+## stack). Everything plays on the SFX bus (volume and
 ## mute from Settings, M6b).
 
 const STREAMS := {
@@ -43,16 +44,17 @@ const STREAMS := {
 	# M6a flow (art/audio/make_flow_sounds.py): chiptune UI, tactile coin.
 	&"press_start": preload("res://assets/audio/sfx/press_start.ogg"),
 	&"ui_tap": preload("res://assets/audio/sfx/ui_tap.ogg"),
-	&"page": preload("res://assets/audio/sfx/page_click.ogg"),
+	# Every UI press is the soft ui_tap bubble (Sean, 2026-11-23).
+	&"page": preload("res://assets/audio/sfx/ui_tap.ogg"),
 	&"goob_pop": preload("res://assets/audio/sfx/draw_pop.ogg"),
 	&"coin_swipe": preload("res://assets/audio/sfx/fly_swish.ogg"),
 	&"coin_whirr": preload("res://assets/audio/sfx/coin_whirr.ogg"),
 	&"coin_land": preload("res://assets/audio/sfx/coin_clink.ogg"),
 	&"first_sting": preload("res://assets/audio/sfx/first_sting.ogg"),
 	# M6b menus and turn banners (art/audio/make_menu_sounds.py): chiptune.
-	&"pause_open": preload("res://assets/audio/sfx/pause_open.ogg"),
-	&"pause_close": preload("res://assets/audio/sfx/pause_close.ogg"),
-	&"slider_tick": preload("res://assets/audio/sfx/slider_tick.ogg"),
+	&"pause_open": preload("res://assets/audio/sfx/ui_tap.ogg"),
+	&"pause_close": preload("res://assets/audio/sfx/ui_tap.ogg"),
+	&"slider_tick": preload("res://assets/audio/sfx/ui_tap.ogg"),
 	# Turn banners: a soft whoosh, not a chiptune beep (Sean, 2026-11-20).
 	&"turn_whoosh": preload("res://assets/audio/sfx/turn_whoosh.ogg"),
 	# M6c play flips, fuse, win/lose lead-ins (art/audio/make_reaction_sounds.py).
@@ -74,7 +76,7 @@ const POOL_SIZE := 8
 
 var _pool: Array[AudioStreamPlayer] = []
 var _next := 0
-var _played_frame: Dictionary = {} ## name -> process frame it last played
+var _played_frame: Dictionary = {} ## stream -> process frame it last played
 var _rng := RandomNumberGenerator.new()
 ## Names played so far, newest last (tests read this; trimmed to 32).
 var history: Array[StringName] = []
@@ -96,9 +98,10 @@ func play(sound: StringName, opponent := false, pitch_mult := 1.0) -> void:
 		push_error("Sfx: unknown sound '%s'" % sound)
 		return
 	var frame := Engine.get_process_frames()
-	if _played_frame.get(sound, -1) == frame:
+	var stream: AudioStream = STREAMS[sound]
+	if _played_frame.get(stream, -1) == frame:
 		return
-	_played_frame[sound] = frame
+	_played_frame[stream] = frame
 	var player := _pool[_next]
 	_next = (_next + 1) % POOL_SIZE
 	player.stream = STREAMS[sound]

@@ -145,7 +145,7 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 - **Never sound-only:** every audio cue also has a visual/text cue.
 - Buses Master → Music, SFX. Options rows: **Master / Music / SFX** sliders, each with a mute toggle; defaults 80 / 70 / 80 %; persisted in a settings file.
 - Mobile: ambient audio (respects silent switch, player's music keeps playing); pause in background.
-- No Goob voices; Strange Man only has the page-advance click. **No forest ambience** (Sean, 2026-11-23: removed after hearing it; the soundtrack will be retro chiptune).
+- No Goob voices; Strange Man only has the page-advance sound (the UI tap bubble since 2026-11-23). **No forest ambience** (Sean, 2026-11-23: removed after hearing it; the soundtrack will be retro chiptune).
 - Opponent sounds ~10 % lower pitch; ±5 % random pitch on repeats. Scoring ticks rise one note per Goob, sum on the top note.
 - Fast = sounds sooner, normal pitch (Skip removed 2026-11-22); each sound at most once per frame. Pause: SFX stop (incl. fuse), menu sounds play.
 - Each milestone adds its own sounds (M4 replaces `scripts/audio/sfx.gd` placeholders and covers already-built events).
@@ -348,7 +348,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 ### M6d — Sound completion + smoke test
 
 - [x] Remaining §Sound events; Fast/pause audio rules; mobile audio behaviour. Built on `m6d-sound-smoke` (playtest pending): Master muted while backgrounded; iOS session Ambient + mix with others. Forest ambience was built, then **removed** (Sean, 2026-11-23). Long press as a second inspect gesture was tried and **dropped**: it clashes with dragging hand Goobs (Sean, 2026-11-23); inspect stays double tap. Playtest 2: opponent red column flash removed; full column = dark highlight + toast while hovering, shake + error sound only when you let go there
-- [ ] **Sound grill** (Sean, 2026-11-23): Sean doesn't like any of the sound effects M6d added. All three (forest ambience, red-flash blip, draw sting) are removed; a separate grill decides the sounds again. Press start and UI tap were too harsh: softened now (Sean picked a triangle press start and a sine-bubble tap, 2026-11-23)
+- [ ] **Sound grill** (Sean, 2026-11-23): Sean doesn't like any of the sound effects M6d added. All three (forest ambience, red-flash blip, draw sting) are removed; a separate grill decides the sounds again. Press start and UI tap were too harsh: softened now (Sean picked a triangle press start and a sine-bubble tap, 2026-11-23); **every other UI press** (buttons, Skip, pause open/close, slider steps, Strange Man page advance) now uses the same bubble
 - [x] Smoke **A1–A10** on desktop: `docs/SMOKE_V0.1.md` (all pass on desktop; known gaps listed there); real-time soak `tests/soak_m6d.gd`
 
 ### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)
