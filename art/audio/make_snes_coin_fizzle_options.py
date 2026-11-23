@@ -289,6 +289,47 @@ def build_fizzle_soft():
         write_ogg(norm(x, peak), f"3_fizzle_{name}.ogg")
 
 
+# --- 4. Game start: 2-note horn, I -> V (Sean, 2026-11-23) --------------------
+
+def horn(freq, sec, bright=6.0, vib=0.003, release=0.08, seed=0):
+    """Additive brass: harmonics open up as the note swells (the 'blat'), a small
+    pitch scoop into the note, a touch of late vibrato on long notes."""
+    n = int(SR * sec)
+    t = np.arange(n) / SR
+    swell = np.minimum(1.0, t / 0.05)
+    b = 1.0 + (bright - 1.0) * (0.6 * swell + 0.4 * np.exp(-t / 0.12) * swell)
+    scoop = 1.0 - 0.02 * np.exp(-t / 0.025)
+    v = 1.0 + vib * np.sin(2 * np.pi * 5.2 * t) * np.clip((t - 0.25) / 0.2, 0, 1)
+    phase = 2 * np.pi * freq * np.cumsum(scoop * v) / SR
+    out = np.zeros(n)
+    for h in range(1, 16):
+        if freq * h > 9000:
+            break
+        out += np.sin(h * phase) / h * np.exp(-(h - 1) / b)
+    env = np.minimum(1.0, t / 0.03) * np.minimum(1.0, (sec - t) / release)
+    return out * env
+
+
+def two_note(f1, f2, n1=0.2, n2=0.75, **kw):
+    gap = np.zeros(int(SR * 0.02))
+    return np.concatenate([horn(f1, n1, release=0.03, **kw), gap, horn(f2, n2, release=0.25, **kw)])
+
+
+def build_game_start():
+    # A: French horn, mellow, C4 -> G4.
+    a = lp(two_note(261.63, 392.0, bright=4.0), 3500)
+    # B: trumpet call, brighter, C5 -> G5.
+    b = lp(two_note(523.25, 783.99, n1=0.16, n2=0.65, bright=7.0), 6000)
+    # C: horn section: C4 -> G4 with an octave above, slightly detuned, plus the
+    # press start's chorus + delay feel (a short room echo).
+    lo = two_note(261.63, 392.0, bright=4.5)
+    hi = two_note(523.25 * 1.003, 783.99 * 1.003, bright=5.0) * 0.45
+    c = lp(lo + hi, 4500)
+    c = snes(c, 120, 0.3, 0.22)
+    for name, x in {"A_french_horn": a, "B_trumpet": b, "C_horn_section": c}.items():
+        write_ogg(norm(x, 0.3), f"4_game_start_{name}.ogg")
+
+
 def main():
     fx.OUT_DIR = COMPARE_DIR
     os.makedirs(COMPARE_DIR, exist_ok=True)
@@ -296,6 +337,7 @@ def main():
     build_coin()
     build_fizzle()
     build_fizzle_soft()
+    build_game_start()
     print("wrote options to", fx.OUT_DIR)
 
 
