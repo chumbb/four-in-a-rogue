@@ -68,8 +68,8 @@ EXPRESSIONS = {  # asset name -> bust/raw_<source>.png
     "greeting": "greeting_c",
     # M6c playtest (Sean 2026-11-23): giggle when he blocks your two, sad (disappointed)
     # when you block his three; edit_image of idle, options bust/raw_giggle|sad_a|b|c.png
-    # (compare_giggle.png, compare_sad.png); Claude's picks, pending Sean.
-    "giggle": "giggle_b", "sad": "sad_a",
+    # (compare_giggle.png, compare_sad.png); Sean picked giggle A, sad B.
+    "giggle": "giggle_a", "sad": "sad_b",
 }
 GOOB_X = {"blue": 72, "red": 198}  # centre x in game px, either side of him on the pool
 CRACK_DARK, CRACK_LIT = hexc("2e222f"), hexc("c7dcd0")
