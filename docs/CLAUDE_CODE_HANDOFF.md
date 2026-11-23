@@ -26,7 +26,7 @@ claude
 - Canonical v0.1 rules: `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md`
 - Full GDD: `Projects/Four-in-a-Rogue/Design/GDD.md`
 - Decision log: `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`
-- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-20 Claude - M6b HUD pause options.md`
+- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-22 Claude - M6c AI animations reactions.md`
 - Vault agent rules: `GameDev/CLAUDE.md`
 
 **Conflict rule:** Obsidian vault wins over repo `CLAUDE.md` for game design.
@@ -63,9 +63,38 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **Art pass B** UI kit | Accepted and merged 2026-11-20 |
 | **Art pass C** Strange Man | Accepted and merged 2026-11-20 |
 | **M6a** Flow & screens | ✅ Accepted and merged 2026-11-20 |
-| **M6b** HUD, pause, options, speed | Built on `m6b-hud-pause-options` 2026-11-20, playtest pending |
+| **M6b** HUD, pause, options, speed | Accepted and merged 2026-11-21 |
+| **Art D1 / D2** Goob types | Accepted and merged 2026-11-21 |
+| **Specials design grill** | Confirmed 2026-11-22 (vault `Design/Special Goobs.md`) |
+| **M6c** AI, play anims, reactions | Built on `m6c-ai-animations-reactions`; playtest rounds 1–8 done, **in playtest** |
 
-### M6c (built 2026-11-22, branch `m6c-ai-animations-reactions`, waiting for Sean's playtest)
+### M6c (built 2026-11-22, branch `m6c-ai-animations-reactions`, in playtest)
+
+**Where we are (handoff 2026-11-22, after playtest 8):**
+
+- **Next change, not coded yet (Sean):** when either side blocks the other's two (a side-by-side pair, `OpponentAI.open_lines(board, side, 2, true)`), the portrait shows the **well played** face as a normal 1.5 s reaction "for now". This replaces the nod (`ScenarioHud.nod()`, commit `4d205bd`). Plan: `_reaction_for()` returns `&"well_played"` instead of `&"nod"`. Remove `nod()` / `_dip()` / `NOD_*` and the `_show_face` position/size reset if nothing else uses them. Update the two `m6c: ... nod` checks in `tests/test_scenario.gd`, CLAUDE.md §Layout (portrait expressions), the Decision-Log and the session log.
+- **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
+- **Playtest changes so far:**
+  - Drawn Goob's name shows above the board.
+  - End overlay: View board (review and inspect), then Show result.
+  - Hand Goobs react to the win or loss.
+  - GAME START banner with its own sound.
+  - Pixel end screen with a one-line 5× heading, window 252 px wide.
+  - Pause menu sits above the draw reveal.
+  - Button text uses pixel-bold Monogram.
+  - Portrait reactions play during the effect.
+  - Waiting face (b2, 8 s idle or the fuse).
+  - Greeting: he tips his beanie (`portrait_greeting`, option c) during GAME START.
+  - Blocked-two reaction (see above).
+- **Still for Sean to confirm before merging:**
+  - AI strength.
+  - Play flips.
+  - Win/lose lead-ins.
+  - Fast/Skip games.
+  - Judgment calls: the flip starts when the aim float appears; the think delay is often hidden under the red banner (offer: start it after the banner); the longer win sequence; the labels "View board" and "Show result".
+- **On acceptance:** merge into `main`, push, mark M6c accepted in CLAUDE.md, this file and the vault, then stop. M6d is next.
+
+**Code map:**
 
 - AI: `OpponentAI.choose_move(board, hand, deck_count, rng)` → {column, hand_index, blocking, close}; scores every (hand Goob, column) over `TurnLoop.effect_outcomes()` (static, same targets as `_resolve_effect`). `open_threes()` drives the happy/angry portrait. `choose_column()` kept for a plain hand.
 - Think delay: `OPPONENT_DELAY_SEC` 0.7 ± 0.2 (+0.4 blocking/close), own `_think_rng`; `opponent_delay_sec = 0` still means none (tests).
@@ -73,7 +102,8 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - Portrait: `ScenarioHud.set_base_face()` (idle/thinking), `react()`, `hold_face()`, `play_defeat(scale)` (await; emits `portrait_sound`).
 - Play flips: `show_preview(..., from_global)` flies the float up from the hand; `play_drop(..., from_behind)` raises the opponent's Goob inside the `BehindBoard` clip control.
 - Fuse: `FuseStrip` placed in `_layout_table()`; `_refresh_fuse()` each frame; loop player on the SFX bus (pauses with the tree).
-- Screenshots: `tests/capture_m6c.gd -- <dir>` (windowed).
+- Screenshots: `tests/capture_m6c.gd -- <dir>` and `tests/capture_end.gd -- <dir>` (end screens), windowed.
+- Portrait art: `python art/strange_man/make_strange_man.py c_pro3` (EXPRESSIONS maps names to `bust/raw_*.png`). End headings: `python art/ui/make_ui_kit.py`. Button font: `art/fonts/make_monogram_bold.py`.
 
 ### M6b (built 2026-11-20, branch `m6b-hud-pause-options`, waiting for Sean's playtest)
 
@@ -144,16 +174,16 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6c-ai-animations-reactions`, 866 checks)
+### Tests (all pass on `m6c-ai-animations-reactions`, 897 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 400 checks
+& $g --headless -s res://tests/test_scenario.gd    # 426 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
 & $g --headless -s res://tests/test_flow_m3.gd     # 182
-& $g --headless -s res://tests/test_opponent_ai.gd # 72
+& $g --headless -s res://tests/test_opponent_ai.gd # 77
 ```
 
 Known: `test_git_sync` "temp repos cleaned up" fails on this machine — pre-existing.
@@ -175,7 +205,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently M6b playtest, then Art D1) on a new branch; push it for Sean's playtest.
+3. Do the next item in CLAUDE.md §Milestones (currently the M6c playtest on `m6c-ai-animations-reactions`, see the M6c section here; then M6d) on a new branch; push it for Sean's playtest.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.
