@@ -42,6 +42,8 @@ func _initialize() -> void:
 	_test_deck_builder_main_pools()
 	_test_deck_builder_no_dupes_when_enough()
 	_test_start_rolls_per_side()
+	_test_fat_fills_destroyed_pile()
+	_test_discard()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -617,3 +619,26 @@ func _test_start_rolls_per_side() -> void:
 	t2.start(true, _seeded(9), mine, his)
 	_check(_composition(t2.player_goobs) == _composition(mine) and _composition(t2.opponent_goobs) == _composition(his), "rolls: passing both lists reproduces the compositions")
 	_check(t2.player_deck.hand.size() + t2.player_deck.draw_pile.size() == 21, "rolls: replay deck holds 21")
+
+
+func _test_fat_fills_destroyed_pile() -> void:
+	var t := _with_special(FAT)
+	t.play(5, 1) # player Vanilla (5,0)
+	t.play(4, 0) # opponent Vanilla (4,0)
+	t.play(3, 0) # Fat at (3,0): only neighbour is the opponent's (4,0)
+	_check(t.opponent_deck.destroyed_pile == [TurnLoop.VANILLA], "destroyed pile: opponent Vanilla")
+	_check(t.player_deck.destroyed_pile.is_empty(), "destroyed pile: player's stays empty")
+	_check(t.board.get_owner(4, 0) == O or t.board.get_owner(4, 0) == BoardState.CellOwner.EMPTY, "destroyed pile: cell cleared")
+
+
+func _test_discard() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(21), _vanilla())
+	var d := t.player_deck
+	var first := d.hand[0]
+	var size := d.hand.size()
+	_check(d.discard(0) == first, "discard: returns the Goob")
+	_check(d.discard_pile == [first] and d.hand.size() == size - 1, "discard: hand to pile")
+	_check(d.discard(9) == null and d.discard_pile.size() == 1 and d.hand.size() == size - 1, "discard: out of range changes nothing")
+	var g := t.discard_from(BoardState.CellOwner.PLAYER, 0)
+	_check(g != null and d.discard_pile.size() == 2, "discard_from: moves to the side's pile")

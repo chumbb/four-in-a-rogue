@@ -170,14 +170,7 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 				last_effect["fizzled"] = true
 				return
 			var target := targets[_rng.randi_range(0, targets.size() - 1)]
-			board.destroy_cell(target.x, target.y)
-			# Goobs above fall one row (BoardState.destroy_cell); move their defs too.
-			for r in range(target.y, BoardState.ROWS):
-				var above := Vector2i(target.x, r + 1)
-				if _cell_goobs.has(above):
-					_cell_goobs[Vector2i(target.x, r)] = _cell_goobs[above]
-				else:
-					_cell_goobs.erase(Vector2i(target.x, r))
+			destroy_at(target)
 			last_effect["target"] = target
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
 			var open := open_columns(board)
@@ -196,6 +189,32 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			last_effect["hand_full"] = hand_full
 			# Nothing drawn and not a full hand = an empty deck: fizzle.
 			last_effect["fizzled"] = drawn.is_empty() and not hand_full
+
+
+## Destroys the Goob at `cell`: it goes to the destroyed pile of the side that
+## owned it, and the Goobs above fall one row (BoardState.destroy_cell).
+func destroy_at(cell: Vector2i) -> void:
+	var owner := board.get_owner(cell.x, cell.y)
+	var goob: GoobDefinition = _cell_goobs.get(cell)
+	board.destroy_cell(cell.x, cell.y)
+	if goob != null and owner != BoardState.CellOwner.EMPTY:
+		deck_of(owner).destroyed_pile.append(goob)
+	_collapse_goobs(cell.x, cell.y)
+
+
+## Moves the cell Goob definitions above `from_row` in `column` down one row.
+func _collapse_goobs(column: int, from_row: int) -> void:
+	for r in range(from_row, BoardState.ROWS):
+		var above := Vector2i(column, r + 1)
+		if _cell_goobs.has(above):
+			_cell_goobs[Vector2i(column, r)] = _cell_goobs[above]
+		else:
+			_cell_goobs.erase(Vector2i(column, r))
+
+
+## Discards `side`'s hand Goob at `index`; returns it (null if out of range).
+func discard_from(side: BoardState.CellOwner, index: int) -> GoobDefinition:
+	return deck_of(side).discard(index)
 
 
 ## Occupied neighbours of `cell` on `board` (8-way). `only` = that side's
