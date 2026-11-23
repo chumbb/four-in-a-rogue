@@ -2020,8 +2020,11 @@ func _test_debug_discard_player_guards() -> void:
 	loop.player_deck.hand.assign(one)
 	_hand_view(scenario).rebuild(loop.player_deck.hand)
 	await scenario.debug_discard_random(P)
-	_check(loop.player_deck.hand.size() == 1 and loop.player_deck.discard_pile.is_empty(), "discard guard: your last Goob stays")
-	_check(scenario._toast._label.text == "Not now", "discard guard: toasts Not now")
+	# Sean (2026-11-23): losing your last Goob is fine; this turn is skipped.
+	_check(loop.player_deck.hand.is_empty() and loop.player_deck.discard_pile.size() == 1, "discard last: your last Goob is discarded")
+	_check(scenario._toast._label.text == "Turn skipped", "discard last: toasts Turn skipped")
+	_check(loop.phase == TurnLoop.Phase.OPPONENT_TURN and loop.last_skipped == [P], "discard last: the turn passes to the opponent")
+	_check(not scenario._input_enabled and scenario._turn_timer.is_stopped(), "discard last: input locked, timer stopped")
 	await _free(scenario)
 	scenario = await _make(5.0, true, 0.2)
 	scenario.timeout_reveal_sec = 0.4

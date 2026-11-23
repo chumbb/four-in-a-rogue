@@ -25,7 +25,7 @@ The category sessions should each only have to add Goob resources plus their eff
 6. **Delayed and on-board effects.**
    - TurnLoop keeps `statuses: Array[Dictionary]` (`id`, `side`, `label`, `text`, `turns_left` or −1 for "while on the board"), with turn-start and turn-end hooks where later sessions plug in.
    - The HUD–board gap shows one text pill per status: blue = yours, red = his. Tapping a pill shows its text as a toast.
-7. **Shared roll rule.** `TurnLoop.roll_goob(cell, dir) -> Array[Vector2i]` (the path) moves a Goob sideways while the next column is lower, letting it fall into each column. It stops at the border or at a column of equal or greater height, and never leaves the board. The Goobs above the old cell fall. Logic + unit tests only; the move session adds the animation.
+7. **Shared roll rule.** `TurnLoop.roll_goob(cell, dir) -> Array[Vector2i]` (the path) moves a Goob sideways while the cell beside it in the next column is free, falling to the top of that column; a column level with it or higher, or the edge, stops it, so on the floor or a flat top it rolls on to the next Goob or the edge (Sean, 2026-11-23); never off the board. The Goobs above the old cell fall. Logic + unit tests only; the move session adds the animation.
 8. **Discard reveal.** `_show_discard(goob, side)` in the scenario:
    - the Goob pops up big in the centre, using the drawn-Goob reveal motion;
    - its name shows in the gap for ~1.2 s;

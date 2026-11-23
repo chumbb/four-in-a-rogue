@@ -50,6 +50,9 @@ var opponent_goobs: Array[GoobDefinition] = []
 ## drawn), and whether it was skipped because the hand was full.
 var last_draw: Array[GoobDefinition] = []
 var last_draw_hand_full := false
+## Sides whose turn was skipped (empty hand) in the latest turn change, in
+## order, for the view's "Turn skipped" toast.
+var last_skipped: Array[BoardState.CellOwner] = []
 
 ## What the last play's special effect did (M5), for the view:
 ##   kind: GoobDefinition.EffectType of the played Goob
@@ -366,9 +369,11 @@ func scoring_cells(side: BoardState.CellOwner) -> Array[Vector2i]:
 
 ## Gives the turn to `next` if that side has Goobs, else back to the other
 ## side; if neither has any, the scenario is a draw. Then the turn's draw.
-func _begin_turn(next: Phase) -> void:
+func _begin_turn(next: Phase, skips := 0) -> void:
 	last_draw = []
 	last_draw_hand_full = false
+	if skips == 0:
+		last_skipped = []
 	var other := Phase.OPPONENT_TURN if next == Phase.PLAYER_TURN else Phase.PLAYER_TURN
 	if _deck_for_phase(next).has_goobs():
 		phase = next
@@ -384,8 +389,33 @@ func _begin_turn(next: Phase) -> void:
 				statuses.remove_at(i)
 	_on_turn_start(current_side())
 	var deck := current_deck()
-	last_draw_hand_full = deck.draw_blocked_by_hand(TURN_DRAW)
-	last_draw = deck.draw(TURN_DRAW)
+	var count := _turn_draw_count(current_side())
+	last_draw_hand_full = deck.draw_blocked_by_hand(count)
+	last_draw = deck.draw(count)
+	# Nothing in hand after the draw (a discard plus a prevented draw): the
+	# turn is skipped (Sean, 2026-11-23). Both sides in a row = stalemate.
+	if deck.hand.is_empty():
+		last_skipped.append(current_side())
+		if skips >= 1:
+			_finish(Result.DRAW)
+		else:
+			_begin_turn(other if phase == next else next, skips + 1)
+
+
+## How many Goobs `side` draws at its turn start. Draw effects (M6e draw
+## session) change this.
+func _turn_draw_count(_side: BoardState.CellOwner) -> int:
+	return TURN_DRAW
+
+
+## The current side's hand ran out during its own turn (e.g. its last Goob was
+## discarded): its turn is skipped and the other side's begins.
+func skip_turn() -> void:
+	if phase == Phase.OVER:
+		return
+	var side := current_side()
+	_begin_turn(Phase.OPPONENT_TURN if phase == Phase.PLAYER_TURN else Phase.PLAYER_TURN)
+	last_skipped.push_front(side)
 
 
 func _deck_for_phase(p: Phase) -> Deck:

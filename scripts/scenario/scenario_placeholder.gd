@@ -39,6 +39,8 @@ const TIMEOUT_REVEAL_SEC := 0.7
 const MSG_TIMES_UP := "Time's up!"
 const MSG_HAND_FULL := "Hand full"
 const MSG_NOT_NOW := "Not now" # debug give / discard while your hand is moving
+const MSG_TURN_SKIPPED := "Turn skipped" # your hand is empty (Sean, 2026-11-23)
+const MSG_OPPONENT_SKIPPED := "Opponent's turn skipped"
 ## Forest hand prop (assets/hand/forest_stump.png), in its game px: the row the
 ## hand Goobs' bottoms rest on, and the usable width of its top.
 const STUMP_SEAT_Y := 34.0
@@ -393,7 +395,7 @@ func debug_give(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
 func debug_discard_random(side: BoardState.CellOwner) -> void:
 	var replan := false
 	if side == BoardState.CellOwner.PLAYER:
-		if not _hand_stable() or _loop.player_deck.hand.size() <= 1:
+		if not _hand_stable():
 			_show_not_now()
 			return
 		replan = not _autoplay_timer.is_stopped()
@@ -411,7 +413,14 @@ func debug_discard_random(side: BoardState.CellOwner) -> void:
 		_end_touch()
 	var goob := _loop.discard_from(side, index)
 	await _show_discard(goob, side, index)
-	if replan and is_inside_tree() and GameFlow.autoplay and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+	if not is_inside_tree() or _loop.phase != TurnLoop.Phase.PLAYER_TURN or side != BoardState.CellOwner.PLAYER:
+		return
+	if _loop.player_deck.hand.is_empty():
+		# Your last Goob is gone: this turn is skipped (you draw next turn).
+		_set_input_enabled(false)
+		_loop.skip_turn()
+		_after_play()
+	elif replan and GameFlow.autoplay:
 		_run_autoplay_turn() # auto-play re-plans with the new hand
 
 
@@ -1106,6 +1115,8 @@ func _roll_path(column: int, rightward: bool) -> Array[int]:
 
 
 func _after_play() -> void:
+	for side in _loop.last_skipped:
+		_toast.show_message(MSG_TURN_SKIPPED if side == BoardState.CellOwner.PLAYER else MSG_OPPONENT_SKIPPED)
 	match _loop.phase:
 		TurnLoop.Phase.OVER:
 			_show_end()

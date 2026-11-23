@@ -53,6 +53,9 @@ func _initialize() -> void:
 	_test_roll_middle()
 	_test_roll_floor_stays()
 	_test_roll_empty_cell()
+	_test_skip_turn_mid_turn()
+	_test_turn_start_skip_empty_hand()
+	_test_both_skip_is_stalemate()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -779,3 +782,45 @@ func _test_roll_empty_cell() -> void:
 			if t.board.get_owner(column, row) != BoardState.CellOwner.EMPTY:
 				count += 1
 	_check(count == 1, "roll empty: board unchanged (got %d Goobs)" % count)
+
+
+## Sean (2026-11-23): losing your last Goob is fine (you draw next turn); with
+## no Goob in hand after the draw, the turn is skipped.
+class NoDrawLoop extends TurnLoop:
+	var no_draw: Array = []
+	func _turn_draw_count(side: BoardState.CellOwner) -> int:
+		return 0 if no_draw.has(side) else TURN_DRAW
+
+
+func _test_skip_turn_mid_turn() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(40), _vanilla())
+	while not t.player_deck.hand.is_empty():
+		t.discard_from(P, 0)
+	t.skip_turn()
+	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN, "skip mid-turn: opponent's turn")
+	_check(t.last_skipped == [P], "skip mid-turn: player recorded")
+	t.play(0)
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN and t.player_deck.hand.size() == 1 and t.last_skipped.is_empty(), "skip mid-turn: next turn draws 1")
+
+
+func _test_turn_start_skip_empty_hand() -> void:
+	var t := NoDrawLoop.new()
+	t.start(true, _seeded(41), _vanilla())
+	t.opponent_deck.hand.clear()
+	t.no_draw = [O]
+	t.play(0)
+	_check(t.last_skipped == [O], "skip at turn start: opponent skipped")
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN and t.result == TurnLoop.Result.NONE, "skip at turn start: back to the player")
+
+
+func _test_both_skip_is_stalemate() -> void:
+	var t := NoDrawLoop.new()
+	t.start(true, _seeded(42), _vanilla())
+	t.opponent_deck.hand.clear()
+	var only: Array[GoobDefinition] = [TurnLoop.VANILLA]
+	t.player_deck.hand.assign(only)
+	t.no_draw = [P, O]
+	t.play(0)
+	_check(t.last_skipped == [O, P], "both skip: both recorded")
+	_check(t.result == TurnLoop.Result.DRAW and t.phase == TurnLoop.Phase.OVER, "both skip: stalemate draw")
