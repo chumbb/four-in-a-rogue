@@ -692,9 +692,13 @@ func _play_selected(column: int) -> void:
 
 
 ## `roll_path`: the timeout roll over full columns (see _roll_path()).
-func _play_player(column: int, hand_index: int, roll_path: Array[int] = []) -> int:
+## `in_fan`: false when the card already left the fan (the timeout removes it
+## as "Time's up!" shows; removing it again dropped the next card from the
+## fan, so taps played the wrong Goob from then on: Sean, M6c playtest).
+func _play_player(column: int, hand_index: int, roll_path: Array[int] = [], in_fan := true) -> int:
 	_set_input_enabled(false) # locked until the drop finishes
-	_hand.remove(hand_index)
+	if in_fan:
+		_hand.remove(hand_index)
 	var goob: GoobDefinition = _loop.player_deck.hand[hand_index]
 	_board_before = _loop.board.copy()
 	var row := _loop.play(column, hand_index)
@@ -850,7 +854,7 @@ func _on_turn_timeout() -> void:
 
 func _finish_timeout() -> void:
 	_hide_aim()
-	_play_player(_timeout_column, _timeout_hand_index, _timeout_path)
+	_play_player(_timeout_column, _timeout_hand_index, _timeout_path, false)
 
 
 ## Columns a Goob played into full `column` rolls over before it falls, for

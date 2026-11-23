@@ -416,6 +416,9 @@ func _test_timeout_random() -> void:
 	await create_timer(0.35).timeout
 	_check(_count(board, P) == 1, "timeout with no touch plays a Goob")
 	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "turn passes after timeout")
+	# Sean's bug (M6c playtest): after a timeout the fan must still match the
+	# hand, or tapping one Goob plays another.
+	_check(scenario._hand.count() == scenario._loop.player_deck.hand.size(), "timeout keeps the fan in step with the hand (fan %d, hand %d)" % [scenario._hand.count(), scenario._loop.player_deck.hand.size()])
 	await _free(scenario)
 
 
@@ -424,6 +427,7 @@ func _test_timeout_is_obvious() -> void:
 	_flow().player_moves_first = true
 	var scenario: Control = load(SCENE).instantiate()
 	scenario.animate_drops = false
+	scenario.deck = _vanilla_deck() # a timed-out Popular would add a second Goob (was flaky)
 	scenario.opponent_delay_sec = 5.0
 	scenario.turn_seconds = 0.2
 	scenario.timeout_reveal_sec = 0.4
@@ -1196,6 +1200,19 @@ func _test_timeout_plays_selected() -> void:
 			played = scenario._loop.goob_at(column, 0)
 	_check(played == chosen, "timeout plays the selected Goob")
 	_check(_hand_view(scenario).count() == 2, "timeout Goob left the fan")
+	await _free(scenario)
+	# Same with the first Goob selected: only that card leaves the fan and the
+	# rest stay in step with the hand (Sean's bug, M6c playtest: tapping one
+	# Goob played another after a timeout).
+	scenario = await _make(5.0, true, 0.0, 0.2)
+	_select_hand(scenario, 0)
+	await create_timer(0.35).timeout
+	var fan := _hand_view(scenario)
+	var hand: Array[GoobDefinition] = scenario._loop.player_deck.hand
+	var in_step := fan.count() == hand.size()
+	for i in mini(fan.count(), hand.size()):
+		in_step = in_step and fan._cards[i].get_meta(&"goob", null) == hand[i]
+	_check(in_step, "timeout on the first Goob keeps the fan in step (fan %d, hand %d)" % [fan.count(), hand.size()])
 	await _free(scenario)
 
 
