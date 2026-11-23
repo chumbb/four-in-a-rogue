@@ -35,18 +35,18 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Art pass B, Art pass C and M6a accepted and merged (2026-11-20). M6b built on `m6b-hud-pause-options`, playtest pending.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6c is accepted and merged (M6c on 2026-11-23). Next: M6d, then M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
 | 1 | **Art pass B** — UI kit ✅ | 9-slice pixel panels (HUD, dialogue box, buttons, toast, inspect, end banner, pause/options, scrim), Options widgets, pause + speaker icons, pixel logo, fuse strip art, vignette; approved as one mock set | — |
 | 2 | **Art pass C** — Strange Man ✅ | Full body ~96×160 + light pool (stop for Sean's OK) per the brief in `CLAUDE.md`; two painted intro Goobs (red flat, face up); HUD bust portrait drawn separately × 7 expressions; crack/explode frames | — |
 | 3 | **M6a** — Flow & screens ✅ | 0.3 s fades; title (logo, idle Goobs, Tap to start, Options); Strange Man 5-page intro with Skip + Goob pop-in; **coin flip rebuilt** (swipe up, 50/50, winner-colour flash + banner, draw replay over the forest) | B, C |
-| 4 | **M6b** — HUD, pause, options, speed ← **built, playtest pending** | Pixel HUD + Pause (replaces Quit) with scrim + Quit confirm; Options panel + persisted settings + audio buses; Normal/Fast/Skip everywhere; haptics; turn banners | B |
-| 5 | **Art pass D1** — Goob type sheets | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
-| 6 | **Art pass D2** — Goob production | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
-| 7 | **M6c** — AI, play anims, reactions | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
-| 8 | **M6d** — Sound + smoke | Remaining sounds + ambience, audio rules; A1–A10 smoke, known gaps | all |
+| 4 | **M6b** — HUD, pause, options, speed ✅ | Pixel HUD + Pause (replaces Quit) with scrim + Quit confirm; Options panel + persisted settings + audio buses; Normal/Fast (Skip removed in M6c); haptics; turn banners | B |
+| 5 | **Art pass D1** — Goob type sheets ✅ | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
+| 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
+| 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
+| 8 | **M6d** — Sound + smoke ← **next** | Remaining sounds + ambience, audio rules; A1–A10 smoke, known gaps | all |
 | 9 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
 After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placeholders).
@@ -68,54 +68,92 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **Specials design grill** | Confirmed 2026-11-22 (vault `Design/Special Goobs.md`) |
 | **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
 
-### M6c (accepted by Sean and merged to `main` 2026-11-23)
+### Next: M6d — sound completion + smoke test
 
-**History (playtests 1–18):**
+Scope (CLAUDE.md §M6d, vault slice §2B "Sound"):
+- **Remaining sound events.** Compare the vault §2B Sound table with `scripts/audio/sfx.gd` (49 sounds wired).
+- **Forest ambience loop.** Quiet, on the SFX bus, during the coin flip and the scenario; ducks about 30 % on pause. Not built yet: nothing in `scripts/` mentions ambience.
+- **Audio rules.**
+  - Fast = sounds sooner, normal pitch.
+  - Pause = SFX stop, including the fuse loop (already pauses with the tree).
+  - Each sound plays at most once per frame.
+  - Opponent sounds about 10 % lower; ±5 % random pitch on repeats.
+  - Skip no longer exists, so its "result sounds only" rule is gone.
+- **Mobile audio.** Ambient audio category (respects the silent switch, the player's music keeps playing); pause in the background.
+- **Smoke A1–A10** on desktop; document known gaps.
+- **Sound tooling.** Synthesised sounds come from `art/audio/make_*_sounds.py` (numpy + ffmpeg; helpers in `make_effect_sounds.py`). CC0 packs are credited in `assets/audio/CREDITS.md`.
+- **Gotcha:** rerunning a sound script re-encodes every ogg it writes. Restore the files you didn't mean to change with `git checkout`.
 
-- **Blocked two (done, Sean "for now"):** when either side blocks the other's two (a side-by-side pair, `OpponentAI.open_lines(board, side, 2, true)`), the portrait shows the **well played** face as a normal 1.5 s reaction. This replaced the nod (`4d205bd`, removed).
-- **Playtest 10 (Sean, done):** AI strength is fun (retest once all effects exist); win sequence OK; **Vanilla flips vertically** (`GoobDefinition.flips_vertically` + `flip_frames()`, pitch frames); **scoring**: each Goob flips to its back (`BoardView2D.flip_cell()`), its multiplier shows there then floats up into the gap, total in the gap (`gap_center()`); **all toasts in the gap** (`_place_toast()`). End buttons per Sean: "View board" / "Back to title". Screenshots: `tests/capture_scoring.gd -- <dir>`.
-- **Playtest 11 (Sean), built:** Fast + Skip work. (1) **Remove Skip** from the game (Options shows Normal / Fast; a saved Skip loads as Normal). (2) **Aim ghost:** while aiming with a Goob selected, a *faint* copy floats over the column, arriving with a **horizontal** (yaw) flip; when the column is chosen the faint copy disappears and the real Goob **flips into place vertically** (pitch) on top of the board, then drops. All types. (3) **Think delay starts after** the red opponent banner (`_run_opponent_turn` awaits the banner). Code: `BoardView2D.GHOST_ALPHA`, `_flip_in()`, `play_drop(..., flip_in)`, `GoobDefinition.pitch_frames()`; the opponent's rise from behind also uses pitch frames. Next: Sean playtests the ghost + flips; then merge.
-- **Playtest 12 (Sean):** think timing and Options OK. Rest after a flip into place shortened (`BoardView2D.FLIPPED_PAUSE_SEC` 0.06, was the 0.2 `TOP_PAUSE_SEC`; plain drops keep 0.2). Auto-flip coin: no swipe arrow.
-- **Playtest 13 (Sean):** the player's Goob **drops from the ghost** (no flip-in; `_flip_in` removed); the opponent's still **flips into place** from behind the board (pitch frames). Rest before the drop = `BoardView2D.PLAY_PAUSE_SEC` 0.1 s for both (plain drops keep `TOP_PAUSE_SEC` 0.2).
-- **Playtest 14 (Sean):** player's Goob rests the usual 0.2 s (`TOP_PAUSE_SEC`) after replacing the ghost; opponent's flip into place + rest = 0.2 s (`OPPONENT_PLAY_SEC`: rise 0.12 + settle 0.05 + rest 0.03). `PLAY_PAUSE_SEC` removed.
-- **Playtest 15 (Sean):** player drop at 0.2 s accepted. Opponent: back to the full flip up from behind (rise 0.22 + settle 0.1), **then** the 0.2 s rest (`TOP_PAUSE_SEC` for every played Goob; `OPPONENT_PLAY_SEC` removed).
-- **Playtest 16 (Sean): snappier scoring.** Recognition 1.0 → 0.7 s; per Goob ~0.85 → ~0.55 s (flip frames 0.06 → 0.04 `SCORE_FLIP_FRAME_SEC`, show 0.25 → 0.15, float 0.3 → 0.2, step 0.6 → 0.4); pause 0.4 → 0.25; collapse 0.3 → 0.25; total hold 1.0 unchanged. A four now scores in ~4.4 s instead of ~6 (incl. the 1 s hold on the total).
-- **Playtest 17 (Sean):** scoring timing accepted. Bug fixed: Convincing's target showed the new colour during the wind-up (`play_flip` set `_token_owner` at the start, so the face player repainted it). The owner now changes when the spin starts; the colour turns edge-on mid-spin. Test `_test_convincing_flip_colour`.
-- **Playtest 18 (Sean):** Convincing fix OK. Reactions: you block his two → well played; he blocks yours → **giggle** (Sean swapped: giggle = the old happy face, happy = giggle option A); you block his three → **sad** (new `portrait_sad`, option B (Sean); was angry); angry only when your effect hits him. Options in `art/strange_man/compare_giggle.png` / `compare_sad.png`.
-- **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
-- **Playtest changes so far:**
-  - Drawn Goob's name shows above the board.
-  - End overlay: View board (review and inspect), then Show result.
-  - Hand Goobs react to the win or loss.
-  - GAME START banner with its own sound.
-  - Pixel end screen with a one-line 5× heading, window 252 px wide.
+### M6c (accepted by Sean and merged to `main` 2026-11-23; 18 playtest rounds + one post-merge fix)
+
+Full round-by-round history: vault session log `2026-11-22 Claude - M6c AI animations reactions.md` and the Decision-Log.
+
+**What it ended up as:**
+- **AI.** A fair teacher: always the strongest play, looks one move ahead, simulates effects over every outcome, ties go to Vanilla. Think delay 0.7 ± 0.2 s (+0.4 s on a block or close call), starting **after** the red "Opponent's turn" banner.
+- **Play.**
+  - While aiming, a **faint ghost** (`BoardView2D.GHOST_ALPHA` 0.45) flips in sideways from the hand over the column.
+  - On commit, your Goob replaces the ghost, rests 0.2 s (`TOP_PAUSE_SEC`) and drops.
+  - His Goob flips end over end up from behind the board (pitch frames; rise 0.22 s + settle 0.1 s), rests 0.2 s, then drops.
+  - Vanilla flips vertically everywhere (`GoobDefinition.flips_vertically`, `flip_frames()`; `pitch_frames()` for every type).
+- **Scoring** (snappier, about 4.4 s for a four):
+  - Gold recognition hop.
+  - Each Goob flips to its back (`BoardView2D.flip_cell()`) and shows its multiplier there.
+  - The multiplier floats up into the **gap between the HUD and the board** (`gap_center()`).
+  - The multipliers collapse into the total, which stays in the gap.
+- **All text notifications are in that gap:** toasts ("Time's up!", "Column full", "Hand full"), turn banners, GAME START, and the drawn Goob's name.
+- **Portrait faces** (`ScenarioHud.PORTRAITS`; art from `make_strange_man.py` `EXPRESSIONS`):
+
+  | Face | When |
+  |---|---|
+  | idle | base |
+  | greeting (tips his beanie) | GAME START |
+  | thinking | his delay |
+  | waiting (raised brow) | 8 s idle, or the fuse |
+  | happy (old giggle A) | he makes a three / his effect hits you |
+  | giggle (old happy) | he blocks your two |
+  | well played | you block his two; your win |
+  | sad | you block his three |
+  | angry | your effect hits him; a chain hands you the win (`_defeat_face()`) |
+  | surprised | a chain or a timeout roll |
+  | celebrating | his win |
+
+  After well played or angry, the bust cracks and explodes. Reactions (`react()`) play during the effect.
+- **Goob faces:** giggle when selected / ghost / falling; worried while the fuse burns; surprised when flipped or knocked down; happy / sad / celebrating in the lead-in.
+- **End screen** (`scripts/ui/end_screen.gd`):
+  - Pixel window, 252 px wide, with a one-line 5× heading.
+  - Buttons: **View board** / **Back to title** (Replay on a draw).
+  - View board lets you review and inspect the board; **Show result** brings the window back.
+- **Other:**
+  - **Skip removed** (Normal / Fast; a saved Skip loads as Normal).
+  - Pixel-bold button font.
   - Pause menu sits above the draw reveal.
-  - Button text uses pixel-bold Monogram.
-  - Portrait reactions play during the effect.
-  - Waiting face (b2, 8 s idle or the fuse).
-  - Greeting: he tips his beanie (`portrait_greeting`, option c) during GAME START.
-  - Blocked-two reaction (see above).
-- **Post-merge fix (branch `m6c-chain-loss-angry`, merged 2026-11-23):** when a chain (Fat's destroy making Goobs fall) hands you the win, he is **angry** instead of "well played" in the lead-in and before the crack (`_defeat_face()`, `play_defeat(scale, face)`).
-- **Accepted 2026-11-23:** Sean said "merge m6c to main". Next session: M6d.
+  - No swipe arrow when the coin auto-flips.
+- **Bugs fixed:** a timeout removed two cards from the fan (wrong Goob played later); Convincing's target showed the new colour before flipping.
 
 **Code map:**
+- **AI:** `OpponentAI.choose_move(board, hand, deck_count, rng)` → {column, hand_index, blocking, close}. `open_threes()` / `open_lines(board, side, n, touching)` drive the reactions; `TurnLoop.effect_outcomes()` shares the effect targets.
+- **Reactions:** `_reaction_for()`, `_chained()`, `_defeat_face()`, `_lead_in()`.
+- **Portrait:** `set_base_face()`, `react()`, `hold_face()`, `play_defeat(scale, face)`.
+- **Faces:** `BoardView2D.set_face()` / `set_side_face()` / `face_at()`; token meta `face` / `busy` (spins set `busy`). Tests compare art with `shows_goob()` and `shows_back()`.
+- **Play:** `show_preview(..., from_global)` + `_fly_preview()` (ghost); `play_drop(..., from_behind)` + `_rise_from_behind()`.
+- **Fuse:** `FuseStrip`, placed in `_layout_table()`.
+- **Screenshot tools** (windowed):
+  - `tests/capture_m6c.gd -- <dir>`
+  - `tests/capture_end.gd -- <dir>`
+  - `tests/capture_scoring.gd -- <dir>`
+- **Art builds:**
+  - Portraits: `python art/strange_man/make_strange_man.py c_pro3`.
+  - End headings: `python art/ui/make_ui_kit.py`.
+  - Button font: `python art/fonts/make_monogram_bold.py`.
+  - Sounds: `python art/audio/make_reaction_sounds.py`.
 
-- AI: `OpponentAI.choose_move(board, hand, deck_count, rng)` → {column, hand_index, blocking, close}; scores every (hand Goob, column) over `TurnLoop.effect_outcomes()` (static, same targets as `_resolve_effect`). `open_threes()` drives the happy/angry portrait. `choose_column()` kept for a plain hand.
-- Think delay: `OPPONENT_DELAY_SEC` 0.7 ± 0.2 (+0.4 blocking/close), own `_think_rng`; `opponent_delay_sec = 0` still means none (tests).
-- Faces: `BoardView2D` plays expression loops on every token (`set_face`, `set_side_face`, `face_at`; token meta `face` / `busy` — spins set `busy` so the face player leaves the texture alone). `GoobDefinition.face_frame()` reads the baked SpriteFrames durations. Tests compare art with `BoardView2D.shows_goob()` (textures are loop frames now). `HandView.set_worried()`, `face_of()`, `card_center()`.
-- Portrait: `ScenarioHud.set_base_face()` (idle/thinking), `react()`, `hold_face()`, `play_defeat(scale)` (await; emits `portrait_sound`).
-- Play flips: `show_preview(..., from_global)` flies the float up from the hand; `play_drop(..., from_behind)` raises the opponent's Goob inside the `BehindBoard` clip control.
-- Fuse: `FuseStrip` placed in `_layout_table()`; `_refresh_fuse()` each frame; loop player on the SFX bus (pauses with the tree).
-- Screenshots: `tests/capture_m6c.gd -- <dir>` and `tests/capture_end.gd -- <dir>` (end screens), windowed.
-- Portrait art: `python art/strange_man/make_strange_man.py c_pro3` (EXPRESSIONS maps names to `bust/raw_*.png`). End headings: `python art/ui/make_ui_kit.py`. Button font: `art/fonts/make_monogram_bold.py`.
+### M6b (accepted by Sean and merged to `main` 2026-11-21)
 
-### M6b (built 2026-11-20, branch `m6b-hud-pause-options`, waiting for Sean's playtest)
-
-- `Settings` autoload (`scripts/core/settings.gd`): `speed` (Normal/Fast/Skip), `haptics`, `screen_shake`, `auto_flip`, `volume` / `muted` per bus; setters save `user://settings.cfg` and emit `changed`. `anim_sec()`, `anim_scale()`, `is_skip()`, `vibrate()`. Tests set `Settings.path = "user://test_settings.cfg"` then `reset()`, so they never touch the player's file.
+- `Settings` autoload (`scripts/core/settings.gd`): `speed` (Normal/Fast; Skip removed in M6c), `haptics`, `screen_shake`, `auto_flip`, `volume` / `muted` per bus; setters save `user://settings.cfg` and emit `changed`. `anim_sec()`, `anim_scale()`, `vibrate()`. Tests set `Settings.path = "user://test_settings.cfg"` then `reset()`, so they never touch the player's file.
 - **Gotcha:** autoload names (`Settings`, `GameFlow`) are not compile-time identifiers when a `-s` test script compiles a class it names (e.g. `BoardView2D`). Keep autoload references out of class_name scripts that tests type against (the board gets `shake_enabled` from the scenario instead), and leave `PauseMenu` / `OptionsPanel` untyped in tests.
 - `ScenarioHud` (`scripts/ui/scenario_hud.gd`): own `PixelStage`; `set_seconds()`, `set_timer("—")`, `show_turn_banner(player, sec)`, `bottom()` (the scenario sizes `%HudSlot` from it), `set_banner_band(top, bottom)` (banners centred between HUD and board). Playtest 1: emblem inside the block, no Objective heading, scenario "1", whoosh `turn_whoosh.ogg`.
 - `PauseMenu` pauses the tree (it and its `OptionsPanel` are `PROCESS_MODE_ALWAYS`); scenario timers, tweens and sounds pause with it.
-- Speed: `BoardView2D.speed_scale` / `HandView.speed_scale` (Fast = 2) on play tweens via `_tween()`; Skip = `animate = false` (same path tests use), and the board then emits only impact sounds.
+- Speed: `BoardView2D.speed_scale` / `HandView.speed_scale` (Fast = 2) on play tweens via `_tween()`; `animate = false` is now only the tests' path (Skip removed in M6c).
 - **Gotcha:** set a Button's size after it gets the pixel theme. Built before entering the tree, it measures the default font and grows (the Options speed segments are re-sized in `_layout`).
 - Dev screenshots: `tests/capture_m6b.gd -- <dir> [w h [insets]]` (windowed).
 - Sounds: `python art/audio/make_menu_sounds.py`. Ribbons: `make_ui_kit.py` (`ribbon()`).
@@ -178,7 +216,7 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `main` after the M6c merge, 908 checks)
+### Tests (all pass on `main`, 908 checks, 2026-11-23)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
@@ -199,6 +237,10 @@ Known: `test_git_sync` "temp repos cleaned up" fails on this machine — pre-exi
 - Animated scenario tests must wait for the opening draw reveal before input unlocks (`_wait_input`).
 - `.import` files are not tracked; replacing an asset keeps its path.
 - Obsidian MCP can fail right after Obsidian starts; retry, or write the vault files on disk.
+- **Running `--headless --editor --quit` rewrites `project.godot`.** It drops the lines that restate defaults and reorders keys. Run `git checkout -- project.godot` afterwards, and stage files by name, never with `git add -u`. In M6c a rewrite was committed by mistake and then restored.
+- **Autoload names in `-s` test scripts:** don't name `Settings` or `GameFlow` or the classes that use them (e.g. `OptionsPanel`) as types in tests. Use `_settings()` / `load()` at runtime.
+- **Art versions are Sean's pick:** show the comparison sheet and wait. Never wire in, commit or push your own choice.
+- **Fixes after a merge** go on a short branch (e.g. `m6c-chain-loss-angry`) for Sean to check, then get merged.
 
 ---
 
@@ -241,4 +283,4 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 
 ---
 
-*Last updated: 2026-11-19 (Art pass A accepted and merged; next the writing session)*
+*Last updated: 2026-11-23 (M6c accepted and merged, plus the chain-loss fix; next = M6d)*
