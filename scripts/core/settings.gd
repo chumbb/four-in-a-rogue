@@ -22,6 +22,8 @@ var speed := Speed.NORMAL
 var haptics := true
 var screen_shake := true
 var auto_flip := false
+## Debug builds: the HUD's auto-play button (M6e; default On).
+var autoplay_button := true
 var volume: Dictionary = DEFAULT_VOLUME.duplicate()
 var muted: Dictionary = {&"Master": false, &"Music": false, &"SFX": false}
 ## Tests point this at a scratch file so they never touch the player's settings.
@@ -40,6 +42,7 @@ func load_file() -> void:
 		haptics = bool(cfg.get_value("play", "haptics", true))
 		screen_shake = bool(cfg.get_value("play", "screen_shake", true))
 		auto_flip = bool(cfg.get_value("play", "auto_flip", false))
+		autoplay_button = bool(cfg.get_value("play", "autoplay_button", true))
 		for bus in BUSES:
 			volume[bus] = clampf(float(cfg.get_value("audio", "%s_volume" % bus, DEFAULT_VOLUME[bus])), 0.0, 1.0)
 			muted[bus] = bool(cfg.get_value("audio", "%s_muted" % bus, false))
@@ -52,6 +55,7 @@ func save_file() -> void:
 	cfg.set_value("play", "haptics", haptics)
 	cfg.set_value("play", "screen_shake", screen_shake)
 	cfg.set_value("play", "auto_flip", auto_flip)
+	cfg.set_value("play", "autoplay_button", autoplay_button)
 	for bus in BUSES:
 		cfg.set_value("audio", "%s_volume" % bus, volume[bus])
 		cfg.set_value("audio", "%s_muted" % bus, muted[bus])
@@ -64,6 +68,7 @@ func reset() -> void:
 	haptics = true
 	screen_shake = true
 	auto_flip = false
+	autoplay_button = true
 	volume = DEFAULT_VOLUME.duplicate()
 	muted = {&"Master": false, &"Music": false, &"SFX": false}
 	apply_audio()
@@ -87,6 +92,11 @@ func set_screen_shake(on: bool) -> void:
 
 func set_auto_flip(on: bool) -> void:
 	auto_flip = on
+	_commit()
+
+
+func set_autoplay_button(on: bool) -> void:
+	autoplay_button = on
 	_commit()
 
 

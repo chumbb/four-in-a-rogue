@@ -3,7 +3,7 @@ extends Control
 ## Options (slice §2B; Art B mock 5), opened from the title and the pause menu:
 ## one window over a scrim. Rows are 38 game px (≥ 96 px at the 720 base):
 ## Speed Normal / Fast · Haptics · Screen shake · Auto-flip coin (tap
-## anywhere on an On/Off row) · Master / Music / SFX (slider in 5 % steps + a
+## anywhere on an On/Off row) · Auto-play button (debug builds only) · Master / Music / SFX (slider in 5 % steps + a
 ## speaker mute button) · Back. Every change applies and saves at once
 ## (Settings). Works while the tree is paused.
 
@@ -16,6 +16,8 @@ const LABEL_X := 12.0
 const SPEEDS := [["Normal", 72.0], ["Fast", 72.0]] ## Skip removed (Sean, 2026-11-22)
 const SPEED_X := 84.0
 const TOGGLES := [[&"haptics", "Haptics"], [&"screen_shake", "Screen shake"], [&"auto_flip", "Auto-flip coin"]]
+## Debug builds add this row after TOGGLES (M6e auto-play).
+const DEBUG_TOGGLE := [&"autoplay_button", "Auto-play button"]
 const BUSES := [[&"Master", "Master"], [&"Music", "Music"], [&"SFX", "SFX"]]
 const SLIDER_X := 56.0
 ## (151 − 11 px knob) / 20 steps = 7 game px per 5 %, so the knob always sits
@@ -89,7 +91,8 @@ func _build() -> void:
 	_window.patch_margin_top = m[1]
 	_window.patch_margin_right = m[2]
 	_window.patch_margin_bottom = m[3]
-	_window.size = Vector2(WIDTH, FIRST_ROW_Y + ROW_H * 7.0 + 52.0)
+	var toggles := _toggle_rows()
+	_window.size = Vector2(WIDTH, FIRST_ROW_Y + ROW_H * (1 + toggles.size() + BUSES.size()) + 52.0)
 	_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage.canvas.add_child(_window)
 	var title := _shadowed(_stage.add_label("Options", GOLD_HI, &"Mono2", _window), 2)
@@ -110,7 +113,7 @@ func _build() -> void:
 		_segments.append(seg)
 		x += SPEEDS[i][1] - 1.0
 	y += ROW_H
-	for entry: Array in TOGGLES:
+	for entry: Array in toggles:
 		var row := _flat_button(Vector2(6, y + 1), Vector2(WIDTH - 12, 36))
 		row.name = String(entry[0])
 		row.pressed.connect(_on_toggle.bind(entry[0]))
@@ -154,6 +157,14 @@ func _build() -> void:
 	_back = _stage.add_button("Back", BACK_W, _window)
 	_back.position = Vector2(floorf((WIDTH - BACK_W) * 0.5), y + 4)
 	_back.pressed.connect(_on_back)
+
+
+## TOGGLES, plus the Auto-play button row in debug builds.
+static func _toggle_rows() -> Array:
+	var rows := TOGGLES.duplicate()
+	if OS.is_debug_build():
+		rows.append(DEBUG_TOGGLE)
+	return rows
 
 
 func _row_label(text: String, y: float) -> void:
@@ -236,6 +247,8 @@ func _on_toggle(key: StringName) -> void:
 			Settings.set_screen_shake(not Settings.screen_shake)
 		&"auto_flip":
 			Settings.set_auto_flip(not Settings.auto_flip)
+		&"autoplay_button":
+			Settings.set_autoplay_button(not Settings.autoplay_button)
 	_sync()
 
 

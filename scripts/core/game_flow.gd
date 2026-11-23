@@ -40,6 +40,9 @@ var rolled_decks: Dictionary = {}
 var debug_forced_categories: Dictionary = {}
 ## Tests force an auto-flip; players use Options "Auto-flip coin" (Settings).
 var auto_flip_coin := false
+## Debug auto-play (M6e, debug builds only): the AI plays your turns; kept over
+## draw replays and coin flips, off at the win / lose end screen.
+var autoplay := false
 ## Tests set 0 to change scenes at once.
 var fade_sec := FADE_SEC
 ## Flow screens' sounds (press start, pages, coin): owned here so a sound keeps

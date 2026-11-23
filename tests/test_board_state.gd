@@ -28,6 +28,7 @@ func _initialize() -> void:
 	_test_board_full()
 	_test_outcomes()
 	_test_roll_target()
+	_test_mirrored()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -226,3 +227,16 @@ func _test_roll_target() -> void:
 func _fill(b: BoardState, column: int) -> void:
 	for r in BoardState.ROWS:
 		b.drop(column, P if r % 2 == 0 else O)
+
+
+func _test_mirrored() -> void:
+	var b := BoardState.new()
+	b.drop(0, P)
+	b.drop(0, O)
+	b.drop(3, O)
+	var m := b.mirrored()
+	_check(m.get_owner(0, 0) == O and m.get_owner(0, 1) == P and m.get_owner(3, 0) == P, "mirrored swaps PLAYER and OPPONENT")
+	_check(m.get_owner(1, 0) == E, "mirrored keeps empty cells empty")
+	_check(b.get_owner(0, 0) == P and b.get_owner(0, 1) == O and b.get_owner(3, 0) == O, "mirrored leaves the original untouched")
+	m.drop(5, P)
+	_check(b.get_owner(5, 0) == E, "mirrored is a separate copy")

@@ -89,6 +89,8 @@ const TURN_BANNER_SEC := 0.9
 ## "Game start" banner, then a beat before the first turn banner.
 const GAME_START_SEC := 1.3
 const GAME_START_GAP_SEC := 0.25
+## Debug auto-play (M6e): a draw's Replay presses itself after this long.
+const AUTOPLAY_REPLAY_SEC := 1.0
 
 @onready var _hud_slot: Control = %HudSlot
 @onready var _board_view: BoardView2D = %BoardView
@@ -127,6 +129,11 @@ var _turn_timer: Timer
 var _timeout_timer: Timer
 var _opponent_column := -1
 var _opponent_hand_index := -1
+## Debug auto-play (M6e): the AI's think delay on your turn, then its move.
+var _autoplay_timer: Timer
+var _autoplay_column := -1
+var _autoplay_hand_index := -1
+var _replay_timer: Timer
 ## The board just before the play now being shown (portrait reactions).
 var _board_before := BoardState.new()
 ## Think-delay spread only, so it never shifts the game's own random draws.
@@ -189,6 +196,8 @@ func _ready() -> void:
 	_opponent_timer = _make_timer(_play_opponent_move)
 	_turn_timer = _make_timer(_on_turn_timeout)
 	_timeout_timer = _make_timer(_finish_timeout)
+	_autoplay_timer = _make_timer(_play_autoplay_move)
+	_replay_timer = _make_timer(_auto_replay)
 	_end_overlay.visible = false
 	Settings.changed.connect(_apply_speed)
 	_apply_speed()
@@ -277,12 +286,15 @@ func _refresh_fuse() -> void:
 
 
 ## HUD countdown: the player's seconds left (30 before the turn unlocks, 0 at a
-## timeout), "—" on the opponent's turn and after the end.
+## timeout), "—" on the opponent's turn, after the end and while auto-play
+## plays your turns.
 func _refresh_timer() -> void:
 	if _loop.phase != TurnLoop.Phase.PLAYER_TURN:
 		_hud.set_timer(ScenarioHud.NO_TIMER)
 	elif _timed_out:
 		_hud.set_seconds(0)
+	elif GameFlow.autoplay:
+		_hud.set_timer(ScenarioHud.NO_TIMER)
 	elif not _turn_timer.is_stopped():
 		_hud.set_seconds(ceili(_turn_timer.time_left))
 	else:
@@ -297,6 +309,16 @@ func _build_hud() -> void:
 	move_child(_hud, get_node("%SafeArea").get_index() + 1)
 	_hud.set_objective(OBJECTIVE)
 	_hud.pause_pressed.connect(_on_pause_pressed)
+	_hud.autoplay_pressed.connect(func() -> void:
+		_sfx.play(&"ui_tap")
+		set_autoplay(not GameFlow.autoplay))
+	_hud.set_autoplay_lit(GameFlow.autoplay)
+	_hud.set_autoplay_enabled(Settings.autoplay_button)
+	# The option turned off hides the button: give control back too.
+	Settings.changed.connect(func() -> void:
+		_hud.set_autoplay_enabled(Settings.autoplay_button)
+		if GameFlow.autoplay and not Settings.autoplay_button:
+			set_autoplay(false))
 	_hud.portrait_sound.connect(func(kind: StringName) -> void: _sfx.play(kind))
 	_hud.show_result_pressed.connect(func() -> void:
 		_sfx.play(&"ui_tap")
@@ -354,6 +376,9 @@ func debug_give(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
 	if side == BoardState.CellOwner.PLAYER:
 		_end_touch()
 		_hand.rebuild(hand)
+		if not _autoplay_timer.is_stopped(): # auto-play re-plans with the new hand
+			_autoplay_timer.stop()
+			_run_autoplay_turn()
 
 
 ## Debug: discards a random Goob from `side`'s hand and shows its reveal. Yours
@@ -381,6 +406,53 @@ func debug_discard_random(side: BoardState.CellOwner) -> void:
 func debug_add_status(side: BoardState.CellOwner) -> void:
 	_loop.add_status(&"debug", side, "Test", "A test status from the debug panel.", 2)
 	_refresh_hud()
+
+
+## Debug auto-play (M6e; debug builds only): on, the AI plays your turns with
+## the opponent's think delay, your timer and fuse hidden and input locked
+## (a gesture in progress is cancelled); off gives control back, with a fresh
+## turn timer if it was thinking. Kept over draw replays (GameFlow.autoplay).
+func set_autoplay(on: bool) -> void:
+	if on and not OS.is_debug_build():
+		return
+	GameFlow.autoplay = on
+	_hud.set_autoplay_lit(on)
+	if on:
+		if _input_enabled and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+			_set_input_enabled(false) # stops the timer, drops the touch and aim
+			_run_autoplay_turn()
+	elif not _autoplay_timer.is_stopped():
+		_autoplay_timer.stop()
+		_set_input_enabled(true)
+	_refresh_timer()
+
+
+## The opponent AI picks your move on a mirrored board (it plays as
+## OPPONENT), then thinks like him before playing it.
+func _run_autoplay_turn() -> void:
+	var deck := _loop.player_deck
+	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng)
+	if move["column"] == -1:
+		_set_input_enabled(true) # nothing it can play: your turn as usual
+		return
+	_autoplay_column = move["column"]
+	_autoplay_hand_index = move["hand_index"]
+	var wait := _think_sec(move["blocking"] or move["close"])
+	if wait > 0.0:
+		_autoplay_timer.start(wait)
+	else:
+		_play_autoplay_move()
+
+
+func _play_autoplay_move() -> void:
+	if _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+		_play_player(_autoplay_column, _autoplay_hand_index)
+
+
+## A draw with auto-play on presses Replay by itself.
+func _auto_replay() -> void:
+	if GameFlow.autoplay and _end_overlay.visible:
+		_on_end_pressed()
 
 
 ## True while the opponent has chosen his move and not played it yet.
@@ -1017,7 +1089,10 @@ func _after_play() -> void:
 				return
 			await _show_turn_draw()
 			if is_inside_tree() and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
-				_set_input_enabled(true)
+				if GameFlow.autoplay:
+					_run_autoplay_turn()
+				else:
+					_set_input_enabled(true)
 
 
 ## The player's start-of-turn draw: each drawn Goob pops in big and flies into
@@ -1115,6 +1190,10 @@ func _play_opponent_move() -> void:
 func _show_end() -> void:
 	_set_input_enabled(false)
 	_hud.set_pause_visible(false)
+	_autoplay_timer.stop()
+	if _loop.result != TurnLoop.Result.DRAW: # auto-play ends at win / lose
+		GameFlow.autoplay = false
+		_hud.set_autoplay_lit(false)
 	var kind := &"draw"
 	match _loop.result:
 		TurnLoop.Result.PLAYER_WIN:
@@ -1141,6 +1220,8 @@ func _show_end() -> void:
 	_end_screen.set_result(kind)
 	_end_overlay.visible = true
 	_end_screen.play_intro.call_deferred(animate_drops)
+	if kind == &"draw" and GameFlow.autoplay:
+		_replay_timer.start(AUTOPLAY_REPLAY_SEC)
 
 
 ## Win/lose lead-in (slice §2B): the winner's Goobs turn happy, the loser's

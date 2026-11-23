@@ -94,6 +94,12 @@ func _run() -> void:
 	await _test_debug_discard_opponent()
 	await _test_debug_no_stale_opponent_plan()
 	await _test_debug_panel_f4()
+	await _test_autoplay_plays_for_player()
+	await _test_autoplay_off_during_think()
+	await _test_autoplay_cancels_drag()
+	await _test_autoplay_draw_replay_keeps_decks()
+	await _test_autoplay_off_at_win()
+	await _test_autoplay_button_hidden_by_setting()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -1752,4 +1758,139 @@ func _test_debug_no_stale_opponent_plan() -> void:
 	await scenario.debug_discard_random(O)
 	_check(loop.opponent_deck.hand.is_empty(), "stale plan: his only Goob is discarded")
 	loop.phase = TurnLoop.Phase.PLAYER_TURN
+	await _free(scenario)
+
+
+# --- Debug auto-play (M6e) ----------------------------------------------------
+
+## Waits (up to `ms`) until the player has `n` Goobs on the board.
+func _wait_player_goobs(scenario: Control, n: int, ms := 3000) -> void:
+	var deadline := Time.get_ticks_msec() + ms
+	while _count(_board(scenario), P) < n and Time.get_ticks_msec() < deadline:
+		await process_frame
+
+
+func _test_autoplay_plays_for_player() -> void:
+	var scenario := await _make(0.3)
+	var hud: ScenarioHud = scenario._hud
+	_check(scenario._input_enabled and not scenario._turn_timer.is_stopped(), "autoplay: starts on the player's live turn")
+	scenario.set_autoplay(true)
+	_check(_flow().autoplay, "autoplay: the flag is on")
+	_check(not scenario._input_enabled, "autoplay: input locked")
+	_check(scenario._turn_timer.is_stopped(), "autoplay: the turn timer stops")
+	_check(hud.timer_text() == ScenarioHud.NO_TIMER, "autoplay: the timer shows — (got %s)" % hud.timer_text())
+	var timer_ran := false
+	var deadline := Time.get_ticks_msec() + 3000
+	while _count(_board(scenario), P) < 1 and Time.get_ticks_msec() < deadline:
+		await process_frame
+		if scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN and not scenario._turn_timer.is_stopped():
+			timer_ran = true
+	_check(_count(_board(scenario), P) == 1, "autoplay: a player Goob was played (got %d)" % _count(_board(scenario), P))
+	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "autoplay: then it's the opponent's turn")
+	_check(not timer_ran, "autoplay: the player timer never started")
+	_check(not scenario._fuse.visible, "autoplay: no fuse")
+	scenario.set_autoplay(false)
+	await _free(scenario)
+
+
+func _test_autoplay_off_during_think() -> void:
+	var scenario := await _make(0.5)
+	var hud: ScenarioHud = scenario._hud
+	scenario.set_autoplay(true)
+	scenario.set_autoplay(false)
+	_check(not _flow().autoplay, "autoplay off: the flag is off")
+	_check(scenario._input_enabled, "autoplay off: input unlocked")
+	_check(not scenario._turn_timer.is_stopped() and scenario._turn_timer.time_left > 29.9, "autoplay off: turn timer restarted at 30 s")
+	await process_frame
+	_check(hud.timer_text() == "30", "autoplay off: the timer shows 30 (got %s)" % hud.timer_text())
+	await create_timer(2.0).timeout
+	_check(_count(_board(scenario), P) == 0, "autoplay off: no player Goob dropped")
+	_check(scenario._input_enabled, "autoplay off: input still enabled")
+	await _free(scenario)
+
+
+func _test_autoplay_cancels_drag() -> void:
+	var scenario := await _make(0.3)
+	var hand := _hand_view(scenario)
+	scenario._last_tap_key = ""
+	var start := hand.slot_center(0)
+	_touch(start, true)
+	_drag(start + Vector2(0, -40))
+	_drag(_col_pos(scenario, 5))
+	_check(hand.is_dragging() and _view(scenario).is_preview_visible(), "autoplay drag: dragging with the ghost up")
+	scenario.set_autoplay(true)
+	_check(not _view(scenario).is_preview_visible(), "autoplay drag: the aim ghost is hidden")
+	_check(not hand.is_dragging(), "autoplay drag: the drag is cancelled")
+	_touch(_col_pos(scenario, 5), false) # the finger lifts: ignored
+	_check(_count(_board(scenario), P) == 0, "autoplay drag: releasing doesn't drop")
+	await _wait_player_goobs(scenario, 1)
+	_check(_count(_board(scenario), P) == 1, "autoplay drag: exactly one player Goob played (got %d)" % _count(_board(scenario), P))
+	scenario.set_autoplay(false)
+	await _free(scenario)
+
+
+func _test_autoplay_draw_replay_keeps_decks() -> void:
+	var rolled := {"player": _vanilla_deck(), "opponent": _vanilla_deck()}
+	_flow().rolled_decks = rolled
+	_flow().fade_sec = 0.0
+	var scenario := await _make(0.0)
+	var view := _view(scenario)
+	var board := _board(scenario)
+	for column in BoardState.COLUMNS:
+		for row in BoardState.ROWS:
+			if column == 6 and row == 5:
+				continue
+			board.drop(column, _fill_owner(column, row))
+	view.sync_from_board(board)
+	scenario.set_autoplay(true)
+	await process_frame
+	_check(scenario._loop.result == TurnLoop.Result.DRAW, "autoplay draw: it played the last cell, a draw")
+	_check(scenario.get_node("%EndOverlay").visible, "autoplay draw: the Draw screen shows")
+	var deadline := Time.get_ticks_msec() + 3000
+	while (current_scene == null or current_scene.name != "CoinFlip") and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(current_scene != null and current_scene.name == "CoinFlip", "autoplay draw: Replay pressed by itself → coin flip")
+	_check(is_same(_flow().rolled_decks, rolled), "autoplay draw: the rolled decks are kept")
+	_check(_flow().autoplay, "autoplay draw: auto-play stays on")
+	_flow().autoplay = false
+	if current_scene != null:
+		current_scene.free()
+	current_scene = null
+	_flow().rolled_decks = {}
+	_flow().fade_sec = _flow().FADE_SEC
+	await _free(scenario)
+
+
+func _test_autoplay_off_at_win() -> void:
+	var scenario := await _make(0.0)
+	var board := _board(scenario)
+	for column in 3:
+		board.drop(column, P)
+		board.drop(column, O)
+	_view(scenario).sync_from_board(board)
+	scenario.set_autoplay(true)
+	await process_frame
+	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "autoplay win: it takes the winning column")
+	_check(not _flow().autoplay, "autoplay win: turns itself off at the end")
+	_check(not scenario._hud.autoplay_button().visible, "autoplay win: the button hides with Pause")
+	await _free(scenario)
+
+
+func _test_autoplay_button_hidden_by_setting() -> void:
+	var scenario := await _make(5.0)
+	var hud: ScenarioHud = scenario._hud
+	var button: Button = hud.autoplay_button()
+	_check(button.visible, "autoplay button: shown by default in debug builds")
+	_check(button.size.is_equal_approx(ScenarioHud.PAUSE_SIZE), "autoplay button: same size as Pause")
+	var pause := hud.pause_button()
+	_check(is_equal_approx(button.position.x, pause.position.x + ScenarioHud.PAUSE_SIZE.x + ScenarioHud.PAUSE_INSET), "autoplay button: right of Pause")
+	button.pressed.emit()
+	_check(_flow().autoplay and hud.is_autoplay_lit(), "autoplay button: pressing turns it on, lit")
+	button.pressed.emit()
+	_check(not _flow().autoplay and not hud.is_autoplay_lit(), "autoplay button: pressing again gives control back")
+	_check(scenario._input_enabled, "autoplay button: input back on")
+	_settings().set_autoplay_button(false)
+	_check(not button.visible, "autoplay button: hidden when the option is off")
+	_settings().set_autoplay_button(true)
+	_check(button.visible, "autoplay button: back when the option is on")
 	await _free(scenario)

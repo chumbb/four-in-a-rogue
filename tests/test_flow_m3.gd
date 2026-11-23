@@ -315,7 +315,8 @@ func _test_title_options() -> void:
 		targets.append(panel._window.get_node("Mute" + String(bus)))
 	targets.append(panel._back)
 	var small := targets.filter(func(c: Control) -> bool: return c.get_global_rect().size.y < 96.0 - 0.5)
-	_check(targets.size() == 12 and small.is_empty(), "options: all 12 targets ≥ 96 px tall (small: %s)" % str(small))
+	var want := 13 if OS.is_debug_build() else 12 # + the debug Auto-play button row
+	_check(targets.size() == want and small.is_empty(), "options: all %d targets ≥ 96 px tall (small: %s)" % [want, str(small)])
 	var window: Rect2 = panel._window.get_global_rect()
 	_check(window.position.y >= 0.0 and window.end.y <= 1280.0 and window.position.x >= 0.0 and window.end.x <= 720.0, "options: window on screen (%s)" % window)
 	panel._segments[1].pressed.emit()
