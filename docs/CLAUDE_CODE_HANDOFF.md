@@ -79,7 +79,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Playtest 13 (Sean):** the player's Goob **drops from the ghost** (no flip-in; `_flip_in` removed); the opponent's still **flips into place** from behind the board (pitch frames). Rest before the drop = `BoardView2D.PLAY_PAUSE_SEC` 0.1 s for both (plain drops keep `TOP_PAUSE_SEC` 0.2).
 - **Playtest 14 (Sean):** player's Goob rests the usual 0.2 s (`TOP_PAUSE_SEC`) after replacing the ghost; opponent's flip into place + rest = 0.2 s (`OPPONENT_PLAY_SEC`: rise 0.12 + settle 0.05 + rest 0.03). `PLAY_PAUSE_SEC` removed.
 - **Playtest 15 (Sean):** player drop at 0.2 s accepted. Opponent: back to the full flip up from behind (rise 0.22 + settle 0.1), **then** the 0.2 s rest (`TOP_PAUSE_SEC` for every played Goob; `OPPONENT_PLAY_SEC` removed).
-- **Playtest 16 (Sean): snappier scoring.** Recognition 1.0 → 0.7 s; per Goob ~0.85 → ~0.55 s (flip frames 0.06 → 0.04 `SCORE_FLIP_FRAME_SEC`, show 0.25 → 0.15, float 0.3 → 0.2, step 0.6 → 0.4); pause 0.4 → 0.25; collapse 0.3 → 0.25; total hold 1.0 unchanged. A four now scores in ~3.4 s instead of ~5.
+- **Playtest 16 (Sean): snappier scoring.** Recognition 1.0 → 0.7 s; per Goob ~0.85 → ~0.55 s (flip frames 0.06 → 0.04 `SCORE_FLIP_FRAME_SEC`, show 0.25 → 0.15, float 0.3 → 0.2, step 0.6 → 0.4); pause 0.4 → 0.25; collapse 0.3 → 0.25; total hold 1.0 unchanged. A four now scores in ~4.4 s instead of ~6 (incl. the 1 s hold on the total).
 - **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
 - **Playtest changes so far:**
   - Drawn Goob's name shows above the board.
