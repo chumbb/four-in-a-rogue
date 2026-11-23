@@ -26,7 +26,7 @@ claude
 - Canonical v0.1 rules: `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md`
 - Full GDD: `Projects/Four-in-a-Rogue/Design/GDD.md`
 - Decision log: `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`
-- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-22 Claude - M6c AI animations reactions.md`
+- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-23 Claude - SNES UI, coin and fizzle sound options.md`
 - Vault agent rules: `GameDev/CLAUDE.md`
 
 **Conflict rule:** Obsidian vault wins over repo `CLAUDE.md` for game design.
@@ -69,38 +69,66 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
 | **M6d** Sound + smoke | ✅ Accepted and merged 2026-11-23 (sound grill done) |
 
+### M7 — on-device check ← **next** (required for v0.1; CLAUDE.md §M7)
+
+- **Goal:** an Android debug build on the **Pixel 11**, first with the Mobile renderer, then with Compatibility. Use the **Pixel 8** as the older phone if Sean has one. Check **A9** (portrait touch) on hardware, plus the rest of `docs/SMOKE_V0.1.md`. A true low-end check is a known gap. iOS waits for a Mac; the Retroid Pocket (4:3) is saved for the landscape version.
+- **Starting state on this PC (checked 2026-11-23):**
+  - no `export_presets.cfg` in the repo
+  - `%APPDATA%\Godot\export_templates` is empty
+  - no JDK, Android SDK or `adb` on PATH
+  - so the session starts with setup:
+    - Godot 4.7.2 export templates
+    - JDK 17
+    - Android SDK (command-line tools, platform-tools, build-tools)
+    - set the paths in Editor Settings → Export → Android
+    - the debug keystore
+    - an Android export preset
+  - Sean has to do the installs and the USB debugging on the phone himself. Give him exact steps and `!` commands.
+- **Things to check on the phone** (desktop smoke already passes):
+  - safe area on a real notch / home strip
+  - touch: single pointer, 96 px targets, drag vs double-tap inspect
+  - haptics (`Input.vibrate_handheld`; needs the VIBRATE permission in the preset)
+  - Master muted while backgrounded; ambient audio / silent switch behaviour
+  - steady 60 fps
+  - the whole-number pixel scale at the phone's width
+  - both renderers (the shader baker at export)
+- **Don't change rules or art in M7.** Fixes from the device go on short branches for Sean to check.
+
 ### M6d — sound completion + smoke test (accepted and merged to `main` 2026-11-23)
 
-- **Built:** Master mute on `NOTIFICATION_APPLICATION_PAUSED` (restored by `Settings.apply_audio()`), `[audio] general/ios/session_category=0` + `mix_with_others=true`. Credits rows for M6c + M6d added. **Removed by Sean (2026-11-23):** the forest ambience (chiptune soundtrack later) and a long-press inspect attempt (clashes with dragging; inspect stays double tap). **Playtest 2:** the opponent red column flash (+ blip) removed; a full column under the finger = dark highlight (`COLOR_FLASH_FULL`) + "Column full" toast, and only a release there gives the shake + error sound + haptic.
-- **Open → next session: sound effects grill** (Sean, 2026-11-23: "update handoff for new sound effects convo"). State to start from:
-  - **Removed, Sean disliked all of them:** forest ambience, opponent red-flash blip (the red flash itself is gone too), draw sting. Draws and the opponent's move now have no sound of their own.
-  - **Press start** = option A, a soft triangle C5 → G5 blip (`make_flow_sounds.py` `press_start()`). Sean: "right".
-  - **Every other UI press** = `ui_tap.ogg`: buttons, Skip, Resume/Options/Quit, pause open/close, Options rows + slider steps, Strange Man page advance. `Sfx.STREAMS` aliases `page`, `pause_open`, `pause_close` and `slider_tick` to it; UI sounds skip the ±5 % pitch jitter (`Sfx.NO_JITTER`); once-per-frame is per sample.
-  - **Settled 2026-11-23 (later):** Sean asked for SNES-like (16-bit) UI sounds and picked the **wood block** (`ui_tap.ogg` dry, `press_start.ogg` with SNES echo), the **warm metal coin flick + table landing** (`coin_whirr.ogg` / `coin_clink.ogg`), all built by `make_flow_sounds.py` from `art/audio/make_snes_coin_fizzle_options.py`. **Fizzle:** "water putting out a candle" = A1 (`make_effect_sounds.py` `write_fizzle()`). Later rounds: UI tap a fifth lower (493 Hz) + 1.4 kHz low-pass; press start = `first_sting` + chorus/delay; coin = -6 dB high shelf at 5 kHz (a 3.8 kHz low-pass was "too washed out"); coin pitch keeps rising with toss strength (Sean). Game start = bright SNES horn section I → V (pick D3 after C1 was "too warm"; `make_reaction_sounds.py` `game_start()` → `snes_section(32000, ...)`). Sean: "everything sounds good"; **no other sound gets the SNES treatment**. Scenario test count is 436 (437 was stale).
-  - **(History) The UI tap was not settled before that.** History: the old square blip (harsh) → C sine bubble ("too bright and wobbly") → D felt tap, a ~180 Hz thump + muffled click (picked, now in the game) → "too much bass, use a high pass filter" → high-passed D at 250/350/500 Hz (Butterworth + 3 kHz top cut): **Sean didn't like those either.** Sean wants a **dull tap** that is not bright, not wobbly and not bassy. Show options and wait for his pick (never wire one in yourself).
-  - **Listening files (local only, untracked):** `art/audio/compare_soft_ui/` holds `0_current_*` (the old harsh ones), A/B/C press start + tap, D/E/F dull taps, `D_hp250|350|500_ui_tap.ogg`. Generator for the high-pass set: `art/audio/make_highpass_tap_options.py` (untracked). Sean got annoyed when the comparison files were deleted, so keep them until Sean says otherwise.
-  - **Checking what the game really plays:** `godot --headless -s res://tests/record_ui_tap.gd -- <out.wav> <sound>` records the Master bus to a WAV. Compare it with the file (ffmpeg + numpy). If Sean hears something different from a file, first check that he is on the branch and has reloaded the project (Godot import cache).
-  - **Still to decide in the grill:** whether draws and the opponent's move get sounds, and anything else in the vault §2B Sound table Sean wants redone. Sound tooling: `art/audio/make_*_sounds.py` (numpy + scipy + ffmpeg at `C:\Users\Sean\Apps\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe`). Rerunning a script re-encodes every ogg it writes, so restore the files you didn't mean to change with `git checkout`. The headless editor (`--editor --quit`) rewrites `project.godot`: always `git checkout -- project.godot` afterwards.
-  - **Also on this branch (playtest-confirmed or untouched by sound):** Master muted while backgrounded, the iOS ambient session, a full column = dark highlight + toast on hover with shake + error on release, no opponent red flash.
+- **Built:**
+  - Master is muted on `NOTIFICATION_APPLICATION_PAUSED` and restored by `Settings.apply_audio()`.
+  - iOS ambient session: `[audio] general/ios/session_category=0` + `mix_with_others=true`.
+  - Full column: a dark highlight + "Column full" toast while hovering; shake + error sound + haptic only on release.
+  - The opponent's red column flash is removed.
+  - Credits are updated.
+- **Removed by Sean:** the forest ambience, a long-press inspect (it clashed with dragging), the red-flash blip and the draw sting. Draws and the opponent's move have no sound of their own.
+- **Sound grill, final picks (Sean, 2026-11-23):**
+  - **UI presses** (`ui_tap.ogg`; buttons, Skip, pause, Options rows + sliders, Strange Man pages): a dry SNES-style **wood block**, 493 Hz (a fifth below the first pick), with a 4th-order low-pass at 1.4 kHz. Built by `make_flow_sounds.py` `ui_tap()`.
+    - `page`, `pause_open`, `pause_close` and `slider_tick` are aliases of it.
+    - UI sounds get no pitch jitter (`Sfx.NO_JITTER`).
+  - **Press start:** the "goes first" fanfare (`first_sting()`) through `chorus_delay()` (two detuned wobbling copies + a 170 ms delay with darker repeats).
+  - **Coin flip:**
+    - `coin_whirr.ogg` = a thumb flick of a warm metal coin (nail click + ringing disc shimmering with the spin).
+    - `coin_clink.ogg` = a wood landing with a settling rattle.
+    - Both get an RBJ high shelf, -6 dB at 5 kHz. A 3.8 kHz low-pass was "too washed out".
+    - The pitch still rises with toss strength (Sean).
+  - **Effect fizzle** = water putting out a candle, the soft "tsst" A1 (`make_effect_sounds.py` `write_fizzle()`).
+  - **Game start** = a bright SNES horn section, I → V. It's C4 → G4 with a trumpet-like octave on top, played like a SNES sample: 32 kHz, BRR 4-bit grain, a looped sustain, the SNES echo. Built by `make_reaction_sounds.py` `game_start()` → `snes_section(32000, ...)`. C1 was "too warm"; Sean picked D3.
+  - **No other sound gets the SNES treatment** (Sean).
+  - The shared synthesis lives in `art/audio/make_snes_coin_fizzle_options.py`: SNES chain, BRR, horn, coin, fizzle. Its `main()` rebuilds the listening options only; the game files come from the `make_*_sounds.py` scripts.
+- **Listening files (local, untracked; keep them until Sean says otherwise; he got annoyed when some were deleted):**
+  - `art/audio/compare_soft_ui/`
+  - `art/audio/compare_snes_coin_fizzle/` (README inside)
+  - `art/audio/make_highpass_tap_options.py`
+- **Sound workflow:**
+  - Show options and wait for Sean's pick; never wire one in yourself.
+  - Tools: numpy + scipy + ffmpeg at `C:\Users\Sean\Apps\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe`.
+  - Rerunning a `make_*_sounds.py` script re-encodes every ogg it writes. Write just the one you need (`write_ogg(module.fn(), "x.ogg")`), or `git checkout` the others.
+  - Check what the game really plays with `godot --headless -s res://tests/record_ui_tap.gd -- <out.wav> <sound>` (records the Master bus), then compare it with the file.
+  - If Sean hears something different from a file, first check his branch and that the project reloaded (import cache).
+  - Python on Windows: open files with `encoding="utf-8"`. Opening a file for writing truncates it even when the write then fails, so build the string first.
 - **Smoke:** `docs/SMOKE_V0.1.md` (A1–A10 pass on desktop; known gaps). Soak: `godot --headless -s res://tests/soak_m6d.gd` (8 real-time games, ~6 min).
-- **Gotcha:** a looping sound (fuse) still playing when a test quits can print "resources still in use at exit"; stop it and wait a moment before `quit()`.
-- Test counts: scenario 437, flow 186, turn_loop 138, board_state 74, opponent_ai 77.
-
-Original scope notes:
-
-Scope (CLAUDE.md §M6d, vault slice §2B "Sound"):
-- **Remaining sound events.** Compare the vault §2B Sound table with `scripts/audio/sfx.gd` (49 sounds wired).
-- ~~Forest ambience loop~~ (removed by Sean 2026-11-23).
-- **Audio rules.**
-  - Fast = sounds sooner, normal pitch.
-  - Pause = SFX stop, including the fuse loop (already pauses with the tree).
-  - Each sound plays at most once per frame.
-  - Opponent sounds about 10 % lower; ±5 % random pitch on repeats.
-  - Skip no longer exists, so its "result sounds only" rule is gone.
-- **Mobile audio.** Ambient audio category (respects the silent switch, the player's music keeps playing); pause in the background.
-- **Smoke A1–A10** on desktop; document known gaps.
-- **Sound tooling.** Synthesised sounds come from `art/audio/make_*_sounds.py` (numpy + ffmpeg; helpers in `make_effect_sounds.py`). CC0 packs are credited in `assets/audio/CREDITS.md`.
-- **Gotcha:** rerunning a sound script re-encodes every ogg it writes. Restore the files you didn't mean to change with `git checkout`.
 
 ### M6c (accepted by Sean and merged to `main` 2026-11-23; 18 playtest rounds + one post-merge fix)
 
@@ -234,15 +262,15 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `main`, 908 checks, 2026-11-23)
+### Tests (all pass on `main`, 911 checks, 2026-11-23)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 435 checks
+& $g --headless -s res://tests/test_scenario.gd    # 436 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
-& $g --headless -s res://tests/test_flow_m3.gd     # 184
+& $g --headless -s res://tests/test_flow_m3.gd     # 186
 & $g --headless -s res://tests/test_opponent_ai.gd # 77
 ```
 
@@ -258,6 +286,7 @@ Known: `test_git_sync` "temp repos cleaned up" fails on this machine — pre-exi
 - **Running `--headless --editor --quit` rewrites `project.godot`.** It drops the lines that restate defaults and reorders keys. Run `git checkout -- project.godot` afterwards, and stage files by name, never with `git add -u`. In M6c a rewrite was committed by mistake and then restored.
 - **Autoload names in `-s` test scripts:** don't name `Settings` or `GameFlow` or the classes that use them (e.g. `OptionsPanel`) as types in tests. Use `_settings()` / `load()` at runtime.
 - **Art versions are Sean's pick:** show the comparison sheet and wait. Never wire in, commit or push your own choice.
+- **A looping sound** (the fuse) still playing when a test quits can print "resources still in use at exit". Stop it and wait a moment before `quit()`.
 - **Fixes after a merge** go on a short branch (e.g. `m6c-chain-loss-angry`) for Sean to check, then get merged.
 
 ---
@@ -269,7 +298,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently **M6d**: remaining sounds, audio rules, A1–A10 smoke) on a new branch; push it for Sean's playtest.
+3. Do the next item in CLAUDE.md §Milestones (currently **M7**: Android debug build on the Pixel 11, Mobile then Compatibility; see §M7 above for the setup needed first) on a new branch; push it for Sean's check.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.
@@ -301,4 +330,4 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 
 ---
 
-*Last updated: 2026-11-23 (M6c accepted and merged, plus the chain-loss fix; next = M6d)*
+*Last updated: 2026-11-23 (M6d accepted and merged after the sound grill; next = M7. Earlier: M6c accepted and merged, plus the chain-loss fix)*
