@@ -708,6 +708,7 @@ func _test_roll_downhill() -> void:
 	t.start(true, _seeded(30), _vanilla())
 	_roll_stack(t, 0, 3)
 	_roll_stack(t, 1, 1)
+	_roll_stack(t, 3, 1) # a Goob beside (2,0) stops the floor roll
 	var path := t.roll_goob(Vector2i(0, 2), 1)
 	_check(path.size() == 2 and path[0] == Vector2i(1, 1) and path[1] == Vector2i(2, 0), "roll downhill: path ends at (2,0)")
 	_check(t.board.get_owner(2, 0) == P and t.goob_at(2, 0) == TurnLoop.VANILLA, "roll downhill: landed Goob kept")
@@ -736,6 +737,7 @@ func _test_roll_middle() -> void:
 	var t := TurnLoop.new()
 	t.start(true, _seeded(33), _vanilla())
 	_roll_stack(t, 0, 3)
+	_roll_stack(t, 2, 1) # stops the floor roll at (1,0)
 	t.board.set_owner(0, 1, O)
 	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
 	t._cell_goobs[Vector2i(0, 1)] = fat
@@ -747,11 +749,21 @@ func _test_roll_middle() -> void:
 
 
 func _test_roll_floor_stays() -> void:
+	# Sean (2026-11-23): a Goob on the floor rolls all the way to the side.
 	var t := TurnLoop.new()
 	t.start(true, _seeded(34), _vanilla())
 	_roll_stack(t, 2, 1)
-	_check(t.roll_goob(Vector2i(2, 0), 1).is_empty(), "roll floor: lone Goob stays")
-	_check(t.board.get_owner(2, 0) == P, "roll floor: still at (2,0)")
+	var path := t.roll_goob(Vector2i(2, 0), 1)
+	_check(path.size() == 4 and path[3] == Vector2i(6, 0), "roll floor: rolls to the border (got %s)" % [path])
+	_check(t.board.get_owner(6, 0) == P and t.board.get_owner(2, 0) == E, "roll floor: now at (6,0)")
+	# Over flat tops too: a level row of Goobs carries it to the next Goob or the edge.
+	var u := TurnLoop.new()
+	u.start(true, _seeded(36), _vanilla())
+	_roll_stack(u, 0, 2)
+	for column in range(1, 7):
+		_roll_stack(u, column, 1)
+	var flat := u.roll_goob(Vector2i(0, 1), 1)
+	_check(flat.size() == 6 and flat[5] == Vector2i(6, 1), "roll flat top: rolls along row 1 to the border (got %s)" % [flat])
 
 
 ## Final review: an empty cell has nothing to roll.
