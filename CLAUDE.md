@@ -145,7 +145,7 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 - **Never sound-only:** every audio cue also has a visual/text cue.
 - Buses Master → Music, SFX. Options rows: **Master / Music / SFX** sliders, each with a mute toggle; defaults 80 / 70 / 80 %; persisted in a settings file.
 - Mobile: ambient audio (respects silent switch, player's music keeps playing); pause in background.
-- No Goob voices; Strange Man only has the page-advance sound (the UI felt tap since 2026-11-23). **No forest ambience** (Sean, 2026-11-23: removed after hearing it; the soundtrack will be retro chiptune).
+- No Goob voices; Strange Man only has the page-advance sound (the UI wood block tap since 2026-11-23). **No forest ambience** (Sean, 2026-11-23: removed after hearing it; the soundtrack will be retro chiptune).
 - Opponent sounds ~10 % lower pitch; ±5 % random pitch on repeats. Scoring ticks rise one note per Goob, sum on the top note.
 - Fast = sounds sooner, normal pitch (Skip removed 2026-11-22); each sound at most once per frame. Pause: SFX stop (incl. fuse), menu sounds play.
 - Each milestone adds its own sounds (M4 replaces `scripts/audio/sfx.gd` placeholders and covers already-built events).
