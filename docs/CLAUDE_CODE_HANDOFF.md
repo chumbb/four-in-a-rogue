@@ -66,11 +66,11 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6b** HUD, pause, options, speed | Accepted and merged 2026-11-21 |
 | **Art D1 / D2** Goob types | Accepted and merged 2026-11-21 |
 | **Specials design grill** | Confirmed 2026-11-22 (vault `Design/Special Goobs.md`) |
-| **M6c** AI, play anims, reactions | Built on `m6c-ai-animations-reactions`; playtest rounds 1–8 done, **in playtest** |
+| **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
 
-### M6c (built 2026-11-22, branch `m6c-ai-animations-reactions`, in playtest)
+### M6c (accepted by Sean and merged to `main` 2026-11-23)
 
-**Where we are (handoff 2026-11-22, after playtest 8):**
+**History (playtests 1–18):**
 
 - **Blocked two (done, Sean "for now"):** when either side blocks the other's two (a side-by-side pair, `OpponentAI.open_lines(board, side, 2, true)`), the portrait shows the **well played** face as a normal 1.5 s reaction. This replaced the nod (`4d205bd`, removed).
 - **Playtest 10 (Sean, done):** AI strength is fun (retest once all effects exist); win sequence OK; **Vanilla flips vertically** (`GoobDefinition.flips_vertically` + `flip_frames()`, pitch frames); **scoring**: each Goob flips to its back (`BoardView2D.flip_cell()`), its multiplier shows there then floats up into the gap, total in the gap (`gap_center()`); **all toasts in the gap** (`_place_toast()`). End buttons per Sean: "View board" / "Back to title". Screenshots: `tests/capture_scoring.gd -- <dir>`.
@@ -95,10 +95,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - Waiting face (b2, 8 s idle or the fuse).
   - Greeting: he tips his beanie (`portrait_greeting`, option c) during GAME START.
   - Blocked-two reaction (see above).
-- **Still for Sean to confirm before merging:**
-  - Play flips.
-  - The ghost + drop, and the opponent's flip-in (playtest 13).
-- **On acceptance:** merge into `main`, push, mark M6c accepted in CLAUDE.md, this file and the vault, then stop. M6d is next.
+- **Accepted 2026-11-23:** Sean said "merge m6c to main". Next session: M6d.
 
 **Code map:**
 
@@ -180,7 +177,7 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6c-ai-animations-reactions`, 904 checks)
+### Tests (all pass on `main` after the M6c merge, 904 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
@@ -211,7 +208,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently the M6c playtest on `m6c-ai-animations-reactions`, see the M6c section here; then M6d) on a new branch; push it for Sean's playtest.
+3. Do the next item in CLAUDE.md §Milestones (currently **M6d**: remaining sounds + forest ambience, audio rules, A1–A10 smoke) on a new branch; push it for Sean's playtest.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.
