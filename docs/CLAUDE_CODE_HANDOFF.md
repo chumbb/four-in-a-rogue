@@ -74,6 +74,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 
 - **Blocked two (done, Sean "for now"):** when either side blocks the other's two (a side-by-side pair, `OpponentAI.open_lines(board, side, 2, true)`), the portrait shows the **well played** face as a normal 1.5 s reaction. This replaced the nod (`4d205bd`, removed).
 - **Playtest 10 (Sean, done):** AI strength is fun (retest once all effects exist); win sequence OK; **Vanilla flips vertically** (`GoobDefinition.flips_vertically` + `flip_frames()`, pitch frames); **scoring**: each Goob flips to its back (`BoardView2D.flip_cell()`), its multiplier shows there then floats up into the gap, total in the gap (`gap_center()`); **all toasts in the gap** (`_place_toast()`). End buttons per Sean: "View board" / "Back to title". Screenshots: `tests/capture_scoring.gd -- <dir>`.
+- **Playtest 11 (Sean), in progress:** Fast + Skip work. (1) **Remove Skip** from the game (Options shows Normal / Fast; a saved Skip loads as Normal). (2) **Aim ghost:** while aiming with a Goob selected, a *faint* copy floats over the column, arriving with a **horizontal** (yaw) flip; when the column is chosen the faint copy disappears and the real Goob **flips into place vertically** (pitch) on top of the board, then drops. All types. (3) **Think delay starts after** the red opponent banner. Still to confirm after that: flip timing judgment call; then merge.
 - **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
 - **Playtest changes so far:**
   - Drawn Goob's name shows above the board.
@@ -89,8 +90,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - Blocked-two reaction (see above).
 - **Still for Sean to confirm before merging:**
   - Play flips.
-  - Fast/Skip games.
-  - Judgment calls: the flip starts when the aim float appears; the think delay is often hidden under the red banner (offer: start it after the banner).
+  - Judgment call: the flip starts when the aim float appears (being reworked in playtest 11).
 - **On acceptance:** merge into `main`, push, mark M6c accepted in CLAUDE.md, this file and the vault, then stop. M6d is next.
 
 **Code map:**
