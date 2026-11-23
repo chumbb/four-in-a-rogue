@@ -33,6 +33,11 @@ const VIGNETTE := preload("res://shaders/vignette.gdshader")
 
 ## Set by the coin flip; true = player moves first.
 var player_moves_first: bool = true
+## The two rolled decks of this game ({"player": Array, "opponent": Array}),
+## kept across draw replays; empty = roll new ones. Cleared on a new game.
+var rolled_decks: Dictionary = {}
+## Debug builds: forces the deck roll ({"top": Category, "main": [Category, Category]}).
+var debug_forced_categories: Dictionary = {}
 ## Tests force an auto-flip; players use Options "Auto-flip coin" (Settings).
 var auto_flip_coin := false
 ## Tests set 0 to change scenes at once.
@@ -133,6 +138,7 @@ func _cut_under_forest(path: String) -> void:
 
 
 func begin_play_flow_from_title() -> void:
+	rolled_decks = {}
 	go_to(SceneKey.STRANGE_MAN)
 
 
@@ -143,6 +149,7 @@ func replay_after_draw() -> void:
 
 
 func return_to_title() -> void:
+	rolled_decks = {}
 	go_to(SceneKey.TITLE)
 
 

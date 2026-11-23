@@ -41,6 +41,10 @@ var phase: Phase = Phase.PLAYER_TURN
 var result: Result = Result.NONE
 var player_deck := Deck.new()
 var opponent_deck := Deck.new()
+## The unshuffled lists the two decks were built from (a draw replay passes
+## them back to start() to reshuffle the same decks).
+var player_goobs: Array[GoobDefinition] = []
+var opponent_goobs: Array[GoobDefinition] = []
 
 ## The start-of-turn draw of the turn now in progress (empty if nothing was
 ## drawn), and whether it was skipped because the hand was full.
@@ -67,8 +71,10 @@ func _init() -> void:
 
 ## New scenario (or draw replay): empty board, both starter decks shuffled,
 ## starting hands of Deck.START_HAND, then the first side's turn begins (with its draw).
-## `deck` replaces the starter deck for both sides (tests).
-func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[GoobDefinition] = []) -> void:
+## `deck` alone replaces the decks of both sides (tests); `deck` and
+## `opponent_deck_goobs` give one each; neither rolls a deck per side
+## (DeckBuilder, `forced` as in DeckBuilder.roll).
+func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[GoobDefinition] = [], opponent_deck_goobs: Array[GoobDefinition] = [], forced := {}) -> void:
 	if rng == null:
 		rng = RandomNumberGenerator.new()
 		rng.randomize()
@@ -77,9 +83,14 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	board.reset()
 	_cell_goobs.clear()
 	result = Result.NONE
-	var goobs := deck if not deck.is_empty() else StarterDeck.build()
-	player_deck = Deck.shuffled(goobs, rng)
-	opponent_deck = Deck.shuffled(goobs, rng)
+	if deck.is_empty():
+		player_goobs = DeckBuilder.roll(rng, forced)
+		opponent_goobs = DeckBuilder.roll(rng, forced)
+	else:
+		player_goobs = deck
+		opponent_goobs = opponent_deck_goobs if not opponent_deck_goobs.is_empty() else deck
+	player_deck = Deck.shuffled(player_goobs, rng)
+	opponent_deck = Deck.shuffled(opponent_goobs, rng)
 	player_deck.draw(Deck.START_HAND)
 	opponent_deck.draw(Deck.START_HAND)
 	_begin_turn(Phase.PLAYER_TURN if player_first else Phase.OPPONENT_TURN)

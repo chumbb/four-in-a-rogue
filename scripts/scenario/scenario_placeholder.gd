@@ -190,7 +190,7 @@ func _ready() -> void:
 	_apply_speed()
 	_board_view.item_rect_changed.connect(_layout_table.call_deferred)
 	_layout_table.call_deferred()
-	_loop.start(GameFlow.player_moves_first, _rng, deck)
+	_start_loop()
 	_board_view.goob_lookup = _loop.goob_at
 	_board_view.sync_from_board(_loop.board)
 	# The player's first-turn draw is revealed by _after_play(), so the fan
@@ -201,6 +201,24 @@ func _ready() -> void:
 			start_hand.remove_at(start_hand.rfind(goob))
 	_hand.rebuild(start_hand)
 	_start_game()
+
+
+## Test `deck` wins; else the game's rolled decks (kept over draw replays);
+## else roll new ones and remember them.
+func _start_loop() -> void:
+	if not deck.is_empty():
+		_loop.start(GameFlow.player_moves_first, _rng, deck)
+		return
+	var rolled := GameFlow.rolled_decks
+	if not rolled.is_empty():
+		var mine: Array[GoobDefinition] = []
+		var his: Array[GoobDefinition] = []
+		mine.assign(rolled["player"])
+		his.assign(rolled["opponent"])
+		_loop.start(GameFlow.player_moves_first, _rng, mine, his)
+		return
+	_loop.start(GameFlow.player_moves_first, _rng, [], [], GameFlow.debug_forced_categories)
+	GameFlow.rolled_decks = {"player": _loop.player_goobs, "opponent": _loop.opponent_goobs}
 
 
 ## "Game start" banner first, a short beat, then the first turn's banner

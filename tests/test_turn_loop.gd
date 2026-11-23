@@ -38,6 +38,10 @@ func _initialize() -> void:
 	_test_effect_before_win_check()
 	_test_scoring_cells()
 	_test_m6e_multipliers_and_names()
+	_test_deck_builder_shape()
+	_test_deck_builder_main_pools()
+	_test_deck_builder_no_dupes_when_enough()
+	_test_start_rolls_per_side()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -522,3 +526,94 @@ func _test_m6e_multipliers_and_names() -> void:
 	_check(v.display_name == "Goob", "m6e: Vanilla is shown as Goob")
 	_check(v.category == GoobDefinition.Category.NONE, "m6e: Vanilla has no category")
 	_check(POPULAR.effect_description == "Drop a Goob into a random column.", "m6e: Popular card text")
+
+
+func _count_category(goobs: Array[GoobDefinition], category: GoobDefinition.Category) -> int:
+	var n := 0
+	for g in goobs:
+		if g.category == category:
+			n += 1
+	return n
+
+
+func _test_deck_builder_shape() -> void:
+	var roster := GoobRoster.all()
+	var ok := true
+	for s in range(1, 201):
+		var goobs := DeckBuilder.roll(_seeded(s))
+		var top := _count_category(goobs, GoobDefinition.Category.UNIQUE) + _count_category(goobs, GoobDefinition.Category.TECH)
+		var specials_ok := true
+		for g in goobs:
+			specials_ok = specials_ok and roster.has(g)
+		ok = ok and goobs.size() == 21 and _count_category(goobs, GoobDefinition.Category.NONE) >= 11 and top <= 2 and specials_ok
+	_check(ok, "deck builder: 21 Goobs, >= 11 plain, at most 2 top, all from the roster (seeds 1..200)")
+	var has_top := true
+	for s in range(1, 201):
+		var goobs := DeckBuilder.roll(_seeded(s), {"top": GoobDefinition.Category.UNIQUE})
+		var n := _count_category(goobs, GoobDefinition.Category.UNIQUE)
+		has_top = has_top and n >= 1 and n <= 2
+	_check(has_top, "deck builder: forced UNIQUE gives 1-2 UNIQUE Goobs")
+
+
+func _test_deck_builder_main_pools() -> void:
+	var D := GoobDefinition.Category.DESTROY
+	var X := GoobDefinition.Category.DISCARD
+	var ok := true
+	var saw_draw := false
+	for s in range(1, 201):
+		var goobs := DeckBuilder.roll(_seeded(s), {"main": [D, X], "top": GoobDefinition.Category.UNIQUE})
+		var top := _count_category(goobs, GoobDefinition.Category.UNIQUE)
+		var draws := _count_category(goobs, GoobDefinition.Category.DRAW)
+		var fat := _count_category(goobs, D)
+		var plain := _count_category(goobs, GoobDefinition.Category.NONE)
+		saw_draw = saw_draw or draws > 0
+		# 10 specials: top + DESTROY pool + DISCARD pool (plain, no Goobs yet) + DRAW.
+		var discard_slots := 10 - top - fat - draws
+		ok = ok and draws <= 3 and discard_slots >= 0 and plain == 11 + discard_slots
+		ok = ok and top + fat + draws + discard_slots == 10
+	_check(ok, "deck builder: main pools + top = 10 slots, DRAW <= 3, empty DISCARD slots plain (seeds 1..200)")
+	_check(saw_draw, "deck builder: DRAW Goobs do appear in pools")
+
+
+func _test_deck_builder_no_dupes_when_enough() -> void:
+	var roster: Array[GoobDefinition] = []
+	for i in 6:
+		var g := GoobDefinition.new()
+		g.id = "stub_destroy_%d" % i
+		g.category = GoobDefinition.Category.DESTROY
+		roster.append(g)
+	var ok := true
+	for s in range(1, 201):
+		var goobs := DeckBuilder.roll_from(_seeded(s), roster, {"main": [GoobDefinition.Category.DESTROY, GoobDefinition.Category.MOVE]})
+		var seen := {}
+		for g in goobs:
+			if g.category == GoobDefinition.Category.DESTROY:
+				ok = ok and not seen.has(g.id)
+				seen[g.id] = true
+	_check(ok, "deck builder: no repeated type inside a pool when the roster has enough")
+
+
+func _composition(goobs: Array[GoobDefinition]) -> Dictionary:
+	var counts := {}
+	for g in goobs:
+		counts[g.id] = int(counts.get(g.id, 0)) + 1
+	return counts
+
+
+func _test_start_rolls_per_side() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(3))
+	_check(t.player_goobs.size() == 21 and t.opponent_goobs.size() == 21, "rolls: 21 Goobs per side")
+	_check(t.player_deck.draw_pile.size() + t.player_deck.hand.size() == 21, "rolls: player deck holds 21")
+	var differs := false
+	for s in range(1, 21):
+		t.start(true, _seeded(s))
+		differs = differs or _composition(t.player_goobs) != _composition(t.opponent_goobs)
+	_check(differs, "rolls: the two sides roll their own decks")
+	t.start(true, _seeded(3))
+	var mine := t.player_goobs
+	var his := t.opponent_goobs
+	var t2 := TurnLoop.new()
+	t2.start(true, _seeded(9), mine, his)
+	_check(_composition(t2.player_goobs) == _composition(mine) and _composition(t2.opponent_goobs) == _composition(his), "rolls: passing both lists reproduces the compositions")
+	_check(t2.player_deck.hand.size() + t2.player_deck.draw_pile.size() == 21, "rolls: replay deck holds 21")
