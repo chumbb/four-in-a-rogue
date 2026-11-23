@@ -15,7 +15,7 @@
 - Every special ×2, a plain Goob ×1. Vanilla is shown as **"Goob"**; its id stays `vanilla`.
 - Deck per side = 11 Goobs + 10 specials: 1–2 from UNIQUE+TECH, 2 different categories from MOVE/DESTROY/DISCARD at 4–5 each, total 10. DRAW Goobs fill 0–1 slots of one main pool and 0–2 of the other (which pool is random). No duplicate types while the pool has enough. A category with no Goobs gives plain Goobs.
 - A draw replay reshuffles the same two decks. A new game from the title rolls new ones.
-- Roll: sideways while the cell beside it in the next column is empty, falling to the top of that column; stops at the border or at an equal or higher column; never off the board.
+- Roll: a Goob resting at row r moves to the next column while that column's height is **strictly less than r** (its surface is lower), falling to the top of it; it stops at the border or when the next column's surface is level or higher (height ≥ r), so a Goob on the floor never rolls; never off the board.
 - Discard reveal: centre pop, name in the gap ~1.2 s, off screen (down = yours, up = his), one at a time, **never sped up by Fast**.
 - Debug picker, category deck and auto-play exist only when `OS.is_debug_build()`.
 - Gameplay input stays on `InputEventScreenTouch` / `InputEventScreenDrag`. Buttons ≥ 96 px. Match the repo's GDScript style. Never `git add -u`. After any `--editor` run, `git checkout -- project.godot`.
@@ -108,7 +108,7 @@ Algorithm (per the spec's roll rule):
 ```
 while true:
     next = cell.x + dir
-    if next out of range or board.get_owner(next, cell.y) != EMPTY: break
+    if next out of range or height(next) >= cell.y: break   # level or higher surface stops it
     remove cell (collapse its column), drop into next (row = height of next)
     cell = landed cell; path.append(cell)
 ```
