@@ -82,6 +82,7 @@ func _run() -> void:
 	await _test_m6c_fuse()
 	await _test_m6c_playtest()
 	await _test_m6c_waiting()
+	await _test_convincing_flip_colour()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -901,6 +902,36 @@ func _test_m6c_playtest() -> void:
 
 ## M6c playtest: he waits on you after WAITING_AFTER_SEC without a touch and
 ## during the fuse; a touch brings him back. His reactions start with the effect.
+## Convincing's target keeps its old colour through the wind-up and only
+## turns as it spins (Sean, M6c playtest: it showed the new colour first).
+func _test_convincing_flip_colour() -> void:
+	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	await _wait_input(scenario)
+	var view := _view(scenario)
+	var board := _board(scenario)
+	board.drop(0, P)
+	board.drop(1, O)
+	view.sync_from_board(board)
+	await process_frame
+	var target := Vector2i(1, 0)
+	var token: Sprite2D = view._tokens[target]
+	view.play_flip(Vector2i(0, 0), target, P)
+	var blue: Array[Texture2D] = TurnLoop.VANILLA.flip_frames(P)
+	blue.append(TurnLoop.VANILLA.still(P))
+	var frames: SpriteFrames = TurnLoop.VANILLA.sprite_frames(P)
+	for anim in frames.get_animation_names():
+		for i in frames.get_frame_count(anim):
+			blue.append(frames.get_frame_texture(anim, i))
+	var early_blue := false
+	for i in 10: # the wind-up and target blink come before the spin
+		await process_frame
+		early_blue = early_blue or blue.has(token.texture)
+	_check(not early_blue, "convincing: the target keeps its colour until it flips")
+	await create_timer(1.5).timeout
+	_check(view.shows_goob(target, TurnLoop.VANILLA, P), "convincing: it ends in your colour")
+	await _free(scenario)
+
+
 func _test_m6c_waiting() -> void:
 	var scenario := await _make(5.0)
 	var hud: ScenarioHud = scenario._hud

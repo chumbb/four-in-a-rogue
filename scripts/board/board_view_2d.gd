@@ -368,9 +368,9 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	if token == null:
 		return
 	var old: BoardState.CellOwner = _token_owner[target]
-	_token_owner[target] = side
 	var goob: GoobDefinition = _token_goob.get(target, VANILLA)
 	if not animate:
+		_token_owner[target] = side
 		token.texture = goob.still(side)
 		drop_sound.emit(&"flip", side)
 		set_face(target, &"surprised", REACTION_SEC)
@@ -395,6 +395,10 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	for i in FLIP_NEW_FRAMES:
 		frames.tween_callback(_set_texture.bind(token, new_yaw[i]))
 		frames.tween_interval(FLIP_FRAME_SEC)
+	# It only turns `side`'s colour now, as it spins (Sean, M6c playtest): the
+	# face player drew the new colour through the wind-up when this was set
+	# at the start.
+	_token_owner[target] = side
 	token.set_meta(&"busy", true) # the spin frames own the texture
 	token.reparent(_fx, false) # knocked out of its hole, in front of the board
 	await hop.finished

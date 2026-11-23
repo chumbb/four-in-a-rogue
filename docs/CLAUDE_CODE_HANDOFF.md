@@ -80,6 +80,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Playtest 14 (Sean):** player's Goob rests the usual 0.2 s (`TOP_PAUSE_SEC`) after replacing the ghost; opponent's flip into place + rest = 0.2 s (`OPPONENT_PLAY_SEC`: rise 0.12 + settle 0.05 + rest 0.03). `PLAY_PAUSE_SEC` removed.
 - **Playtest 15 (Sean):** player drop at 0.2 s accepted. Opponent: back to the full flip up from behind (rise 0.22 + settle 0.1), **then** the 0.2 s rest (`TOP_PAUSE_SEC` for every played Goob; `OPPONENT_PLAY_SEC` removed).
 - **Playtest 16 (Sean): snappier scoring.** Recognition 1.0 → 0.7 s; per Goob ~0.85 → ~0.55 s (flip frames 0.06 → 0.04 `SCORE_FLIP_FRAME_SEC`, show 0.25 → 0.15, float 0.3 → 0.2, step 0.6 → 0.4); pause 0.4 → 0.25; collapse 0.3 → 0.25; total hold 1.0 unchanged. A four now scores in ~4.4 s instead of ~6 (incl. the 1 s hold on the total).
+- **Playtest 17 (Sean):** scoring timing accepted. Bug fixed: Convincing's target showed the new colour during the wind-up (`play_flip` set `_token_owner` at the start, so the face player repainted it). The owner now changes when the spin starts; the colour turns edge-on mid-spin. Test `_test_convincing_flip_colour`.
 - **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
 - **Playtest changes so far:**
   - Drawn Goob's name shows above the board.
@@ -178,12 +179,12 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6c-ai-animations-reactions`, 902 checks)
+### Tests (all pass on `m6c-ai-animations-reactions`, 904 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 429 checks
+& $g --headless -s res://tests/test_scenario.gd    # 431 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
 & $g --headless -s res://tests/test_flow_m3.gd     # 184
