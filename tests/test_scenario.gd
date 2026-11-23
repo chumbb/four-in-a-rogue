@@ -786,7 +786,7 @@ func _test_m6c_reactions() -> void:
 	await process_frame
 	_check(hud.portrait_face() == &"angry", "m6c: a block makes him angry (got %s)" % hud.portrait_face())
 	await _free(scenario)
-	# Blocking his two before it becomes a three: he nods (M6c playtest).
+	# Blocking his two before it becomes a three: "well played" (M6c playtest).
 	scenario = await _make(5.0)
 	hud = scenario._hud
 	board = _board(scenario)
@@ -795,11 +795,7 @@ func _test_m6c_reactions() -> void:
 	_view(scenario).sync_from_board(board)
 	_play_col(scenario, 2)
 	await process_frame
-	_check(hud.portrait_face() == &"nod", "m6c: blocking his two makes him nod (got %s)" % hud.portrait_face())
-	await create_timer(0.08).timeout
-	_check(hud._portrait.position.y > ScenarioHud.PORTRAIT_INSET, "m6c: the nod dips his head")
-	await create_timer(ScenarioHud.NOD_STEP_SEC * 4.0 + 0.2).timeout
-	_check(hud._portrait.position.y == ScenarioHud.PORTRAIT_INSET and hud.portrait_face() != &"nod", "m6c: the nod comes back up")
+	_check(hud.portrait_face() == &"well_played", "m6c: blocking his two gets a well played (got %s)" % hud.portrait_face())
 	# ... and so does his own block of your two.
 	var before := BoardState.new()
 	before.drop(4, P)
@@ -807,7 +803,7 @@ func _test_m6c_reactions() -> void:
 	scenario._board_before = before
 	scenario._loop.board = before.copy()
 	scenario._loop.board.drop(6, O)
-	_check(scenario._reaction_for(6, O, [] as Array[int], {}) == &"nod", "m6c: his block of your two makes him nod")
+	_check(scenario._reaction_for(6, O, [] as Array[int], {}) == &"well_played", "m6c: his block of your two gets a well played")
 	scenario._board_before = BoardState.new()
 	scenario._loop.board = BoardState.new()
 	scenario._loop.board.drop(3, O)

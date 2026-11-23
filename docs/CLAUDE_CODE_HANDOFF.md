@@ -72,7 +72,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 
 **Where we are (handoff 2026-11-22, after playtest 8):**
 
-- **Next change, not coded yet (Sean):** when either side blocks the other's two (a side-by-side pair, `OpponentAI.open_lines(board, side, 2, true)`), the portrait shows the **well played** face as a normal 1.5 s reaction "for now". This replaces the nod (`ScenarioHud.nod()`, commit `4d205bd`). Plan: `_reaction_for()` returns `&"well_played"` instead of `&"nod"`. Remove `nod()` / `_dip()` / `NOD_*` and the `_show_face` position/size reset if nothing else uses them. Update the two `m6c: ... nod` checks in `tests/test_scenario.gd`, CLAUDE.md §Layout (portrait expressions), the Decision-Log and the session log.
+- **Blocked two (done, Sean "for now"):** when either side blocks the other's two (a side-by-side pair, `OpponentAI.open_lines(board, side, 2, true)`), the portrait shows the **well played** face as a normal 1.5 s reaction. This replaced the nod (`4d205bd`, removed).
 - **Sean confirmed fixed:** wrong Goob played after a timeout (double `_hand.remove()`, `53e484f`).
 - **Playtest changes so far:**
   - Drawn Goob's name shows above the board.
@@ -174,12 +174,12 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `m6c-ai-animations-reactions`, 897 checks)
+### Tests (all pass on `m6c-ai-animations-reactions`, 895 checks)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 426 checks
+& $g --headless -s res://tests/test_scenario.gd    # 424 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 138
 & $g --headless -s res://tests/test_board_state.gd # 74
 & $g --headless -s res://tests/test_flow_m3.gd     # 182
