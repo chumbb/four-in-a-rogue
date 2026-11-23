@@ -69,6 +69,23 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
 | **M6d** Sound + smoke | ✅ Accepted and merged 2026-11-23 (sound grill done) |
 
+### M6e framework (built on `m6e-framework`, playtest pending)
+
+Next: Sean playtests the framework, then the Move category session. APIs the category sessions use:
+
+- **Goob data:** `GoobDefinition.Category` (NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW) and `category`. `GoobRoster.PATHS` (`scripts/deck/goob_roster.gd`): add each new Goob's `.tres` path here.
+- **Decks:** `DeckBuilder.roll(rng, forced)` / `roll_from(rng, roster, forced)` builds 11 Goobs + 10 specials (`SIZE` 21, `SPECIALS` 10); `forced` is a category dictionary (debug deck). `GameFlow.rolled_decks` (kept over draw replays, cleared for a new game), `GameFlow.debug_forced_categories`, `GameFlow.autoplay`.
+- **Piles:** `Deck.discard_pile`, `Deck.destroyed_pile`, `Deck.discard(index)`.
+- **TurnLoop** (`scripts/rules/turn_loop.gd`):
+  - `destroy_at(cell)` and `_collapse_goobs(column, from_row)`.
+  - `discard_from(side, index)` appends a discard step (`"kind"` NONE, `"discarded"`, `"index"`, `"side"`).
+  - `effect_steps` holds every step of a resolution; `last_effect = effect_steps[0]`.
+  - `statuses` with `add_status(id, side, label, text, turns_left)`, `remove_status(id, side)`, `has_status(id, side)`; hooks `_on_turn_start(side)` / `_on_turn_end(side)`.
+  - `roll_goob(cell, dir)`: a Goob moves while the next column's surface is strictly lower than its row. Logic only, no animation yet.
+- **View:** `StatusPills` (`scripts/ui/status_pills.gd`) sits in the gap strip above the aim lane and never over a column hit rect. Scenario `_show_discard(goob, side, index)` (centre pop, name, off screen; never sped up by Fast).
+- **Debug (debug builds only):** F4 `DebugPanel` (`scripts/debug/debug_panel.gd`): give a Goob, discard random, add status, category deck + "New game with these". Scenario helpers `debug_give`, `debug_discard_random`, `debug_add_status`.
+- **Auto-play:** "»" button right of Pause; Settings row "Auto-play button" (`Settings.autoplay_button`, default On). Off at win/lose and on quit to title.
+
 ### M7 — on-device check ← **next** (required for v0.1; CLAUDE.md §M7)
 
 - **Goal:** an Android debug build on the **Pixel 11**, first with the Mobile renderer, then with Compatibility. Use the **Pixel 8** as the older phone if Sean has one. Check **A9** (portrait touch) on hardware, plus the rest of `docs/SMOKE_V0.1.md`. A true low-end check is a known gap. iOS waits for a Mac; the Retroid Pocket (4:3) is saved for the landscape version.
@@ -262,14 +279,14 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `main`, 911 checks, 2026-11-23)
+### Tests (all pass, 1080 checks, 2026-11-23; counts below are current on `m6e-framework`)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 436 checks
-& $g --headless -s res://tests/test_turn_loop.gd   # 138
-& $g --headless -s res://tests/test_board_state.gd # 74
+& $g --headless -s res://tests/test_scenario.gd    # 547 checks
+& $g --headless -s res://tests/test_turn_loop.gd   # 192
+& $g --headless -s res://tests/test_board_state.gd # 78
 & $g --headless -s res://tests/test_flow_m3.gd     # 186
 & $g --headless -s res://tests/test_opponent_ai.gd # 77
 ```
