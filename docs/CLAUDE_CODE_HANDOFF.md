@@ -35,7 +35,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6c is accepted and merged (M6c on 2026-11-23). Next: M6d, then M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Next: M7 (on-device check).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -46,8 +46,8 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 5 | **Art pass D1** — Goob type sheets ✅ | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
-| 8 | **M6d** — Sound + smoke ← **next** | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
+| 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
+| 9 | **M7** (required) ← **next** | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
 After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placeholders).
 
@@ -67,8 +67,9 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **Art D1 / D2** Goob types | Accepted and merged 2026-11-21 |
 | **Specials design grill** | Confirmed 2026-11-22 (vault `Design/Special Goobs.md`) |
 | **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
+| **M6d** Sound + smoke | ✅ Accepted and merged 2026-11-23 (sound grill done) |
 
-### M6d — sound completion + smoke test (on `m6d-sound-smoke`, not merged; next = sound effects grill)
+### M6d — sound completion + smoke test (accepted and merged to `main` 2026-11-23)
 
 - **Built:** Master mute on `NOTIFICATION_APPLICATION_PAUSED` (restored by `Settings.apply_audio()`), `[audio] general/ios/session_category=0` + `mix_with_others=true`. Credits rows for M6c + M6d added. **Removed by Sean (2026-11-23):** the forest ambience (chiptune soundtrack later) and a long-press inspect attempt (clashes with dragging; inspect stays double tap). **Playtest 2:** the opponent red column flash (+ blip) removed; a full column under the finger = dark highlight (`COLOR_FLASH_FULL`) + "Column full" toast, and only a release there gives the shake + error sound + haptic.
 - **Open → next session: sound effects grill** (Sean, 2026-11-23: "update handoff for new sound effects convo"). State to start from:
