@@ -6,17 +6,18 @@ extends Node
 
 signal changed
 
-enum Speed { NORMAL, FAST, SKIP }
+## Skip was removed (Sean, M6c playtest 2026-11-22); a saved Skip (2) loads as Normal.
+enum Speed { NORMAL, FAST }
 
 const PATH := "user://settings.cfg"
 const BUSES: Array[StringName] = [&"Master", &"Music", &"SFX"]
 ## Sean, 2026-11-13 sound grill.
 const DEFAULT_VOLUME := {&"Master": 0.8, &"Music": 0.7, &"SFX": 0.8}
-## Fast plays animations at double speed (Normal / Fast / Skip, slice A10).
+## Fast plays animations at double speed (Normal / Fast, slice A10).
 const FAST_SCALE := 2.0
 const HAPTIC_MS := 35
 
-## Default Normal; Skip only when the player turns it on (Sean, 2026-11-11).
+## Default Normal.
 var speed := Speed.NORMAL
 var haptics := true
 var screen_shake := true
@@ -34,7 +35,8 @@ func _ready() -> void:
 func load_file() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(path) == OK:
-		speed = clampi(int(cfg.get_value("play", "speed", Speed.NORMAL)), Speed.NORMAL, Speed.SKIP) as Speed
+		var saved := int(cfg.get_value("play", "speed", Speed.NORMAL))
+		speed = Speed.FAST if saved == Speed.FAST else Speed.NORMAL
 		haptics = bool(cfg.get_value("play", "haptics", true))
 		screen_shake = bool(cfg.get_value("play", "screen_shake", true))
 		auto_flip = bool(cfg.get_value("play", "auto_flip", false))
@@ -99,23 +101,14 @@ func set_muted(bus: StringName, on: bool) -> void:
 
 
 ## Play-animation time for `sec` at the current speed: Normal as is, Fast
-## halved, Skip none.
+## halved.
 func anim_sec(sec: float) -> float:
-	match speed:
-		Speed.FAST:
-			return sec / FAST_SCALE
-		Speed.SKIP:
-			return 0.0
-	return sec
+	return sec / anim_scale()
 
 
-## Tween speed scale for play animations (Skip turns them off instead).
+## Tween speed scale for play animations.
 func anim_scale() -> float:
 	return FAST_SCALE if speed == Speed.FAST else 1.0
-
-
-func is_skip() -> bool:
-	return speed == Speed.SKIP
 
 
 ## One short pulse (your Goob lands, invalid drop); Haptics Off = none. Phones

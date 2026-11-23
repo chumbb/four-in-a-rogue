@@ -25,7 +25,8 @@ Outputs (final):
   assets/strange_man/full_body.png          96x160, feet on the bottom rows of the figure
   assets/strange_man/light_pool.png         oval pool of light he stands on (game px)
   assets/strange_man/portrait_<expr>.png    64x64 bust: idle, thinking, happy, angry,
-                                            surprised, celebrating, well_played
+                                            surprised, celebrating, well_played, waiting, greeting,
+                                            giggle, sad
   assets/strange_man/portrait_crack.png     strip of 3 64x64 frames (well played, cracking)
   assets/strange_man/portrait_explode.png   strip of 6 128x128 frames (shards fly apart;
                                             the bust sits centred in each frame)
@@ -56,8 +57,20 @@ POOL_CX, POOL_Y = 135, 300  # pool centre in game px; his feet stand on it
 # above it covers the patch.
 EDITS = {"c_pro3": [((64, 54, 72, 62), (64, 68))]}
 EXPRESSIONS = {  # asset name -> bust/raw_<source>.png
-    "idle": "idle", "thinking": "thinking", "happy": "happy", "angry": "angry",
+    "idle": "idle", "thinking": "thinking", "happy": "giggle_a", "angry": "angry",
     "surprised": "surprised", "celebrating": "celebrating", "well_played": "well_played2",
+    # Waiting on the player (M6c playtest, Sean 2026-11-22): edit_image of idle, options
+    # bust/raw_waiting_a|b|c.png (compare_waiting.png); Sean picked B "with a raised
+    # eyebrow" -> hand-pixelled bust/make_waiting_brow.py b1|b2|b3; Sean picked b2.
+    "waiting": "waiting_b2",
+    # Game-start greeting (M6c playtest, Sean 2026-11-22: "new wave face"): edit_image of
+    # idle, options bust/raw_greeting_a|b|c.png (compare_greeting.png); Sean picked c (tips his beanie).
+    "greeting": "greeting_c",
+    # M6c playtest (Sean 2026-11-23): giggle when he blocks your two, sad (disappointed)
+    # when you block his three; edit_image of idle, options bust/raw_giggle|sad_a|b|c.png
+    # (compare_giggle.png, compare_sad.png); Sean picked giggle A, sad B, then swapped
+    # (compare_giggle_happy.png): the old happy face is now giggle, giggle A is now happy.
+    "giggle": "happy", "sad": "sad_b",
 }
 GOOB_X = {"blue": 72, "red": 198}  # centre x in game px, either side of him on the pool
 CRACK_DARK, CRACK_LIT = hexc("2e222f"), hexc("c7dcd0")

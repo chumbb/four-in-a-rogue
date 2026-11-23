@@ -12,15 +12,52 @@ extends Control
 ## Sean, 2026-11-20: the block grew from 56 to 76 game px so the 64 px bust
 ## shows whole; playtest 1: emblem moved up into the block's centre section,
 ## no "Objective" heading, scenario shows "1", banners above the board.
+##
+## M6c: portrait expressions (slice §2B): a base face (idle, or thinking during
+## the opponent's think delay) and short reactions (happy, angry, surprised;
+## REACTION_SEC, then back to the base face); celebrating on his win; on a
+## player win "well played", then the bust cracks and explodes.
 
 signal pause_pressed
+## "Show result" while the player reviews the board after the end.
+signal show_result_pressed
+## &"portrait_crack" / &"portrait_explode" during play_defeat() (the scenario plays them).
+signal portrait_sound(kind: StringName)
 
 const PORTRAIT := preload("res://assets/strange_man/portrait_idle.png")
+const PORTRAITS := {
+	&"idle": PORTRAIT,
+	&"thinking": preload("res://assets/strange_man/portrait_thinking.png"),
+	&"happy": preload("res://assets/strange_man/portrait_happy.png"),
+	&"angry": preload("res://assets/strange_man/portrait_angry.png"),
+	&"surprised": preload("res://assets/strange_man/portrait_surprised.png"),
+	&"celebrating": preload("res://assets/strange_man/portrait_celebrating.png"),
+	&"well_played": preload("res://assets/strange_man/portrait_well_played.png"),
+	## Waiting on you: 8 s without a touch, or the fuse (Sean, M6c playtest).
+	&"waiting": preload("res://assets/strange_man/portrait_waiting.png"),
+	## Waves hello during the GAME START banner (Sean, M6c playtest).
+	&"greeting": preload("res://assets/strange_man/portrait_greeting.png"),
+	## He blocks your two; you block his three (Sean, M6c playtest).
+	&"giggle": preload("res://assets/strange_man/portrait_giggle.png"),
+	&"sad": preload("res://assets/strange_man/portrait_sad.png"),
+}
+const CRACK := preload("res://assets/strange_man/portrait_crack.png") ## 3 × 64 px
+const EXPLODE := preload("res://assets/strange_man/portrait_explode.png") ## 6 × 128 px
+const CRACK_FRAMES := 3
+const EXPLODE_FRAMES := 6
+## Reaction faces hold this long, then the base face returns (slice §2B).
+const REACTION_SEC := 1.5
+## Player win (Normal speed): well played, cracks, explodes.
+const WELL_PLAYED_SEC := 0.9
+const CRACK_FRAME_SEC := 0.18
+const EXPLODE_FRAME_SEC := 0.08
 const EMBLEM := preload("res://assets/ui/timer_emblem_forest.png")
 const DIVIDER := preload("res://assets/ui/divider_v.png")
 const PAUSE_ICON := preload("res://assets/ui/icon_pause.png")
 const RIBBON_BLUE := preload("res://assets/ui/ribbon_blue.png")
 const RIBBON_RED := preload("res://assets/ui/ribbon_red.png")
+const RIBBON_INK := preload("res://assets/ui/ribbon_ink.png") ## neutral "Game start"
+const GAME_START := "GAME START" ## all caps (Sean, M6c playtest)
 
 const GOLD_HI := Color("fbb954")
 const RED := Color("e83b3b")
@@ -34,6 +71,7 @@ const EMBLEM_TOP := 4.0 ## emblem top inside the block's centre section
 const OBJECTIVE_Y := 52.0 ## objective line under the emblem
 const PAUSE_SIZE := Vector2(40, 38)
 const PAUSE_INSET := 9.0
+const SHOW_RESULT_W := 112.0
 ## Ink outline around the timer digits (8 directions + a drop below).
 const OUTLINE := [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1), Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1), Vector2(0, 2)]
 const NO_TIMER := "—"
@@ -44,15 +82,24 @@ const BANNER_SLIDE_PX := 40.0
 
 var stage: PixelStage
 var _block: NinePatchRect
+var _portrait: TextureRect
+var _burst: TextureRect
+var _base_face := &"idle"
+var _face := &"idle"
+var _reaction_left := 0.0
 var _objective: Label
 var _scenario: Label
 var _timer_box: Control
 var _timer_labels: Array[Label] = []
 var _emblem: TextureRect
 var _pause: Button
+var _show_result: Button
 var _ribbon: TextureRect
 var _ribbon_label: Label
 var _ribbon_tween: Tween
+## Drawn Goob's name in the gap above the board (Sean, M6c playtest).
+var _caption: Label
+var _caption_tween: Tween
 ## Gap between the HUD and the board in game px (set_banner_band); the
 ## ribbon is centred in it.
 var _band := Vector2(-1, -1)
@@ -78,7 +125,12 @@ func _build() -> void:
 	_block.patch_margin_bottom = m[3]
 	_block.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.canvas.add_child(_block)
-	stage.add_image(PORTRAIT, Vector2(PORTRAIT_INSET, PORTRAIT_INSET), _block)
+	_portrait = stage.add_image(PORTRAIT, Vector2(PORTRAIT_INSET, PORTRAIT_INSET), _block)
+	_portrait.name = "Portrait"
+	_burst = stage.add_image(_frame(EXPLODE, 0, EXPLODE_FRAMES), Vector2.ZERO, _block)
+	_burst.name = "PortraitBurst"
+	_burst.position = _portrait.position + (_portrait.size - _burst.size) * 0.5
+	_burst.visible = false
 	for i in 2:
 		var bar := TextureRect.new()
 		bar.texture = DIVIDER
@@ -107,6 +159,11 @@ func _build() -> void:
 	_pause.size = PAUSE_SIZE
 	stage.add_image(PAUSE_ICON, ((PAUSE_SIZE - PAUSE_ICON.get_size()) * 0.5).floor() + Vector2(0, -1), _pause)
 	_pause.pressed.connect(pause_pressed.emit)
+	_show_result = stage.add_button("Show result", SHOW_RESULT_W)
+	_show_result.name = "ShowResultButton"
+	_show_result.size = Vector2(SHOW_RESULT_W, PAUSE_SIZE.y)
+	_show_result.visible = false
+	_show_result.pressed.connect(show_result_pressed.emit)
 	_ribbon = TextureRect.new()
 	_ribbon.stretch_mode = TextureRect.STRETCH_TILE
 	_ribbon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -115,6 +172,10 @@ func _build() -> void:
 	stage.canvas.add_child(_ribbon)
 	_ribbon_label = _shadowed(stage.add_label("", PixelStage.WHITE, &"Mono2", _ribbon), 2)
 	_ribbon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_caption = _shadowed(stage.add_label("", GOLD_HI, &"Mono2"), 2)
+	_caption.name = "Caption"
+	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_caption.modulate.a = 0.0
 	set_timer(NO_TIMER)
 
 
@@ -152,6 +213,7 @@ func _layout() -> void:
 	_scenario.size = Vector2(run_w, 32)
 	_centre_timer()
 	_pause.position = Vector2(safe.position.x + PAUSE_INSET, safe.end.y - PAUSE_INSET - PAUSE_SIZE.y)
+	_show_result.position = Vector2(floorf((stage.game_size.x - SHOW_RESULT_W) * 0.5), safe.end.y - PAUSE_INSET - PAUSE_SIZE.y)
 	_ribbon.size = Vector2(stage.game_size.x, RIBBON_BLUE.get_height())
 	_place_ribbon()
 	_ribbon.pivot_offset = _ribbon.size * 0.5
@@ -178,6 +240,9 @@ func _place_ribbon() -> void:
 	if _band.y > _band.x:
 		mid = (_band.x + _band.y) * 0.5
 	_ribbon.position = Vector2(0, roundf(mid - _ribbon.size.y * 0.5))
+	if _caption:
+		_caption.size = Vector2(stage.game_size.x, 32)
+		_caption.position = Vector2(0, roundf(mid - 16.0))
 
 
 ## The scenario's objective text (v0.1: "Get four in a row").
@@ -216,6 +281,14 @@ func pause_button() -> Button:
 	return _pause
 
 
+func set_show_result_visible(on: bool) -> void:
+	_show_result.visible = on
+
+
+func show_result_button() -> Button:
+	return _show_result
+
+
 func set_pause_visible(on: bool) -> void:
 	_pause.visible = on
 
@@ -239,10 +312,19 @@ func _centre_timer() -> void:
 ## "Opponent's turn" band across the screen. `sec` is the whole length; await
 ## it. Under the toasts, over the board.
 func show_turn_banner(player: bool, sec: float) -> void:
+	await _show_ribbon(RIBBON_BLUE if player else RIBBON_RED, "Your turn" if player else "Opponent's turn", sec)
+
+
+## The neutral "Game start" banner before the first turn (Sean, M6c playtest).
+func show_start_banner(sec: float) -> void:
+	await _show_ribbon(RIBBON_INK, GAME_START, sec)
+
+
+func _show_ribbon(texture: Texture2D, text: String, sec: float) -> void:
 	if _ribbon_tween and _ribbon_tween.is_valid():
 		_ribbon_tween.kill()
-	_ribbon.texture = RIBBON_BLUE if player else RIBBON_RED
-	_ribbon_label.text = "Your turn" if player else "Opponent's turn"
+	_ribbon.texture = texture
+	_ribbon_label.text = text
 	_ribbon.visible = true
 	if sec <= 0.0:
 		_ribbon.visible = false
@@ -276,3 +358,96 @@ func banner_text() -> String:
 ## Whole game px only.
 func _set_label_x(x: float) -> void:
 	_ribbon_label.position.x = roundf(x)
+
+
+# --- Portrait (M6c) --------------------------------------------------------
+
+func _process(delta: float) -> void:
+	if _reaction_left > 0.0:
+		_reaction_left -= delta
+		if _reaction_left <= 0.0:
+			_show_face(_base_face)
+
+
+## The resting face: &"idle", &"thinking" or &"waiting". A running reaction finishes first.
+func set_base_face(face: StringName) -> void:
+	_base_face = face
+	if _reaction_left <= 0.0:
+		_show_face(face)
+
+
+## A short reaction (&"happy", &"angry", &"surprised"), then the base face.
+func react(face: StringName) -> void:
+	_reaction_left = REACTION_SEC
+	_show_face(face)
+
+
+## Holds `face` until the scene ends (celebrating on his win).
+func hold_face(face: StringName) -> void:
+	_reaction_left = 0.0
+	_base_face = face
+	_show_face(face)
+
+
+func base_face() -> StringName:
+	return _base_face
+
+
+func portrait_face() -> StringName:
+	return _face
+
+
+## Player win: "well played", then the bust cracks and explodes, leaving the
+## portrait slot empty. `scale` divides every step (Fast = 2); 0 = jump to
+## the end (no animation; tests).
+func play_defeat(scale: float = 1.0) -> void:
+	hold_face(&"well_played")
+	if scale <= 0.0:
+		_portrait.visible = false
+		_face = &"exploded"
+		return
+	await get_tree().create_timer(WELL_PLAYED_SEC / scale, false).timeout
+	portrait_sound.emit(&"portrait_crack")
+	for i in CRACK_FRAMES:
+		_portrait.texture = _frame(CRACK, i, CRACK_FRAMES)
+		await get_tree().create_timer(CRACK_FRAME_SEC / scale, false).timeout
+	_portrait.visible = false
+	portrait_sound.emit(&"portrait_explode")
+	_burst.visible = true
+	for i in EXPLODE_FRAMES:
+		_burst.texture = _frame(EXPLODE, i, EXPLODE_FRAMES)
+		await get_tree().create_timer(EXPLODE_FRAME_SEC / scale, false).timeout
+	_burst.visible = false
+	_face = &"exploded"
+
+
+func _show_face(face: StringName) -> void:
+	_face = face
+	_portrait.visible = true
+	_portrait.texture = PORTRAITS.get(face, PORTRAIT)
+
+
+static func _frame(sheet: Texture2D, index: int, count: int) -> AtlasTexture:
+	var w := float(sheet.get_width()) / count
+	var atlas := AtlasTexture.new()
+	atlas.atlas = sheet
+	atlas.region = Rect2(w * index, 0, w, sheet.get_height())
+	return atlas
+
+
+## Shows `text` (a drawn Goob's name) centred in the gap between the HUD and
+## the board for about `sec`, fading in and out.
+func show_caption(text: String, sec: float) -> void:
+	if _caption_tween and _caption_tween.is_valid():
+		_caption_tween.kill()
+	_place_ribbon()
+	_caption.text = text
+	var fade := minf(0.12, sec * 0.2)
+	_caption_tween = create_tween()
+	_caption_tween.tween_property(_caption, "modulate:a", 1.0, fade)
+	_caption_tween.tween_interval(maxf(sec - fade * 2.0, 0.0))
+	_caption_tween.tween_property(_caption, "modulate:a", 0.0, fade)
+
+
+func caption_text() -> String:
+	return _caption.text if _caption.modulate.a > 0.0 or (_caption_tween and _caption_tween.is_valid()) else ""

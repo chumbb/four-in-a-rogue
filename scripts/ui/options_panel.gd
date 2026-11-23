@@ -2,7 +2,7 @@ class_name OptionsPanel
 extends Control
 ## Options (slice §2B; Art B mock 5), opened from the title and the pause menu:
 ## one window over a scrim. Rows are 38 game px (≥ 96 px at the 720 base):
-## Speed Normal / Fast / Skip · Haptics · Screen shake · Auto-flip coin (tap
+## Speed Normal / Fast · Haptics · Screen shake · Auto-flip coin (tap
 ## anywhere on an On/Off row) · Master / Music / SFX (slider in 5 % steps + a
 ## speaker mute button) · Back. Every change applies and saves at once
 ## (Settings). Works while the tree is paused.
@@ -13,7 +13,7 @@ const ROW_H := 38.0
 const WIDTH := 254.0
 const FIRST_ROW_Y := 40.0
 const LABEL_X := 12.0
-const SPEEDS := [["Normal", 54.0], ["Fast", 46.0], ["Skip", 46.0]]
+const SPEEDS := [["Normal", 72.0], ["Fast", 72.0]] ## Skip removed (Sean, 2026-11-22)
 const SPEED_X := 84.0
 const TOGGLES := [[&"haptics", "Haptics"], [&"screen_shake", "Screen shake"], [&"auto_flip", "Auto-flip coin"]]
 const BUSES := [[&"Master", "Master"], [&"Music", "Music"], [&"SFX", "SFX"]]

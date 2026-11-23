@@ -55,6 +55,13 @@ const STREAMS := {
 	&"slider_tick": preload("res://assets/audio/sfx/slider_tick.ogg"),
 	# Turn banners: a soft whoosh, not a chiptune beep (Sean, 2026-11-20).
 	&"turn_whoosh": preload("res://assets/audio/sfx/turn_whoosh.ogg"),
+	# M6c play flips, fuse, win/lose lead-ins (art/audio/make_reaction_sounds.py).
+	&"goob_flip": preload("res://assets/audio/sfx/goob_flip.ogg"),
+	&"game_start": preload("res://assets/audio/sfx/game_start.ogg"),
+	&"win_sting": preload("res://assets/audio/sfx/win_sting.ogg"),
+	&"lose_sting": preload("res://assets/audio/sfx/lose_sting.ogg"),
+	&"portrait_crack": preload("res://assets/audio/sfx/portrait_crack.ogg"),
+	&"portrait_explode": preload("res://assets/audio/sfx/portrait_explode.ogg"),
 }
 ## Scoring ladder notes, lowest first; the ladder must stay in tune, so these
 ## get no random pitch.

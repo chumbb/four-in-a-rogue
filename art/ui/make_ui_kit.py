@@ -24,8 +24,11 @@ Outputs in assets/ui/ (9-slice margins = the `MARGINS` table below, in game px):
   logo.png             "Four in a Rogue" (blue + red Vanilla Goobs as the O's)
   fuse_rope.png        tileable rope (8 px wide) for the 24 px timer strip; fuse_burnt.png
   fuse_spark.png       4-frame strip of the burning end (11x11 frames)
+  heading_you_win.png / heading_you_lose.png / heading_draw.png  end screen results in the
+                       logo's letters (M6c playtest)
   ribbon_blue.png / ribbon_red.png  turn banner band (8 px wide, tiles across the screen;
-                       blue "Your turn", red "Opponent's turn"; M6b)
+                       blue "Your turn", red "Opponent's turn"; M6b); ribbon_ink.png the
+                       neutral "Game start" banner (M6c playtest)
 Also art/ui/ui_kit_sheet4x.png: every piece at 4x for review.
 
 The scrim colour and text colours live in scripts/ui/ui_theme.gd (no texture needed).
@@ -299,6 +302,7 @@ def banner(w=20, h=20):
 TEAM = {
     "blue": (hexc("8fd3ff"), hexc("4d9be6"), hexc("4d65b4")),
     "red": (hexc("f68181"), RED, RED_LO),
+    "ink": (INK2, INK1, INK0),  # neutral "Game start" banner (M6c playtest)
 }
 
 
@@ -520,6 +524,30 @@ def logo():
     return img.crop(img.getbbox())
 
 
+END_SCALE = 5  # font px -> game px; big, one line, filling the end screen (Sean, M6c playtest)
+
+
+def heading_word(text, ramp, scale=END_SCALE):
+    """The logo's pixel letters, one line per "\n" (end screen results; M6c playtest:
+    bigger, stacked, filling the dead space)."""
+    lines = [shade_letters(glyph_mask(t, scale), ramp) for t in text.split("\n")]
+    gap = -4  # the drop-shadow rows overlap, like the logo's lines
+    w = max(p.width for p in lines)
+    img = Image.new("RGBA", (w, sum(p.height for p in lines) + gap * (len(lines) - 1)), CLEAR)
+    y = 0
+    for p in lines:
+        img.alpha_composite(p, ((w - p.width) // 2, y))
+        y += p.height + gap
+    return img.crop(img.getbbox())
+
+
+END_RAMPS = {
+    "win": [GOLD_HI, GOLD_HI, GOLD, GOLD, GOLD_LO],
+    "lose": [hexc("f68181"), hexc("f68181"), RED, RED, RED_LO],
+    "draw": [WHITE, CREAM, CREAM, hexc("fca790"), hexc("cf657f")],
+}
+
+
 def heading_who_goes_first():
     """Coin flip heading in the logo's gold letters (no Goobs; Sean 2026-11-21).
     Caps only: the glyph crop keeps the cap height, so descenders would be cut."""
@@ -626,11 +654,15 @@ def build():
         "icon_speaker_muted": icon_speaker(True),
         "logo": logo(),
         "heading_who_goes_first": heading_who_goes_first(),
+        "heading_you_win": heading_word("YOU WIN!", END_RAMPS["win"]),
+        "heading_you_lose": heading_word("YOU LOSE", END_RAMPS["lose"]),
+        "heading_draw": heading_word("DRAW", END_RAMPS["draw"]),
         "fuse_rope": fuse_rope(),
         "fuse_burnt": fuse_burnt(),
         "fuse_spark": fuse_spark(),
         "ribbon_blue": ribbon("blue"),
         "ribbon_red": ribbon("red"),
+        "ribbon_ink": ribbon("ink"),
     }
     return pieces
 

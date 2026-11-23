@@ -4,7 +4,7 @@ extends SceneTree
 ## full-column entry error, red opponent flash, turn timer + timeout roll, drop
 ## and roll animations, end overlay, draw replay, and the portrait layout with
 ## simulated safe-area insets; M6b pixel HUD, turn banners, pause menu,
-## Normal / Fast / Skip, haptics + screen shake options. Window sizes are physical (project stretch maps
+## Normal / Fast, haptics + screen shake options. Window sizes are physical (project stretch maps
 ## 1080x1920 to the 720x1280 base).
 ## Run: godot --headless -s res://tests/test_scenario.gd
 
@@ -76,8 +76,13 @@ func _run() -> void:
 	await _test_turn_banners()
 	await _test_pause_menu()
 	await _test_speed_settings()
-	await _test_skip_scoring_sounds()
+	_test_skip_removed()
 	await _test_screen_shake_option()
+	await _test_m6c_reactions()
+	await _test_m6c_fuse()
+	await _test_m6c_playtest()
+	await _test_m6c_waiting()
+	await _test_convincing_flip_colour()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -196,7 +201,7 @@ func _tap(pos: Vector2) -> void:
 
 ## Animated scenarios lock input while the turn's drawn Goob flies in.
 func _wait_input(scenario: Control) -> void:
-	var deadline := Time.get_ticks_msec() + 3000
+	var deadline := Time.get_ticks_msec() + 6000
 	while not scenario._input_enabled and Time.get_ticks_msec() < deadline:
 		await process_frame
 
@@ -247,11 +252,11 @@ func _test_tap_drops_then_opponent() -> void:
 	_check(view._tokens.size() == 2, "view shows 2 tokens (got %d)" % view._tokens.size())
 	_check(scenario._input_enabled, "input re-enabled for player")
 	_check(not scenario._flash.visible, "no flash after the drop")
-	_check(view._tokens[Vector2i(3, 0)].texture == BoardView2D.VANILLA.still(BoardState.CellOwner.PLAYER), "player Goob is blue")
+	_check(view.shows_goob(Vector2i(3, 0), BoardView2D.VANILLA, BoardState.CellOwner.PLAYER), "player Goob is blue")
 	_check(view._tokens[Vector2i(3, 0)].position == view.cell_position(3, 0), "player Goob sits in its hole")
 	for cell in view._tokens:
 		if board.get_owner(cell.x, cell.y) == O:
-			_check(view._tokens[cell].texture == BoardView2D.VANILLA.still(BoardState.CellOwner.OPPONENT), "opponent Goob is red")
+			_check(view.shows_goob(cell, BoardView2D.VANILLA, BoardState.CellOwner.OPPONENT), "opponent Goob is red")
 	await _free(scenario)
 
 
@@ -314,6 +319,8 @@ func _test_full_column_entry() -> void:
 	_touch(_col_pos(scenario, 3), true)
 	_check(scenario._toast._label.text == Toast.MSG_COLUMN_FULL, "toast says Column full")
 	_check(scenario._toast.modulate.a > 0.9, "toast visible on entry")
+	var toast_mid: Vector2 = scenario._toast.get_global_rect().get_center()
+	_check(absf(toast_mid.y - scenario.gap_center().y) < 2.0 and toast_mid.y < view.get_global_rect().position.y, "toast sits in the gap between the HUD and the board (M6c playtest)")
 	_check(scenario._sfx.history.back() == &"error", "error sound on entry")
 	_check(not scenario._flash.visible, "no flash on a full column")
 	_check(not view.is_preview_visible(), "no floating Goob over a full column")
@@ -412,6 +419,9 @@ func _test_timeout_random() -> void:
 	await create_timer(0.35).timeout
 	_check(_count(board, P) == 1, "timeout with no touch plays a Goob")
 	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "turn passes after timeout")
+	# Sean's bug (M6c playtest): after a timeout the fan must still match the
+	# hand, or tapping one Goob plays another.
+	_check(scenario._hand.count() == scenario._loop.player_deck.hand.size(), "timeout keeps the fan in step with the hand (fan %d, hand %d)" % [scenario._hand.count(), scenario._loop.player_deck.hand.size()])
 	await _free(scenario)
 
 
@@ -420,6 +430,7 @@ func _test_timeout_is_obvious() -> void:
 	_flow().player_moves_first = true
 	var scenario: Control = load(SCENE).instantiate()
 	scenario.animate_drops = false
+	scenario.deck = _vanilla_deck() # a timed-out Popular would add a second Goob (was flaky)
 	scenario.opponent_delay_sec = 5.0
 	scenario.turn_seconds = 0.2
 	scenario.timeout_reveal_sec = 0.4
@@ -441,7 +452,8 @@ func _test_timeout_is_obvious() -> void:
 	_touch(_col_pos(scenario, 1), false)
 	await create_timer(0.4).timeout
 	_check(board.get_owner(4, 0) == P, "then drops in the held column")
-	_check(_count(board, P) == 1, "release during the reveal does nothing")
+	_check(_count(board, P) == 1, "release during the reveal does nothing (P=%d, O=%d, phase=%d)
+%s" % [_count(board, P), _count(board, O), scenario._loop.phase, board.to_debug_string()])
 	_check(not scenario._flash.visible, "flash gone after the drop")
 	_check(not _view(scenario).is_preview_visible(), "floating Goob gone after the timeout drop")
 	await _free(scenario)
@@ -477,7 +489,7 @@ func _test_win_shows_end() -> void:
 	var scenario := await _make(0.0)
 	var view := _view(scenario)
 	var board := _board(scenario)
-	var end_button: Button = scenario.get_node("%EndButton")
+	var end_button: Button = scenario._end_screen.primary_button()
 	_check(not scenario.get_node("%EndOverlay").visible, "result overlay hidden during play")
 	for c in [0, 1, 2]:
 		board.drop(c, P)
@@ -487,11 +499,11 @@ func _test_win_shows_end() -> void:
 	_play_col(scenario, 3)
 	await process_frame
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "player wins")
-	_check(scenario._result_label.text == "You Win!", "announces You Win! (got %s)" % scenario._result_label.text)
+	_check(scenario._end_screen.result_text() == "You win!", "announces You win! (got %s)" % scenario._end_screen.result_text())
 	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown")
 	_check(end_button.is_visible_in_tree(), "end button visible")
 	_check(end_button.text == "Back to title", "end button says Back to title")
-	_check(end_button.size.y >= 96.0, "end button ≥ 96 px tall")
+	_check(end_button.get_global_rect().size.y >= 96.0, "end button ≥ 96 px tall (got %s)" % end_button.get_global_rect().size)
 	_check(not scenario._input_enabled, "input disabled after win")
 	_check(scenario._turn_timer.is_stopped(), "timer stopped after win")
 	_check(_glows(view, Vector2i(0, 0)) and _glows(view, Vector2i(3, 0)), "winning line highlighted")
@@ -513,9 +525,9 @@ func _test_draw_shows_replay() -> void:
 	view.sync_from_board(board)
 	_play_col(scenario, 6)
 	await process_frame
-	var end_button: Button = scenario.get_node("%EndButton")
+	var end_button: Button = scenario._end_screen.primary_button()
 	_check(scenario._loop.result == TurnLoop.Result.DRAW, "full board is a draw")
-	_check(scenario._result_label.text == "Draw", "announces Draw (got %s)" % scenario._result_label.text)
+	_check(scenario._end_screen.result_text() == "Draw", "announces Draw (got %s)" % scenario._end_screen.result_text())
 	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown on draw")
 	_check(end_button.is_visible_in_tree(), "end button visible on draw")
 	_check(end_button.text == "Replay", "end button says Replay")
@@ -557,14 +569,18 @@ func _test_drop_animation_locks_input() -> void:
 	var token: Sprite2D = view._tokens[Vector2i(2, 0)]
 	_check(token.position == Vector2(view.cell_position(2, 0).x, BoardView2D.TOP_Y), "Goob appears on top of the board over its column")
 	_check(scenario._opponent_timer.is_stopped(), "opponent waits for the landing")
+	_check(not view.is_preview_visible(), "the faint aim ghost is gone once the drop commits")
+	_check(is_equal_approx(view._preview.modulate.a, BoardView2D.GHOST_ALPHA), "the aim float is a faint ghost")
+	# It drops from the ghost's spot after the usual rest, no flip (M6c playtest).
+	_check(view.shows_goob(Vector2i(2, 0), TurnLoop.VANILLA, P), "your Goob replaces the ghost face up (no flip)")
 	await create_timer(BoardView2D.TOP_PAUSE_SEC * 0.5).timeout
-	_check(token.position.y == BoardView2D.TOP_Y, "Goob pauses on top of the board")
+	_check(token.position.y == BoardView2D.TOP_Y, "Goob rests on top of the board")
 	await create_timer(BoardView2D.TOP_PAUSE_SEC * 0.5 + 0.1).timeout
 	_check(token.position.y > BoardView2D.TOP_Y, "then falls")
 	_check(token.position == token.position.round(), "Goob moves on whole game pixels")
 	await create_timer(0.6).timeout
 	_check(token.position == view.cell_position(2, 0), "Goob landed in its hole")
-	_check(not scenario._opponent_timer.is_stopped(), "opponent turn started after the landing")
+	_check(scenario._hud.is_banner_visible() or not scenario._opponent_timer.is_stopped(), "opponent turn started after the landing (red banner, then his think delay)")
 	await _free(scenario)
 
 
@@ -588,7 +604,7 @@ func _test_roll_animation() -> void:
 	await create_timer(0.3).timeout
 	_check(board.get_owner(4, 0) == P, "timeout Goob lands in column 4")
 	var token: Sprite2D = view._tokens[Vector2i(4, 0)]
-	_check(token.position == Vector2(view.cell_position(6, 0).x, BoardView2D.TOP_Y), "Goob appears on top of the full column first (%s)" % token.position)
+	_check(token.position.x == view.cell_position(6, 0).x and token.position.y <= BoardView2D.TOP_Y, "Goob appears on top of the full column first (%s)" % token.position)
 	_check(not scenario._input_enabled, "input locked while rolling")
 	var rolled_on_top := false
 	var deadline := Time.get_ticks_msec() + 1500
@@ -636,7 +652,7 @@ func _view_matches(scenario: Control) -> bool:
 			var goob: GoobDefinition = scenario._loop.goob_at(c, r)
 			if goob == null:
 				goob = BoardView2D.VANILLA
-			if token.texture != goob.still(board.get_owner(c, r)):
+			if not view.shows_goob(cell, goob, board.get_owner(c, r)):
 				return false
 	return n == view._tokens.size()
 
@@ -734,6 +750,13 @@ func _test_scoring_sequence() -> void:
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "scoring: player wins")
 	_check(scenario.sum_label != null and scenario.sum_label.text == "3.5", "scoring: sum 1+1+1+0.5 = 3.5 (got %s)" % (scenario.sum_label.text if scenario.sum_label else "none"))
 	_check(scenario.score_labels.is_empty(), "scoring: multipliers collapsed into the sum")
+	_check(absf(scenario.sum_label.get_global_rect().get_center().y - scenario.gap_center().y) < 2.0, "scoring: the total shows in the gap above the board (M6c playtest)")
+	var face_up := true
+	for c in 4:
+		face_up = face_up and not _view(scenario).shows_back(Vector2i(c, 0))
+	_check(face_up, "scoring: every Goob flipped back to its face")
+	_check(TurnLoop.VANILLA.flip_frames(P)[4].resource_path.contains("blue_pitch"), "Vanilla flips vertically (pitch frames)")
+	_check(PLENTIFUL.flip_frames(O)[4].resource_path.contains("red_yaw"), "other types keep the sideways spin")
 	var history: Array[StringName] = scenario._sfx.history
 	var ladder := history.filter(func(s: StringName) -> bool: return String(s).begins_with("score_"))
 	_check(ladder == [&"score_recognise", &"score_0", &"score_1", &"score_2", &"score_3", &"score_collapse", &"score_4"], "scoring: rising ladder, collapse, sum on the top note (got %s)" % str(ladder))
@@ -758,6 +781,216 @@ func _test_scoring_sequence() -> void:
 	await _free(scenario)
 
 
+## M6c: portrait thinking / angry, end lead-in faces, defeat explodes the bust.
+func _test_m6c_reactions() -> void:
+	var scenario := await _make(5.0)
+	var hud: ScenarioHud = scenario._hud
+	_play_col(scenario, 0)
+	await process_frame
+	_check(hud.portrait_face() == &"thinking", "m6c: portrait thinks during the opponent's delay (got %s)" % hud.portrait_face())
+	await _free(scenario)
+	# Blocking his open three makes him sad (M6c playtest; was angry).
+	scenario = await _make(5.0)
+	hud = scenario._hud
+	var board := _board(scenario)
+	for c in 3:
+		board.drop(c, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 3)
+	await process_frame
+	_check(hud.portrait_face() == &"sad", "m6c: blocking his three makes him sad (got %s)" % hud.portrait_face())
+	await _free(scenario)
+	# Blocking his two before it becomes a three: "well played" (M6c playtest).
+	scenario = await _make(5.0)
+	hud = scenario._hud
+	board = _board(scenario)
+	board.drop(0, O)
+	board.drop(1, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 2)
+	await process_frame
+	_check(hud.portrait_face() == &"well_played", "m6c: blocking his two gets a well played (got %s)" % hud.portrait_face())
+	# His own block of your two: he giggles.
+	var before := BoardState.new()
+	before.drop(4, P)
+	before.drop(5, P)
+	scenario._board_before = before
+	scenario._loop.board = before.copy()
+	scenario._loop.board.drop(6, O)
+	_check(scenario._reaction_for(6, O, [] as Array[int], {}) == &"giggle", "m6c: he giggles when he blocks your two")
+	scenario._board_before = BoardState.new()
+	scenario._loop.board = BoardState.new()
+	scenario._loop.board.drop(3, O)
+	_check(scenario._reaction_for(3, O, [] as Array[int], {}) == &"", "m6c: a quiet move gets no reaction")
+	await _free(scenario)
+	# Player win: winning four celebrates, portrait says well played then explodes.
+	scenario = await _make(5.0)
+	hud = scenario._hud
+	board = _board(scenario)
+	for c in 3:
+		board.drop(c, P)
+	board.drop(6, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 3)
+	await process_frame
+	await process_frame
+	_check(_view(scenario).face_at(Vector2i(0, 0)) == &"celebrating", "m6c: winning four celebrates")
+	_check(_view(scenario).face_at(Vector2i(6, 0)) == &"sad", "m6c: loser's Goob is sad")
+	_check(hud.portrait_face() == &"exploded", "m6c: portrait explodes on a player win (got %s)" % hud.portrait_face())
+	_check(scenario._sfx.history.has(&"win_sting"), "m6c: win sting")
+	await _free(scenario)
+	# Opponent win: he celebrates, his four celebrates, your Goobs are sad.
+	scenario = await _make(0.0)
+	hud = scenario._hud
+	board = _board(scenario)
+	for r in 3:
+		board.drop(5, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 0)
+	await process_frame
+	await process_frame
+	_check(scenario._loop.result == TurnLoop.Result.OPPONENT_WIN, "m6c: opponent takes his four")
+	_check(hud.portrait_face() == &"celebrating", "m6c: portrait celebrates his win (got %s)" % hud.portrait_face())
+	_check(_view(scenario).face_at(Vector2i(0, 0)) == &"sad", "m6c: your Goobs are sad when he wins")
+	_check(scenario._sfx.history.has(&"lose_sting"), "m6c: lose sting")
+	await _free(scenario)
+
+
+## M6c playtest (Sean): drawn Goob's name above the board; hand reacts to the
+## result; the end overlay minimises to review and inspect the board.
+func _test_m6c_playtest() -> void:
+	var scenario := await _make(5.0)
+	var hud: ScenarioHud = scenario._hud
+	_check(hud.caption_text() == "Vanilla Goob", "playtest: drawn Goob's name shows above the board (got '%s')" % hud.caption_text())
+	var board := _board(scenario)
+	for c in 3:
+		board.drop(c, P)
+	board.drop(6, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 3)
+	await process_frame
+	await process_frame
+	var hand: HandView = scenario.get_node("%PlayerHand")
+	_check(hand.count() > 0 and hand.face_of(0) == &"happy", "playtest: hand Goobs happy on a win (got %s)" % hand.face_of(0))
+	var overlay: Control = scenario.get_node("%EndOverlay")
+	_check(overlay.visible, "playtest: result overlay up")
+	scenario._end_screen.view_button().pressed.emit()
+	_check(scenario.is_reviewing() and not overlay.visible, "playtest: View board minimises the overlay")
+	_check(scenario._hud.show_result_button().visible, "playtest: Show result button while reviewing")
+	scenario._last_tap_key = ""
+	_tap(_view(scenario).cell_center(Vector2i(3, 0)))
+	_tap(_view(scenario).cell_center(Vector2i(3, 0)))
+	_check(scenario._inspect.is_open(), "playtest: double tap inspects a board Goob after the end")
+	_tap(_view(scenario).cell_center(Vector2i(3, 0)))
+	_check(not scenario._inspect.is_open(), "playtest: next tap closes the inspect view")
+	scenario._hud.show_result_button().pressed.emit()
+	_check(not scenario.is_reviewing() and overlay.visible, "playtest: Show result restores the overlay")
+	await _free(scenario)
+	# Loss: hand Goobs are sad.
+	scenario = await _make(0.0)
+	board = _board(scenario)
+	for r in 3:
+		board.drop(5, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 0)
+	await process_frame
+	await process_frame
+	hand = scenario.get_node("%PlayerHand")
+	_check(hand.count() > 0 and hand.face_of(0) == &"sad", "playtest: hand Goobs sad on a loss (got %s)" % hand.face_of(0))
+	await _free(scenario)
+
+
+## M6c playtest: he waits on you after WAITING_AFTER_SEC without a touch and
+## during the fuse; a touch brings him back. His reactions start with the effect.
+## Convincing's target keeps its old colour through the wind-up and only
+## turns as it spins (Sean, M6c playtest: it showed the new colour first).
+func _test_convincing_flip_colour() -> void:
+	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	await _wait_input(scenario)
+	var view := _view(scenario)
+	var board := _board(scenario)
+	board.drop(0, P)
+	board.drop(1, O)
+	view.sync_from_board(board)
+	await process_frame
+	var target := Vector2i(1, 0)
+	var token: Sprite2D = view._tokens[target]
+	view.play_flip(Vector2i(0, 0), target, P)
+	var blue: Array[Texture2D] = TurnLoop.VANILLA.flip_frames(P)
+	blue.append(TurnLoop.VANILLA.still(P))
+	var frames: SpriteFrames = TurnLoop.VANILLA.sprite_frames(P)
+	for anim in frames.get_animation_names():
+		for i in frames.get_frame_count(anim):
+			blue.append(frames.get_frame_texture(anim, i))
+	var early_blue := false
+	for i in 10: # the wind-up and target blink come before the spin
+		await process_frame
+		early_blue = early_blue or blue.has(token.texture)
+	_check(not early_blue, "convincing: the target keeps its colour until it flips")
+	await create_timer(1.5).timeout
+	_check(view.shows_goob(target, TurnLoop.VANILLA, P), "convincing: it ends in your colour")
+	await _free(scenario)
+
+
+func _test_m6c_waiting() -> void:
+	var scenario := await _make(5.0)
+	var hud: ScenarioHud = scenario._hud
+	await process_frame
+	_check(hud.base_face() == &"idle", "waiting: idle at the start of your turn")
+	scenario._idle_since_msec -= int(scenario.WAITING_AFTER_SEC * 1000.0) + 50
+	await process_frame
+	await process_frame
+	_check(hud.portrait_face() == &"waiting", "waiting: waits after 8 s without a touch (got %s)" % hud.portrait_face())
+	_touch(_col_pos(scenario, 3), true)
+	_touch(_col_pos(scenario, 3), false)
+	await process_frame
+	await process_frame
+	_check(hud.portrait_face() == &"idle", "waiting: a touch brings him back (got %s)" % hud.portrait_face())
+	await _free(scenario)
+	scenario = await _make(5.0, true, 0.0, 10.3)
+	hud = scenario._hud
+	await create_timer(0.5).timeout
+	_check(hud.portrait_face() == &"waiting", "waiting: waits while the fuse burns (got %s)" % hud.portrait_face())
+	await _free(scenario)
+	# Reaction during the effect: animated Convincing flip of his Goob → angry
+	# before the effect has finished.
+	scenario = await _make(5.0, true, 0.0, 30.0, true)
+	await _wait_input(scenario)
+	hud = scenario._hud
+	var board := _board(scenario)
+	board.drop(2, O)
+	_view(scenario).sync_from_board(board)
+	_give(scenario, CONVINCING)
+	_play_col(scenario, 3)
+	var deadline := Time.get_ticks_msec() + 4000
+	while hud.portrait_face() != &"angry" and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(hud.portrait_face() == &"angry", "reaction: angry when your effect hits him")
+	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN and scenario._opponent_timer.is_stopped(), "reaction: shown while the effect is still playing")
+	await _free(scenario)
+
+
+## M6c: the fuse burns only for the last 10 s, with worried hand Goobs.
+func _test_m6c_fuse() -> void:
+	var scenario := await _make(5.0, true, 0.0, 10.4)
+	await _wait_input(scenario)
+	var fuse: FuseStrip = scenario._fuse
+	var hand: HandView = scenario.get_node("%PlayerHand")
+	await process_frame
+	_check(not fuse.visible, "fuse: hidden above 10 s left")
+	_check(hand.face_of(0) == &"idle", "fuse: hand idle before the fuse (got %s)" % hand.face_of(0))
+	await create_timer(0.6).timeout
+	_check(fuse.visible, "fuse: burns in the last 10 s")
+	_check(fuse.fraction_left() < 1.0 and fuse.fraction_left() > 0.8, "fuse: almost whole at ~9.8 s (got %.2f)" % fuse.fraction_left())
+	_check(hand.face_of(0) == &"worried", "fuse: hand Goobs worried (got %s)" % hand.face_of(0))
+	_check(scenario._fuse_sound.playing, "fuse: crackle loop plays")
+	_play_col(scenario, 3)
+	await process_frame
+	await process_frame
+	_check(not fuse.visible and not scenario._fuse_sound.playing, "fuse: gone once the Goob is played")
+	await _free(scenario)
+
+
 ## Balatro rhythm: multipliers appear one by one before the sum and overlay.
 func _test_scoring_animated() -> void:
 	var scenario := await _make(5.0, true, 0.0, 30.0, true)
@@ -770,7 +1003,7 @@ func _test_scoring_animated() -> void:
 	var overlay: Control = scenario.get_node("%EndOverlay")
 	var seen := 0
 	var sum_before_overlay := false
-	var deadline := Time.get_ticks_msec() + 6000
+	var deadline := Time.get_ticks_msec() + 10000
 	while not overlay.visible and Time.get_ticks_msec() < deadline:
 		seen = maxi(seen, scenario.score_labels.size())
 		if scenario.sum_label != null:
@@ -1012,6 +1245,19 @@ func _test_timeout_plays_selected() -> void:
 	_check(played == chosen, "timeout plays the selected Goob")
 	_check(_hand_view(scenario).count() == 2, "timeout Goob left the fan")
 	await _free(scenario)
+	# Same with the first Goob selected: only that card leaves the fan and the
+	# rest stay in step with the hand (Sean's bug, M6c playtest: tapping one
+	# Goob played another after a timeout).
+	scenario = await _make(5.0, true, 0.0, 0.2)
+	_select_hand(scenario, 0)
+	await create_timer(0.35).timeout
+	var fan := _hand_view(scenario)
+	var hand: Array[GoobDefinition] = scenario._loop.player_deck.hand
+	var in_step := fan.count() == hand.size()
+	for i in mini(fan.count(), hand.size()):
+		in_step = in_step and fan._cards[i].get_meta(&"goob", null) == hand[i]
+	_check(in_step, "timeout on the first Goob keeps the fan in step (fan %d, hand %d)" % [fan.count(), hand.size()])
+	await _free(scenario)
 
 
 func _test_stalemate_replay() -> void:
@@ -1026,8 +1272,8 @@ func _test_stalemate_replay() -> void:
 	await process_frame
 	_check(loop.result == TurnLoop.Result.DRAW, "stalemate: draw")
 	_check(not loop.board.is_board_full(), "stalemate: board not full")
-	_check(scenario._result_label.text == "Draw", "stalemate: announces Draw")
-	_check(scenario.get_node("%EndButton").text == "Replay", "stalemate: Replay")
+	_check(scenario._end_screen.result_text() == "Draw", "stalemate: announces Draw")
+	_check(scenario._end_screen.primary_button().text == "Replay", "stalemate: Replay")
 	await _free(scenario)
 
 
@@ -1081,7 +1327,7 @@ func _test_sounds() -> void:
 	_touch(_off_board(scenario), false)
 	_check(_heard(scenario, &"cancel"), "sound: cancel fly-back")
 	_play_col(scenario, 3)
-	await create_timer(0.1).timeout
+	await create_timer(0.05).timeout
 	_check(_heard(scenario, &"rest"), "sound: rest on top")
 	await create_timer(0.6).timeout
 	_check(_heard(scenario, &"fall") and _heard(scenario, &"land"), "sound: fall + land")
@@ -1139,10 +1385,21 @@ func _test_hud() -> void:
 	await _free(scenario)
 
 
+func _wait_banner(hud: ScenarioHud, text: String) -> void:
+	var deadline := Time.get_ticks_msec() + 4000
+	while not (hud.is_banner_visible() and hud.banner_text() == text) and Time.get_ticks_msec() < deadline:
+		await process_frame
+
+
 func _test_turn_banners() -> void:
 	var scenario := await _make(5.0, true, 0.0, 30.0, true)
 	var hud: ScenarioHud = scenario._hud
-	_check(hud.is_banner_visible() and hud.banner_text() == "Your turn", "banner: blue Your turn at the start")
+	_check(hud.is_banner_visible() and hud.banner_text() == "GAME START", "banner: Game start first (got '%s')" % hud.banner_text())
+	_check(hud.portrait_face() == &"greeting", "banner: he waves hello during Game start (got %s)" % hud.portrait_face())
+	_check(hud._ribbon.texture == ScenarioHud.RIBBON_INK, "banner: neutral ink ribbon for Game start")
+	await _wait_banner(hud, "Your turn")
+	_check(hud.is_banner_visible() and hud.banner_text() == "Your turn", "banner: then blue Your turn")
+	_check(hud.portrait_face() != &"greeting", "banner: the wave ends after Game start (got %s)" % hud.portrait_face())
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_BLUE, "banner: blue ribbon")
 	_check(_heard(scenario, &"turn_whoosh"), "banner: soft whoosh")
 	_check(not scenario._input_enabled, "banner: input waits for the banner + draw")
@@ -1151,9 +1408,16 @@ func _test_turn_banners() -> void:
 	await _free(scenario)
 	scenario = await _make(5.0, false, 0.0, 30.0, true)
 	hud = scenario._hud
-	_check(hud.is_banner_visible() and hud.banner_text() == "Opponent's turn", "banner: red Opponent's turn")
+	await _wait_banner(hud, "Opponent's turn")
+	_check(hud.is_banner_visible() and hud.banner_text() == "Opponent's turn", "banner: red Opponent's turn after Game start")
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_RED, "banner: red ribbon")
 	_check(_heard(scenario, &"turn_whoosh"), "banner: whoosh on the opponent's turn too")
+	_check(hud.portrait_face() != &"thinking" and scenario._opponent_timer.is_stopped(), "think delay waits for the red banner (M6c playtest)")
+	var deadline := Time.get_ticks_msec() + 3000
+	while hud.is_banner_visible() and Time.get_ticks_msec() < deadline:
+		await process_frame
+	await process_frame
+	_check(hud.portrait_face() == &"thinking" and not scenario._opponent_timer.is_stopped(), "then he thinks (got %s)" % hud.portrait_face())
 	await _free(scenario)
 
 
@@ -1200,39 +1464,22 @@ func _test_speed_settings() -> void:
 	settings.set_speed(1) # Fast
 	_check(view.animate and view.speed_scale == 2.0 and hand.speed_scale == 2.0, "speed: Fast doubles the play animations")
 	_check(is_equal_approx(settings.anim_sec(0.6), 0.3), "speed: Fast halves waits")
-	settings.set_speed(2) # Skip
-	_check(not view.animate and not hand.animate, "speed: Skip turns play animations off")
-	_check(settings.anim_sec(0.6) == 0.0, "speed: Skip has no waits")
-	# Skip: no red flash, the opponent goes straight after its think delay.
-	_play_col(scenario, 3)
-	await process_frame
-	_check(not scenario._flash.visible, "speed: Skip removes the opponent flash")
-	var deadline := Time.get_ticks_msec() + 3000
-	while _count(_board(scenario), O) == 0 and Time.get_ticks_msec() < deadline:
-		await process_frame
-	_check(_count(_board(scenario), O) == 1, "speed: Skip opponent still plays")
-	_check(view._tokens[Vector2i(3, 0)].position == view.cell_position(3, 0), "speed: Skip lands at once")
 	settings.reset()
 	_check(view.animate and view.speed_scale == 1.0, "speed: back to Normal applies live")
 	await _free(scenario)
 
 
-## Skip plays only result sounds: the scoring sequence keeps just the sum note.
-func _test_skip_scoring_sounds() -> void:
-	_settings().set_speed(2)
-	var scenario := await _make(5.0)
-	var board := _board(scenario)
-	for c in 3:
-		board.drop(c, P)
-	_view(scenario).sync_from_board(board)
-	_play_col(scenario, 3)
-	await process_frame
-	var history: Array[StringName] = scenario._sfx.history
-	var ladder := history.filter(func(s: StringName) -> bool: return String(s).begins_with("score_"))
-	_check(ladder == [&"score_4"], "skip: scoring plays only the sum note (got %s)" % str(ladder))
-	_check(scenario.sum_label != null and scenario.sum_label.text == "4", "skip: sum still shown")
+## Skip was removed (Sean, M6c playtest): a saved Skip loads as Normal, and
+## Options offers Normal / Fast only.
+func _test_skip_removed() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("play", "speed", 2)
+	cfg.save(_settings().path)
+	_settings().load_file()
+	_check(_settings().speed == 0, "skip removed: a saved Skip loads as Normal")
+	var panel_script: GDScript = load("res://scripts/ui/options_panel.gd")
+	_check(panel_script.get_script_constant_map()["SPEEDS"].size() == 2, "skip removed: Options shows Normal / Fast")
 	_settings().reset()
-	await _free(scenario)
 
 
 func _test_screen_shake_option() -> void:
