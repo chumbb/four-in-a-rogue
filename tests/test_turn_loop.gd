@@ -52,6 +52,7 @@ func _initialize() -> void:
 	_test_roll_border()
 	_test_roll_middle()
 	_test_roll_floor_stays()
+	_test_roll_empty_cell()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -751,3 +752,18 @@ func _test_roll_floor_stays() -> void:
 	_roll_stack(t, 2, 1)
 	_check(t.roll_goob(Vector2i(2, 0), 1).is_empty(), "roll floor: lone Goob stays")
 	_check(t.board.get_owner(2, 0) == P, "roll floor: still at (2,0)")
+
+
+## Final review: an empty cell has nothing to roll.
+func _test_roll_empty_cell() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(35), _vanilla())
+	_roll_stack(t, 0, 1)
+	var path := t.roll_goob(Vector2i(0, 3), 1)
+	_check(path.is_empty(), "roll empty: no path (got %d)" % path.size())
+	var count := 0
+	for column in BoardState.COLUMNS:
+		for row in BoardState.ROWS:
+			if t.board.get_owner(column, row) != BoardState.CellOwner.EMPTY:
+				count += 1
+	_check(count == 1, "roll empty: board unchanged (got %d Goobs)" % count)

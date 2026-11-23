@@ -38,6 +38,7 @@ const TURN_SECONDS := 30.0
 const TIMEOUT_REVEAL_SEC := 0.7
 const MSG_TIMES_UP := "Time's up!"
 const MSG_HAND_FULL := "Hand full"
+const MSG_NOT_NOW := "Not now" # debug give / discard while your hand is moving
 ## Forest hand prop (assets/hand/forest_stump.png), in its game px: the row the
 ## hand Goobs' bottoms rest on, and the usable width of its top.
 const STUMP_SEAT_Y := 34.0
@@ -363,8 +364,12 @@ func _on_debug_toggle() -> void:
 
 
 ## Debug: puts `goob` at the end of `side`'s hand; a full hand drops its oldest
-## (index 0) first. The player's fan is rebuilt.
+## (index 0) first. The player's fan is rebuilt, so yours only while your hand
+## is stable (_hand_stable(); else a "Not now" toast).
 func debug_give(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
+	if side == BoardState.CellOwner.PLAYER and not _hand_stable():
+		_show_not_now()
+		return
 	var hand := _loop.deck_of(side).hand
 	if hand.size() >= Deck.HAND_MAX:
 		hand.remove_at(0)
@@ -382,11 +387,17 @@ func debug_give(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
 
 
 ## Debug: discards a random Goob from `side`'s hand and shows its reveal. Yours
-## only while your input is on; his any time (never the Goob he has chosen to
+## only while your hand is stable and never your last Goob (a timeout needs
+## one; else a "Not now" toast); his any time (never the Goob he has chosen to
 ## play).
 func debug_discard_random(side: BoardState.CellOwner) -> void:
-	if side == BoardState.CellOwner.PLAYER and not _input_enabled:
-		return
+	var replan := false
+	if side == BoardState.CellOwner.PLAYER:
+		if not _hand_stable() or _loop.player_deck.hand.size() <= 1:
+			_show_not_now()
+			return
+		replan = not _autoplay_timer.is_stopped()
+		_autoplay_timer.stop() # its chosen hand index is about to shift
 	var choices: Array[int] = []
 	for i in _loop.deck_of(side).hand.size():
 		if not (side == BoardState.CellOwner.OPPONENT and _opponent_planned() and i == _opponent_hand_index):
@@ -400,6 +411,20 @@ func debug_discard_random(side: BoardState.CellOwner) -> void:
 		_end_touch()
 	var goob := _loop.discard_from(side, index)
 	await _show_discard(goob, side, index)
+	if replan and is_inside_tree() and GameFlow.autoplay and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+		_run_autoplay_turn() # auto-play re-plans with the new hand
+
+
+## True while your hand can change under the debug panel: your input is on, or
+## auto-play is thinking. Not during a drawn-Goob reveal, the timeout reveal
+## or a play (the fan is mid-animation or out of step with Deck.hand).
+func _hand_stable() -> bool:
+	return _input_enabled or not _autoplay_timer.is_stopped()
+
+
+func _show_not_now() -> void:
+	_toast.show_message(MSG_NOT_NOW)
+	_place_toast()
 
 
 ## Debug: a two-turn test status on `side`.
@@ -433,7 +458,8 @@ func _run_autoplay_turn() -> void:
 	var deck := _loop.player_deck
 	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng)
 	if move["column"] == -1:
-		_set_input_enabled(true) # nothing it can play: your turn as usual
+		set_autoplay(false) # nothing it can play: auto-play off, your turn as usual
+		_set_input_enabled(true)
 		return
 	_autoplay_column = move["column"]
 	_autoplay_hand_index = move["hand_index"]
@@ -918,6 +944,7 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 		if not is_inside_tree():
 			return
 	_board_view.sync_from_board(_loop.board)
+	_refresh_hud() # statuses the effects added or ticked
 	_after_play()
 
 
@@ -1090,6 +1117,7 @@ func _after_play() -> void:
 				return
 			await _show_turn_draw()
 			if is_inside_tree() and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+				_refresh_hud() # statuses ticked at the turn start (also on auto-play turns)
 				if GameFlow.autoplay:
 					_run_autoplay_turn()
 				else:
@@ -1250,7 +1278,7 @@ func _defeat_face() -> StringName:
 ## Scoring sequence (slice §4, Balatro rhythm): first a moment of recognition
 ## (gold outline, hop, sting); then every Goob in `side`'s
 ## winning lines, lowest column first and bottom to top, bounces and shows its
-## multiplier (×1 / ×0.5) above it, one per SCORE_STEP_SEC on a rising note;
+## multiplier (×1 / ×2) above it, one per SCORE_STEP_SEC on a rising note;
 ## after a pause they collapse into the sum, one big plain number at the board
 ## centre on the top note (Sean, 2026-11-19). Draws never get here.
 func _play_scoring(side: BoardState.CellOwner) -> void:

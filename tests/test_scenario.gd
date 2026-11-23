@@ -103,6 +103,11 @@ func _run() -> void:
 	await _test_autoplay_off_on_return_to_title()
 	await _test_autoplay_replay_after_view_board()
 	await _test_autoplay_move_needs_flag()
+	await _test_debug_give_refused_in_timeout_reveal()
+	await _test_debug_give_refused_in_draw_reveal()
+	await _test_debug_discard_player_guards()
+	await _test_pills_refresh_on_autoplay_turn_start()
+	await _test_autoplay_no_move_turns_off()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -1949,4 +1954,114 @@ func _test_autoplay_move_needs_flag() -> void:
 	_flow().autoplay = false # cleared without set_autoplay()
 	await create_timer(1.5).timeout
 	_check(_count(_board(scenario), P) == 0, "autoplay guard: no move once the flag is off")
+	await _free(scenario)
+
+
+# --- Final review fixes (M6e) -------------------------------------------------
+
+## True when the fan shows exactly the player's hand, in order.
+func _fan_in_step(scenario: Control) -> bool:
+	var fan := _hand_view(scenario)
+	var hand: Array[GoobDefinition] = scenario._loop.player_deck.hand
+	var in_step := fan.count() == hand.size()
+	for i in mini(fan.count(), hand.size()):
+		in_step = in_step and fan._cards[i].get_meta(&"goob", null) == hand[i]
+	return in_step
+
+
+## A give during the timeout reveal would re-add the card the timeout already
+## took out of the fan (wrong Goob played): refused with "Not now".
+func _test_debug_give_refused_in_timeout_reveal() -> void:
+	_flow().player_moves_first = true
+	var scenario: Control = load(SCENE).instantiate()
+	scenario.animate_drops = false
+	scenario.deck = _vanilla_deck()
+	scenario.opponent_delay_sec = 5.0
+	scenario.turn_seconds = 0.2
+	scenario.timeout_reveal_sec = 0.4
+	root.add_child(scenario)
+	await process_frame
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	_select_hand(scenario)
+	await create_timer(0.3).timeout
+	_check(scenario._timed_out and _count(_board(scenario), P) == 0, "give in reveal: in the timeout reveal")
+	var before: Array[GoobDefinition] = scenario._loop.player_deck.hand.duplicate()
+	scenario.debug_give(fat, P)
+	_check(scenario._loop.player_deck.hand == before, "give in reveal: hand unchanged")
+	_check(scenario._toast._label.text == "Not now", "give in reveal: toasts Not now (got %s)" % scenario._toast._label.text)
+	await create_timer(0.4).timeout
+	_check(_count(_board(scenario), P) == 1, "give in reveal: the timeout Goob dropped")
+	_check(_fan_in_step(scenario), "give in reveal: fan in step with the hand after the drop")
+	await _free(scenario)
+
+
+## A give during a drawn-Goob reveal would free the revealing card (softlock):
+## refused with "Not now".
+func _test_debug_give_refused_in_draw_reveal() -> void:
+	var scenario := await _make(5.0, true, 30.0, true)
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	_check(scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN and not scenario._input_enabled, "give in draw: input locked at the turn start")
+	var before: Array[GoobDefinition] = scenario._loop.player_deck.hand.duplicate()
+	scenario.debug_give(fat, P)
+	_check(scenario._loop.player_deck.hand == before, "give in draw: hand unchanged")
+	_check(scenario._toast._label.text == "Not now", "give in draw: toasts Not now")
+	await _wait_input(scenario)
+	_check(scenario._input_enabled, "give in draw: the turn still starts (no softlock)")
+	_check(_fan_in_step(scenario), "give in draw: fan in step with the hand")
+	await _free(scenario)
+
+
+## Your last hand Goob can't be discarded (a timeout on an empty hand would
+## error); and nothing is discarded while your hand is moving.
+func _test_debug_discard_player_guards() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var one: Array[GoobDefinition] = [TurnLoop.VANILLA]
+	loop.player_deck.hand.assign(one)
+	_hand_view(scenario).rebuild(loop.player_deck.hand)
+	await scenario.debug_discard_random(P)
+	_check(loop.player_deck.hand.size() == 1 and loop.player_deck.discard_pile.is_empty(), "discard guard: your last Goob stays")
+	_check(scenario._toast._label.text == "Not now", "discard guard: toasts Not now")
+	await _free(scenario)
+	scenario = await _make(5.0, true, 0.2)
+	scenario.timeout_reveal_sec = 0.4
+	loop = scenario._loop
+	await create_timer(0.3).timeout
+	_check(scenario._timed_out, "discard guard: in the timeout reveal")
+	var before := loop.player_deck.hand.size()
+	await scenario.debug_discard_random(P)
+	_check(loop.player_deck.hand.size() == before and loop.player_deck.discard_pile.is_empty(), "discard guard: nothing discarded in the reveal")
+	await create_timer(0.5).timeout
+	_check(_fan_in_step(scenario), "discard guard: fan in step after the timeout drop")
+	await _free(scenario)
+
+
+## Pills follow the statuses at each turn start, also on auto-play turns that
+## never switch input on.
+func _test_pills_refresh_on_autoplay_turn_start() -> void:
+	var scenario := await _make(0.3, false)
+	_flow().autoplay = true
+	scenario._loop.add_status(&"t", P, "Test", "x", -1)
+	var deadline := Time.get_ticks_msec() + 4000
+	while scenario._autoplay_timer.is_stopped() and _count(_board(scenario), P) == 0 and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(_count(_board(scenario), O) == 1, "pills refresh: the opponent played first")
+	_check(scenario._pills.buttons().size() == 1, "pills refresh: the pill shows on the auto-play turn (got %d)" % scenario._pills.buttons().size())
+	scenario.set_autoplay(false)
+	_flow().autoplay = false
+	await _free(scenario)
+
+
+## Auto-play with nothing to play turns itself off, so HUD and flag agree.
+func _test_autoplay_no_move_turns_off() -> void:
+	var scenario := await _make(5.0)
+	_flow().autoplay = true
+	scenario._hud.set_autoplay_lit(true)
+	scenario._set_input_enabled(false)
+	scenario._loop.player_deck.hand.clear()
+	scenario._run_autoplay_turn()
+	_check(not _flow().autoplay, "autoplay no move: the flag is off")
+	_check(not scenario._hud.is_autoplay_lit(), "autoplay no move: the button is unlit")
+	_check(scenario._input_enabled, "autoplay no move: your turn as usual")
+	_flow().autoplay = false
 	await _free(scenario)
