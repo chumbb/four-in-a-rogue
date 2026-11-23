@@ -46,7 +46,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 5 | **Art pass D1** — Goob type sheets ✅ | Face + rim emblem + 6 expression keyframes, blue/red, for all 5 types; Sean approves each | — |
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
-| 8 | **M6d** — Sound + smoke ← **next** | Remaining sounds + ambience, audio rules; A1–A10 smoke, known gaps | all |
+| 8 | **M6d** — Sound + smoke ← **next** | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
 | 9 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
 After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placeholders).
@@ -68,11 +68,28 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **Specials design grill** | Confirmed 2026-11-22 (vault `Design/Special Goobs.md`) |
 | **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
 
-### Next: M6d — sound completion + smoke test
+### M6d — sound completion + smoke test (on `m6d-sound-smoke`, not merged; next = sound effects grill)
+
+- **Built:** Master mute on `NOTIFICATION_APPLICATION_PAUSED` (restored by `Settings.apply_audio()`), `[audio] general/ios/session_category=0` + `mix_with_others=true`. Credits rows for M6c + M6d added. **Removed by Sean (2026-11-23):** the forest ambience (chiptune soundtrack later) and a long-press inspect attempt (clashes with dragging; inspect stays double tap). **Playtest 2:** the opponent red column flash (+ blip) removed; a full column under the finger = dark highlight (`COLOR_FLASH_FULL`) + "Column full" toast, and only a release there gives the shake + error sound + haptic.
+- **Open → next session: sound effects grill** (Sean, 2026-11-23: "update handoff for new sound effects convo"). State to start from:
+  - **Removed, Sean disliked all of them:** forest ambience, opponent red-flash blip (the red flash itself is gone too), draw sting. Draws and the opponent's move now have no sound of their own.
+  - **Press start** = option A, a soft triangle C5 → G5 blip (`make_flow_sounds.py` `press_start()`). Sean: "right".
+  - **Every other UI press** = `ui_tap.ogg`: buttons, Skip, Resume/Options/Quit, pause open/close, Options rows + slider steps, Strange Man page advance. `Sfx.STREAMS` aliases `page`, `pause_open`, `pause_close` and `slider_tick` to it; UI sounds skip the ±5 % pitch jitter (`Sfx.NO_JITTER`); once-per-frame is per sample.
+  - **Settled 2026-11-23 (later):** Sean asked for SNES-like (16-bit) UI sounds and picked the **wood block** (`ui_tap.ogg` dry, `press_start.ogg` with SNES echo), the **warm metal coin flick + table landing** (`coin_whirr.ogg` / `coin_clink.ogg`), all built by `make_flow_sounds.py` from `art/audio/make_snes_coin_fizzle_options.py`. **Fizzle:** "water putting out a candle" = A1 (`make_effect_sounds.py` `write_fizzle()`). Later rounds: UI tap a fifth lower (493 Hz) + 1.4 kHz low-pass; press start = `first_sting` + chorus/delay; coin = -6 dB high shelf at 5 kHz (a 3.8 kHz low-pass was "too washed out"); coin pitch keeps rising with toss strength (Sean). Game start = bright SNES horn section I → V (pick D3 after C1 was "too warm"; `make_reaction_sounds.py` `game_start()` → `snes_section(32000, ...)`). Sean: "everything sounds good"; **no other sound gets the SNES treatment**. Scenario test count is 436 (437 was stale).
+  - **(History) The UI tap was not settled before that.** History: the old square blip (harsh) → C sine bubble ("too bright and wobbly") → D felt tap, a ~180 Hz thump + muffled click (picked, now in the game) → "too much bass, use a high pass filter" → high-passed D at 250/350/500 Hz (Butterworth + 3 kHz top cut): **Sean didn't like those either.** Sean wants a **dull tap** that is not bright, not wobbly and not bassy. Show options and wait for his pick (never wire one in yourself).
+  - **Listening files (local only, untracked):** `art/audio/compare_soft_ui/` holds `0_current_*` (the old harsh ones), A/B/C press start + tap, D/E/F dull taps, `D_hp250|350|500_ui_tap.ogg`. Generator for the high-pass set: `art/audio/make_highpass_tap_options.py` (untracked). Sean got annoyed when the comparison files were deleted, so keep them until Sean says otherwise.
+  - **Checking what the game really plays:** `godot --headless -s res://tests/record_ui_tap.gd -- <out.wav> <sound>` records the Master bus to a WAV. Compare it with the file (ffmpeg + numpy). If Sean hears something different from a file, first check that he is on the branch and has reloaded the project (Godot import cache).
+  - **Still to decide in the grill:** whether draws and the opponent's move get sounds, and anything else in the vault §2B Sound table Sean wants redone. Sound tooling: `art/audio/make_*_sounds.py` (numpy + scipy + ffmpeg at `C:\Users\Sean\Apps\ffmpeg-9.0.2-full_build\bin\ffmpeg.exe`). Rerunning a script re-encodes every ogg it writes, so restore the files you didn't mean to change with `git checkout`. The headless editor (`--editor --quit`) rewrites `project.godot`: always `git checkout -- project.godot` afterwards.
+  - **Also on this branch (playtest-confirmed or untouched by sound):** Master muted while backgrounded, the iOS ambient session, a full column = dark highlight + toast on hover with shake + error on release, no opponent red flash.
+- **Smoke:** `docs/SMOKE_V0.1.md` (A1–A10 pass on desktop; known gaps). Soak: `godot --headless -s res://tests/soak_m6d.gd` (8 real-time games, ~6 min).
+- **Gotcha:** a looping sound (fuse) still playing when a test quits can print "resources still in use at exit"; stop it and wait a moment before `quit()`.
+- Test counts: scenario 437, flow 186, turn_loop 138, board_state 74, opponent_ai 77.
+
+Original scope notes:
 
 Scope (CLAUDE.md §M6d, vault slice §2B "Sound"):
 - **Remaining sound events.** Compare the vault §2B Sound table with `scripts/audio/sfx.gd` (49 sounds wired).
-- **Forest ambience loop.** Quiet, on the SFX bus, during the coin flip and the scenario; ducks about 30 % on pause. Not built yet: nothing in `scripts/` mentions ambience.
+- ~~Forest ambience loop~~ (removed by Sean 2026-11-23).
 - **Audio rules.**
   - Fast = sounds sooner, normal pitch.
   - Pause = SFX stop, including the fuse loop (already pauses with the tree).
@@ -251,7 +268,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently **M6d**: remaining sounds + forest ambience, audio rules, A1–A10 smoke) on a new branch; push it for Sean's playtest.
+3. Do the next item in CLAUDE.md §Milestones (currently **M6d**: remaining sounds, audio rules, A1–A10 smoke) on a new branch; push it for Sean's playtest.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
 6. When done: exact F5 playtest steps for Sean, then stop.

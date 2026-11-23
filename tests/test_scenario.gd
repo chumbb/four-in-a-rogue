@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless test for the scenario scene (M3.5 portrait touch, M3.6 2D board):
 ## column hit areas, press/hold/release with the blue flash, cancel,
-## full-column entry error, red opponent flash, turn timer + timeout roll, drop
+## full-column entry error, turn timer + timeout roll, drop
 ## and roll animations, end overlay, draw replay, and the portrait layout with
 ## simulated safe-area insets; M6b pixel HUD, turn banners, pause menu,
 ## Normal / Fast, haptics + screen shake options. Window sizes are physical (project stretch maps
@@ -43,7 +43,6 @@ func _run() -> void:
 	await _test_full_column_entry()
 	await _test_touch_during_opponent_turn()
 	await _test_second_finger_and_mouse_ignored()
-	await _test_red_opponent_flash()
 	await _test_turn_timer_hud()
 	await _test_timeout_random()
 	await _test_timeout_is_obvious()
@@ -107,13 +106,12 @@ func _settings() -> Node:
 	return root.get_node("Settings")
 
 
-func _make(delay: float, player_first := true, flash := 0.0, turn := 30.0, animate := false) -> Control:
+func _make(delay: float, player_first := true, turn := 30.0, animate := false) -> Control:
 	_flow().player_moves_first = player_first
 	var scenario: Control = load(SCENE).instantiate()
 	scenario.animate_drops = animate
 	scenario.deck = _vanilla_deck()
 	scenario.opponent_delay_sec = delay
-	scenario.opponent_flash_sec = flash
 	scenario.turn_seconds = turn
 	scenario.timeout_reveal_sec = 0.0
 	root.add_child(scenario)
@@ -322,27 +320,46 @@ func _test_full_column_entry() -> void:
 	_check(scenario._toast.modulate.a > 0.9, "toast visible on entry")
 	var toast_mid: Vector2 = scenario._toast.get_global_rect().get_center()
 	_check(absf(toast_mid.y - scenario.gap_center().y) < 2.0 and toast_mid.y < view.get_global_rect().position.y, "toast sits in the gap between the HUD and the board (M6c playtest)")
-	_check(scenario._sfx.history.back() == &"error", "error sound on entry")
-	_check(not scenario._flash.visible, "no flash on a full column")
+	_check(not _heard(scenario, &"error"), "m6d: no error sound on entry (only on release)")
+	_check(scenario._flash.visible and scenario._flash.color == scenario.COLOR_FLASH_FULL, "m6d: dark highlight on a full column")
+	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(3)), "m6d: highlight covers the full column")
 	_check(not view.is_preview_visible(), "no floating Goob over a full column")
 	await process_frame
 	await process_frame
-	_check(view._shake_px != 0, "board shakes on entry")
+	_check(view._shake_px == 0, "m6d: no shake on entry")
 	# Staying on the column does not repeat the error.
 	scenario._toast.modulate.a = 0.0
 	_drag(_col_pos(scenario, 3) + Vector2(0, -40))
 	_check(scenario._toast.modulate.a < 0.1, "no repeat while staying on the full column")
 	# Leaving and coming back does.
 	_drag(_col_pos(scenario, 2))
-	_check(scenario._flash.visible, "legal column flashes again")
+	_check(scenario._flash.visible and scenario._flash.color == scenario.COLOR_FLASH_PLAYER, "legal column flashes blue again")
 	_drag(_col_pos(scenario, 3))
-	_check(scenario._toast.modulate.a > 0.9, "re-entry errors again")
+	_check(scenario._toast.modulate.a > 0.9, "re-entry shows Column full again")
+	_check(not _heard(scenario, &"error"), "m6d: still no error sound while hovering")
 	_touch(_col_pos(scenario, 3), false)
 	await process_frame
+	await process_frame
+	_check(_heard(scenario, &"error"), "m6d: release on a full column plays the error sound")
+	_check(view._shake_px != 0, "m6d: release on a full column shakes")
+	_check(not scenario._flash.visible, "m6d: highlight gone after release")
 	_check(board.to_debug_string() == before, "release on a full column: no drop")
 	_check(scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN, "still player turn")
 	_check(scenario._touch_column == -1, "release on full clears the timeout column")
 	_check(scenario.try_drop(3) == -1, "try_drop on full column returns -1")
+	# Drag style: hovering is quiet, letting go errors and the Goob flies back.
+	scenario._sfx.history.clear()
+	await process_frame # the try_drop error played this frame (once per frame)
+	var hand := _hand_view(scenario)
+	scenario._last_tap_key = ""
+	var start := hand.slot_center(0)
+	_touch(start, true)
+	_drag(start + Vector2(0, -40))
+	_drag(_col_pos(scenario, 3))
+	_check(not _heard(scenario, &"error") and scenario._flash.color == scenario.COLOR_FLASH_FULL, "m6d drag: dark highlight, no error while hovering")
+	_touch(_col_pos(scenario, 3), false)
+	_check(_heard(scenario, &"error"), "m6d drag: release on a full column errors")
+	_check(board.to_debug_string() == before and not hand.is_dragging(), "m6d drag: no drop, Goob flies back")
 	await _free(scenario)
 
 
@@ -386,25 +403,6 @@ func _test_second_finger_and_mouse_ignored() -> void:
 	await _free(scenario)
 
 
-func _test_red_opponent_flash() -> void:
-	var scenario := await _make(0.0, true, 0.2)
-	var board := _board(scenario)
-	_play_col(scenario, 3)
-	_check(scenario._flash.visible, "opponent flash shows before its drop")
-	_check(scenario._flash.color.r > scenario._flash.color.b, "opponent flash is red")
-	_check(_count(board, O) == 0, "opponent has not dropped during the flash")
-	var col: int = scenario._opponent_column
-	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(col)), "flash on the chosen column")
-	await create_timer(0.35).timeout
-	_check(_count(board, O) == 1, "opponent dropped after the flash")
-	var in_col := false
-	for row in BoardState.ROWS:
-		in_col = in_col or board.get_owner(col, row) == O
-	_check(in_col, "dropped in the flashed column")
-	_check(not scenario._flash.visible, "flash hidden after the drop")
-	await _free(scenario)
-
-
 func _test_turn_timer_hud() -> void:
 	var scenario := await _make(5.0)
 	var hud: ScenarioHud = scenario._hud
@@ -415,7 +413,7 @@ func _test_turn_timer_hud() -> void:
 
 
 func _test_timeout_random() -> void:
-	var scenario := await _make(5.0, true, 0.0, 0.2)
+	var scenario := await _make(5.0, true, 0.2)
 	var board := _board(scenario)
 	await create_timer(0.35).timeout
 	_check(_count(board, P) == 1, "timeout with no touch plays a Goob")
@@ -461,7 +459,7 @@ func _test_timeout_is_obvious() -> void:
 
 
 func _test_timeout_under_finger() -> void:
-	var scenario := await _make(5.0, true, 0.0, 0.2)
+	var scenario := await _make(5.0, true, 0.2)
 	var board := _board(scenario)
 	_select_hand(scenario)
 	_touch(_col_pos(scenario, 2), true)
@@ -474,7 +472,7 @@ func _test_timeout_under_finger() -> void:
 
 
 func _test_timeout_rolls_off_full_column() -> void:
-	var scenario := await _make(5.0, true, 0.0, 0.2)
+	var scenario := await _make(5.0, true, 0.2)
 	var board := _board(scenario)
 	_fill_column(scenario, 6)
 	_select_hand(scenario)
@@ -560,7 +558,7 @@ func _test_free_during_opponent_delay() -> void:
 
 ## Input stays locked while the Goob falls; the turn passes once it lands.
 func _test_drop_animation_locks_input() -> void:
-	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	var scenario := await _make(5.0, true, 30.0, true)
 	await _wait_input(scenario)
 	var view := _view(scenario)
 	var board := _board(scenario)
@@ -588,7 +586,7 @@ func _test_drop_animation_locks_input() -> void:
 ## Timeout into a full column: the Goob rolls on top of the board, bouncing
 ## off the edge, then falls into the first open column.
 func _test_roll_animation() -> void:
-	var scenario := await _make(5.0, true, 0.0, 0.2, true)
+	var scenario := await _make(5.0, true, 0.2, true)
 	await _wait_input(scenario)
 	var view := _view(scenario)
 	var board := _board(scenario)
@@ -710,7 +708,7 @@ func _test_effect_animations() -> void:
 	for setup in [[CONVINCING, &"flip"], [FAT, &"crunch"], [POPULAR, &"popular"], [PLENTIFUL, &"draw_pop"]]:
 		var goob: GoobDefinition = setup[0]
 		var sound: StringName = setup[1]
-		var scenario := await _make(5.0, true, 0.0, 30.0, true)
+		var scenario := await _make(5.0, true, 30.0, true)
 		await _wait_input(scenario)
 		var board := _board(scenario)
 		board.drop(2, O)
@@ -727,7 +725,7 @@ func _test_effect_animations() -> void:
 		_check(_view_matches(scenario), "%s: animated view matches the board" % goob.id)
 		await _free(scenario)
 	# No target: fizzle cue.
-	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	var scenario := await _make(5.0, true, 30.0, true)
 	await _wait_input(scenario)
 	_give(scenario, CONVINCING)
 	_play_col(scenario, 3)
@@ -924,7 +922,7 @@ func _test_chain_loss_angry() -> void:
 
 
 func _test_convincing_flip_colour() -> void:
-	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	var scenario := await _make(5.0, true, 30.0, true)
 	await _wait_input(scenario)
 	var view := _view(scenario)
 	var board := _board(scenario)
@@ -966,14 +964,14 @@ func _test_m6c_waiting() -> void:
 	await process_frame
 	_check(hud.portrait_face() == &"idle", "waiting: a touch brings him back (got %s)" % hud.portrait_face())
 	await _free(scenario)
-	scenario = await _make(5.0, true, 0.0, 10.3)
+	scenario = await _make(5.0, true, 10.3)
 	hud = scenario._hud
 	await create_timer(0.5).timeout
 	_check(hud.portrait_face() == &"waiting", "waiting: waits while the fuse burns (got %s)" % hud.portrait_face())
 	await _free(scenario)
 	# Reaction during the effect: animated Convincing flip of his Goob → angry
 	# before the effect has finished.
-	scenario = await _make(5.0, true, 0.0, 30.0, true)
+	scenario = await _make(5.0, true, 30.0, true)
 	await _wait_input(scenario)
 	hud = scenario._hud
 	var board := _board(scenario)
@@ -991,7 +989,7 @@ func _test_m6c_waiting() -> void:
 
 ## M6c: the fuse burns only for the last 10 s, with worried hand Goobs.
 func _test_m6c_fuse() -> void:
-	var scenario := await _make(5.0, true, 0.0, 10.4)
+	var scenario := await _make(5.0, true, 10.4)
 	await _wait_input(scenario)
 	var fuse: FuseStrip = scenario._fuse
 	var hand: HandView = scenario.get_node("%PlayerHand")
@@ -1012,7 +1010,7 @@ func _test_m6c_fuse() -> void:
 
 ## Balatro rhythm: multipliers appear one by one before the sum and overlay.
 func _test_scoring_animated() -> void:
-	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	var scenario := await _make(5.0, true, 30.0, true)
 	await _wait_input(scenario)
 	var board := _board(scenario)
 	for c in 3:
@@ -1232,7 +1230,7 @@ func _test_full_column_greyed() -> void:
 
 
 func _test_hand_full_toast() -> void:
-	var scenario := await _make(0.0, true, 0.0, 30.0)
+	var scenario := await _make(0.0, true, 30.0)
 	var loop: TurnLoop = scenario._loop
 	# As after Plentiful: the player's hand is full when their next turn starts.
 	while loop.player_deck.hand.size() < Deck.HAND_MAX + 1:
@@ -1253,7 +1251,7 @@ func _test_hand_full_toast() -> void:
 
 
 func _test_timeout_plays_selected() -> void:
-	var scenario := await _make(5.0, true, 0.0, 0.2)
+	var scenario := await _make(5.0, true, 0.2)
 	var chosen: GoobDefinition = scenario._loop.player_deck.hand[2]
 	_select_hand(scenario, 2)
 	await create_timer(0.35).timeout
@@ -1267,7 +1265,7 @@ func _test_timeout_plays_selected() -> void:
 	# Same with the first Goob selected: only that card leaves the fan and the
 	# rest stay in step with the hand (Sean's bug, M6c playtest: tapping one
 	# Goob played another after a timeout).
-	scenario = await _make(5.0, true, 0.0, 0.2)
+	scenario = await _make(5.0, true, 0.2)
 	_select_hand(scenario, 0)
 	await create_timer(0.35).timeout
 	var fan := _hand_view(scenario)
@@ -1323,7 +1321,7 @@ func _heard(scenario: Control, sound: StringName) -> bool:
 
 ## Every M4 event has its sound (slice §2B Sound), alongside its visual cue.
 func _test_sounds() -> void:
-	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	var scenario := await _make(5.0, true, 30.0, true)
 	await _wait_input(scenario)
 	_check(_heard(scenario, &"draw_pop") and _heard(scenario, &"fly"), "sound: draw pop + fly into the fan")
 	var hand := _hand_view(scenario)
@@ -1351,7 +1349,7 @@ func _test_sounds() -> void:
 	await create_timer(0.6).timeout
 	_check(_heard(scenario, &"fall") and _heard(scenario, &"land"), "sound: fall + land")
 	await _free(scenario)
-	scenario = await _make(5.0, true, 0.0, 0.2)
+	scenario = await _make(5.0, true, 0.2)
 	_fill_column(scenario, 6)
 	_fill_column(scenario, 5)
 	_select_hand(scenario)
@@ -1360,7 +1358,7 @@ func _test_sounds() -> void:
 	_check(_heard(scenario, &"times_up"), "sound: Time's up!")
 	_touch(_col_pos(scenario, 6), false)
 	await _free(scenario)
-	scenario = await _make(5.0, true, 0.0, 0.2, true)
+	scenario = await _make(5.0, true, 0.2, true)
 	await _wait_input(scenario)
 	_fill_column(scenario, 6)
 	_fill_column(scenario, 5)
@@ -1411,7 +1409,7 @@ func _wait_banner(hud: ScenarioHud, text: String) -> void:
 
 
 func _test_turn_banners() -> void:
-	var scenario := await _make(5.0, true, 0.0, 30.0, true)
+	var scenario := await _make(5.0, true, 30.0, true)
 	var hud: ScenarioHud = scenario._hud
 	_check(hud.is_banner_visible() and hud.banner_text() == "GAME START", "banner: Game start first (got '%s')" % hud.banner_text())
 	_check(hud.portrait_face() == &"greeting", "banner: he waves hello during Game start (got %s)" % hud.portrait_face())
@@ -1425,7 +1423,7 @@ func _test_turn_banners() -> void:
 	await _wait_input(scenario)
 	_check(not hud.is_banner_visible(), "banner: gone when input unlocks")
 	await _free(scenario)
-	scenario = await _make(5.0, false, 0.0, 30.0, true)
+	scenario = await _make(5.0, false, 30.0, true)
 	hud = scenario._hud
 	await _wait_banner(hud, "Opponent's turn")
 	_check(hud.is_banner_visible() and hud.banner_text() == "Opponent's turn", "banner: red Opponent's turn after Game start")
@@ -1475,7 +1473,7 @@ func _test_pause_menu() -> void:
 
 func _test_speed_settings() -> void:
 	var settings := _settings()
-	var scenario := await _make(0.0, true, 0.2, 30.0, true)
+	var scenario := await _make(0.0, true, 30.0, true)
 	await _wait_input(scenario)
 	var view := _view(scenario)
 	var hand := _hand_view(scenario)

@@ -43,6 +43,7 @@ func _run() -> void:
 	_test_settings_saved()
 	await _test_title_options()
 	await _test_auto_flip_setting()
+	_test_background_audio()
 	_settings().reset()
 	_settings().save_file()
 	_flow().player_moves_first = saved_first
@@ -360,3 +361,12 @@ func _test_auto_flip_setting() -> void:
 	cf.process_mode = Node.PROCESS_MODE_DISABLED
 	await _clear(cf)
 	st.reset()
+
+
+## M6d mobile: all audio pauses in the background, settings come back on resume.
+func _test_background_audio() -> void:
+	var master := AudioServer.get_bus_index(&"Master")
+	_flow().notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	_check(AudioServer.is_bus_mute(master), "m6d: background mutes Master")
+	_flow().notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	_check(not AudioServer.is_bus_mute(master), "m6d: resume restores Master")

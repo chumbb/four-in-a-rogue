@@ -57,6 +57,15 @@ func _ready() -> void:
 	add_child(sfx)
 
 
+## Mobile (slice §2B Sound): all audio pauses while the app is in the
+## background. The engine's own settings come back on resume.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED:
+		AudioServer.set_bus_mute(AudioServer.get_bus_index(&"Master"), true)
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		Settings.apply_audio()
+
+
 ## F3 (debug builds only) toggles simulated phone safe-area insets (§2A).
 func _input(event: InputEvent) -> void:
 	if not OS.is_debug_build():

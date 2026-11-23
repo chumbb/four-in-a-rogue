@@ -5,13 +5,15 @@ Usage (from the repo root):
 
 All synthesised for this project (no packs needed). Outputs (Ogg Vorbis, 44.1 kHz, via
 ffmpeg) in assets/audio/sfx/:
-  press_start.ogg  title Press Start: chiptune two-note up-blip (C5 → G5)       (C)
-  ui_tap.ogg       button tap: short soft chiptune blip                         (C)
-  page_click.ogg   Strange Man page advance: tiny high square click             (C)
+  press_start.ogg  title Press Start: the "goes first" fanfare with chorus + delay  (C)
+  ui_tap.ogg       every UI press: SNES wood block tap, dry (493 Hz, low-passed)  (C)
+  (Sean, 2026-11-23: UI is SNES-like / 16-bit; he picked the wood block, option B in
+  make_snes_coin_fizzle_options.py, after the felt tap and bubble were rejected.)
   first_sting.ogg  coin result flash + "goes first" banner: chiptune fanfare     (C)
-  coin_whirr.ogg   coin spinning in the air (~0.6 s): fluttering filtered noise  (T)
-  coin_clink.ogg   coin lands: short wooden clink (two damped partials + tick)   (T)
-Reused, not built here: swipe whoosh = fly_swish.ogg, intro Goobs pop = draw_pop.ogg.
+  coin_whirr.ogg   thumb flick: nail click + ringing metal coin, shimmering as it spins (~0.65 s)  (T)
+  coin_clink.ogg   coin lands on wood: clack, short ring, settling rattle         (T)
+  (Sean, 2026-11-23: a real metal coin flicked by a thumb; picked flick B "warm" + the table landing.)
+Reused, not built here: Strange Man page advance = ui_tap.ogg (Sean, 2026-11-23), swipe whoosh = fly_swish.ogg, intro Goobs pop = draw_pop.ogg.
 Slice §2B Sound: UI/banners chiptune (C), physical things tactile (T).
 """
 import os
@@ -21,22 +23,48 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
 from make_effect_sounds import SR, square, write_ogg  # noqa: E402
+import make_snes_coin_fizzle_options as opt  # noqa: E402
 
 
 def silence(sec):
     return np.zeros(int(SR * sec))
 
 
+# Sean (2026-11-23): "cut some of the highs on the ui sounds, reduce the shrillness
+# of the coin flip". UI: low-pass. Coin: the 3.8 kHz low-pass was too washed out,
+# Sean "just wanted to cut 5k+ a bit": a gentle high shelf instead.
+UI_TOP_HZ = 1400
+COIN_SHELF_HZ = 5000
+COIN_SHELF_DB = -6.0
+
+
+def chorus_delay(x, sec_tail=0.9):
+    """Chorus (two slowly wobbling detuned copies) + a feedback delay with darker repeats."""
+    x = np.concatenate([x, np.zeros(int(SR * sec_tail))])
+    n = len(x)
+    t = np.arange(n) / SR
+    out = x.copy()
+    for base, depth, rate in [(0.018, 0.0025, 0.9), (0.026, 0.0035, 1.3)]:
+        delay = base + depth * np.sin(2 * np.pi * rate * t)
+        out += 0.6 * np.interp(t - delay, t, x, left=0.0)
+    out /= 2.2
+    d = int(SR * 0.17)
+    echo = np.zeros(n)
+    tap = out.copy()
+    for k in range(1, 6):
+        tap = opt.lp(np.concatenate([np.zeros(d), tap[:-d]]), 3500)
+        echo += tap * (0.45 ** k)
+    return out + echo
+
+
 def press_start():
-    return np.concatenate([square(523.25, 0.07, duty=0.5, vol=0.22), square(783.99, 0.16, duty=0.5, vol=0.22)])
+    """The "goes first" fanfare with chorus + delay (Sean, 2026-11-23)."""
+    return opt.norm(chorus_delay(first_sting()), 0.22)
 
 
 def ui_tap():
-    return square(659.25, 0.05, duty=0.25, vol=0.16)
-
-
-def page_click():
-    return square(1318.5, 0.025, duty=0.5, vol=0.12)
+    """SNES wood block tap, dry, a fifth lower than the pick (740 → 493 Hz; Sean)."""
+    return opt.norm(opt.lp(opt.snes(opt.woodblock(740 / 1.5)), UI_TOP_HZ, 4), 0.22)
 
 
 def first_sting():
@@ -46,36 +74,19 @@ def first_sting():
     return np.concatenate(parts)
 
 
-def coin_whirr(sec=0.6, seed=3):
-    rng = np.random.default_rng(seed)
-    n = int(SR * sec)
-    t = np.arange(n) / SR
-    noise = rng.standard_normal(n)
-    # One-pole low-pass, then a flutter at a rising spin rate.
-    out = np.empty(n)
-    a, y = 0.08, 0.0
-    for i in range(n):
-        y += a * (noise[i] - y)
-        out[i] = y
-    rate = 14.0 + 10.0 * t / sec
-    flutter = 0.55 + 0.45 * np.sin(2 * np.pi * np.cumsum(rate) / SR) ** 2
-    env = np.minimum(1.0, t / 0.05) * np.minimum(1.0, (sec - t) / 0.12)
-    out = out * flutter * env
-    return out / np.max(np.abs(out)) * 0.22
+def coin_whirr():
+    """Thumb flick of a warm metal coin (flick B, Sean's pick 2026-11-23)."""
+    return opt.norm(opt.high_shelf(opt.coin_flick(2500, decay_scale=1.0, spin=(24, 16), seed=12), COIN_SHELF_HZ, COIN_SHELF_DB), 0.3)
 
 
-def coin_clink(sec=0.22):
-    t = np.arange(int(SR * sec)) / SR
-    body = 0.6 * np.sin(2 * np.pi * 820 * t) * np.exp(-t / 0.035)
-    ring = 0.3 * np.sin(2 * np.pi * 2140 * t) * np.exp(-t / 0.02)
-    tick = np.random.default_rng(5).standard_normal(len(t)) * np.exp(-t / 0.003) * 0.4
-    return (body + ring + tick) * 0.45
+def coin_clink():
+    """Coin lands on wood and settles (Sean's pick 2026-11-23)."""
+    return opt.norm(opt.high_shelf(opt.land_table(), COIN_SHELF_HZ, COIN_SHELF_DB), 0.3)
 
 
 def main():
     write_ogg(press_start(), "press_start.ogg")
     write_ogg(ui_tap(), "ui_tap.ogg")
-    write_ogg(page_click(), "page_click.ogg")
     write_ogg(first_sting(), "first_sting.ogg")
     write_ogg(coin_whirr(), "coin_whirr.ogg")
     write_ogg(coin_clink(), "coin_clink.ogg")

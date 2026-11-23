@@ -5,12 +5,10 @@ Usage (from the repo root):
 
 All synthesised for this project (no packs needed). Outputs (Ogg Vorbis, 44.1 kHz, via
 ffmpeg) in assets/audio/sfx/, all chiptune (C) per slice §2B Sound:
-  pause_open.ogg     pause menu opens: two-note down-blip (G5 → C5)
-  pause_close.ogg    pause menu closes / resume: two-note up-blip (C5 → G5, softer)
-  slider_tick.ogg    volume slider step: tiny high tick
   turn_whoosh.ogg    turn banners: soft airy whoosh (filtered noise, slow swell), not a
                      beep (Sean, 2026-11-20); the opponent's plays ~10 % lower (Sfx)
-Button taps reuse ui_tap.ogg (make_flow_sounds.py).
+Every UI press (buttons, pause open/close, slider steps) uses ui_tap.ogg
+(make_flow_sounds.py; Sean, 2026-11-23).
 """
 import os
 import sys
@@ -19,18 +17,6 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
 from make_effect_sounds import SR, square, write_ogg  # noqa: E402
-
-
-def pause_open():
-    return np.concatenate([square(783.99, 0.06, duty=0.5, vol=0.18), square(523.25, 0.12, duty=0.5, vol=0.18)])
-
-
-def pause_close():
-    return np.concatenate([square(523.25, 0.05, duty=0.5, vol=0.15), square(783.99, 0.1, duty=0.5, vol=0.15)])
-
-
-def slider_tick():
-    return square(1567.98, 0.018, duty=0.25, vol=0.1)
 
 
 def turn_whoosh(sec=0.45, seed=11):
@@ -55,9 +41,6 @@ def turn_whoosh(sec=0.45, seed=11):
 
 
 def main():
-    write_ogg(pause_open(), "pause_open.ogg")
-    write_ogg(pause_close(), "pause_close.ogg")
-    write_ogg(slider_tick(), "slider_tick.ogg")
     write_ogg(turn_whoosh(), "turn_whoosh.ogg")
     print("wrote menu sounds to assets/audio/sfx")
 

@@ -21,6 +21,11 @@ run/max_fps=60
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
+[audio]
+
+general/ios/session_category=0
+general/ios/mix_with_others=true
+
 [autoload]
 
 Settings="*res://scripts/core/settings.gd"

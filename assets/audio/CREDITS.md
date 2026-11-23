@@ -20,8 +20,9 @@ fallback credited here). Files in `sfx/` were trimmed / converted to Ogg Vorbis.
 | `sfx/effect_crunch.ogg` | Kenney — Starter Kit 3D Platformer | `sounds/break.ogg` |
 | `sfx/effect_popular.ogg` | Kenney — Starter Kit Match-3 | `sounds/tile-land.ogg` |
 | `sfx/score_0..8.ogg`, `sfx/score_collapse.ogg`, `sfx/score_recognise.ogg` | Made for this project (`art/audio/make_effect_sounds.py`: chiptune square blips, 2026-11-19) | — |
-| `sfx/press_start.ogg`, `sfx/ui_tap.ogg`, `sfx/page_click.ogg`, `sfx/first_sting.ogg`, `sfx/coin_whirr.ogg`, `sfx/coin_clink.ogg` | Made for this project (`art/audio/make_flow_sounds.py`: chiptune blips + synthesised whirr/clink, 2026-11-20) | — |
-| `sfx/pause_open.ogg`, `sfx/pause_close.ogg`, `sfx/slider_tick.ogg`, `sfx/turn_whoosh.ogg` | Made for this project (`art/audio/make_menu_sounds.py`: chiptune blips; soft turn-banner whoosh, 2026-11-20) | — |
+| `sfx/press_start.ogg`, `sfx/ui_tap.ogg`, `sfx/first_sting.ogg`, `sfx/coin_whirr.ogg`, `sfx/coin_clink.ogg` | Made for this project (`art/audio/make_flow_sounds.py` + `make_snes_coin_fizzle_options.py`: SNES-style wood block UI, synthesised metal coin flick + landing, 2026-11-23) | — |
+| `sfx/turn_whoosh.ogg` | Made for this project (`art/audio/make_menu_sounds.py`: chiptune blips; soft turn-banner whoosh, 2026-11-20) | — |
+| `sfx/game_start.ogg`, `sfx/goob_flip.ogg`, `sfx/fuse_burn.ogg`, `sfx/win_sting.ogg`, `sfx/lose_sting.ogg`, `sfx/portrait_crack.ogg`, `sfx/portrait_explode.ogg` | Made for this project (`art/audio/make_reaction_sounds.py`: chiptune stings, synthesised flick/fuse/crack/burst, 2026-11-22) | — |
 | `sfx/inspect_close.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookClose.ogg` (low-passed, quieter, softened attack) |
 
 Kenney starter kits: code MIT, bundled assets CC0 (per each kit's README). Small Sound Kit: CC0 (store listing). Kenney RPG Audio: CC0 (pack `license.txt`).
@@ -38,5 +39,5 @@ The store listing says CC0, but the pack's own `License.txt` says CC-BY 4.0, so 
 | `sfx/land.ogg` | same CLICK, pitched down ~5 semitones (`art/audio/make_drop_sounds.py`) |
 | `sfx/hand_full.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_LOCKED.wav` |
 | `sfx/times_up.ogg` | `SynthOrGlitch/Menu_Sound_V2_SoG_UP_MYSTERY.wav` |
-| `sfx/effect_fizzle.ogg` | `Minimalistic/Menu_Sounds_V2_Minimalistic_BACKWARD.wav` (lowered, low-passed, quieter) |
+| `sfx/effect_fizzle.ogg` | Replaced 2026-11-23: now made for this project (synthesised candle snuff, `make_effect_sounds.py` `write_fizzle()`) |
 | `sfx/error.ogg` | `Minimalistic/Menu_Sounds_V2_Minimalistic_ERROR.wav` |

@@ -9,8 +9,8 @@ extends Control
 ## that column again to drop; holding or sliding on a column and releasing
 ## also drops. A blue flash and the floating Goob follow the aimed column.
 ## Column touches with no Goob selected are ignored (Sean, 2026-11-13).
-## Double tap inspects a hand Goob, or a board Goob when none is selected. The opponent (OpponentAI) replies after a short delay and a
-## red flash on its column. Player turns are timed (slice §2B): at timeout the
+## Double tap inspects a hand Goob, or a board Goob when none is selected. The opponent (OpponentAI) replies after a short delay.
+## Player turns are timed (slice §2B): at timeout the
 ## Goob goes into the column under the finger, else a random column, rolling
 ## off full columns. Goobs fall (or roll) into place before the next turn;
 ## input stays locked until they land. Each landed Goob's special effect then
@@ -31,7 +31,6 @@ const OPPONENT_DELAY_SEC := 0.7
 const THINK_JITTER_SEC := 0.2
 const THINK_HARD_SEC := 0.4
 ## Red flash on the opponent's column right before its Goob is played.
-const OPPONENT_FLASH_SEC := 0.15
 ## Per-scenario player turn limit (slice §2B); v0.1 has one scenario.
 const TURN_SECONDS := 30.0
 ## Timeout auto-play must be obvious (Sean, 2026-11-11): "Time's up!" and a
@@ -54,7 +53,8 @@ const SCREEN_SHAKE_PX := [8, -8, 6, -6, 3, -3, 0]
 const SCREEN_SHAKE_STEP_SEC := 0.035
 
 const COLOR_FLASH_PLAYER := Color(0.3, 0.55, 1.0, 0.35)
-const COLOR_FLASH_OPPONENT := Color(1.0, 0.2, 0.2, 0.45)
+## Dark highlight over a full column under the finger (Sean, M6d playtest).
+const COLOR_FLASH_FULL := Color(0.0, 0.0, 0.0, 0.45)
 const COLOR_FULL_GREY := Color(0.08, 0.08, 0.1, 0.55)
 const COLOR_WIN := Color(1.0, 0.85, 0.3)
 const COLOR_LOSE := Color(1.0, 0.3, 0.3)
@@ -100,8 +100,6 @@ const GAME_START_GAP_SEC := 0.25
 
 ## Seconds before the opponent drops. Tests set 0.0 (move immediately).
 var opponent_delay_sec := OPPONENT_DELAY_SEC
-## Tests set 0.0 to skip the red flash.
-var opponent_flash_sec := OPPONENT_FLASH_SEC
 var turn_seconds := TURN_SECONDS
 ## Tests set 0.0 to drop at once on timeout.
 var timeout_reveal_sec := TIMEOUT_REVEAL_SEC
@@ -121,7 +119,6 @@ var _toast: Toast
 var _sfx: Sfx
 ## One-shot child timers: anything pending is freed with the scene.
 var _opponent_timer: Timer
-var _flash_timer: Timer
 var _turn_timer: Timer
 var _timeout_timer: Timer
 var _opponent_column := -1
@@ -185,8 +182,7 @@ func _ready() -> void:
 	move_child(vignette, _stump.get_index() + 1)
 	_build_feedback_nodes()
 	_build_hud()
-	_opponent_timer = _make_timer(_choose_opponent_move)
-	_flash_timer = _make_timer(_on_opponent_flash_done)
+	_opponent_timer = _make_timer(_play_opponent_move)
 	_turn_timer = _make_timer(_on_turn_timeout)
 	_timeout_timer = _make_timer(_finish_timeout)
 	_end_overlay.visible = false
@@ -518,6 +514,8 @@ func _on_release(event: InputEventScreenTouch) -> void:
 		return
 	var column := column_at(event.position)
 	var legal := column != -1 and not event.canceled and not _loop.board.column_full(column)
+	# Letting go on a full column is the play attempt: shake + error sound.
+	var full := column != -1 and not event.canceled and _loop.board.column_full(column)
 	match gesture:
 		Gesture.HAND:
 			if not dragging:
@@ -526,6 +524,8 @@ func _on_release(event: InputEventScreenTouch) -> void:
 				_play_selected(column)
 			else:
 				# Released off the board (or on a full column): it flies back.
+				if full:
+					_reject_placement(Toast.MSG_COLUMN_FULL)
 				_hand.cancel_drag()
 				_sfx.play(&"cancel")
 				_clear_aim()
@@ -534,6 +534,8 @@ func _on_release(event: InputEventScreenTouch) -> void:
 			var held := _slid or Time.get_ticks_msec() - _press_msec >= HOLD_SEC * 1000.0
 			if not legal:
 				_clear_aim() # off the board or a full column: back to neutral
+				if full:
+					_reject_placement(Toast.MSG_COLUMN_FULL)
 			elif held or column == _aim_at_press:
 				_play_selected(column)
 			else:
@@ -564,16 +566,19 @@ func _open_inspect(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
 	_inspect.open(goob, side, HandView.GOOB_PX * _board_view.hand_px() * 2.0)
 
 
-## The finger moved onto `column` (-1 = off the board). A full column errors
-## once per entry: this only runs when the column under the finger changes.
+## The finger moved onto `column` (-1 = off the board). A full column shows
+## the dark highlight + "Column full" once per entry (this only runs when the
+## column under the finger changes); the shake and sound wait for a release.
 func _enter_column(column: int) -> void:
 	_touch_column = column
 	_aim_column = -1
 	if column == -1:
 		_hide_aim()
 	elif _loop.board.column_full(column):
-		_hide_aim()
-		_reject_placement(Toast.MSG_COLUMN_FULL)
+		_board_view.hide_preview()
+		_show_flash(column, COLOR_FLASH_FULL)
+		_toast.show_message(Toast.MSG_COLUMN_FULL)
+		_place_toast()
 	else:
 		# Every column entry clicks (first touch and each slide; Sean 2026-11-19).
 		_sfx.play(&"column_tick")
@@ -945,7 +950,8 @@ func _shake_screen() -> void:
 		_shake_tween.tween_property(self, "position:x", float(px), SCREEN_SHAKE_STEP_SEC)
 
 
-## The red banner and the think delay run together; the flash waits for both.
+## The red banner, then the think delay, then his Goob (no column flash;
+## Sean, M6d playtest 2026-11-23).
 ## The move is chosen up front (the board can't change while he thinks) so a
 ## block or a close call can think a little longer.
 func _run_opponent_turn() -> void:
@@ -965,21 +971,7 @@ func _run_opponent_turn() -> void:
 	if wait > 0.0:
 		_opponent_timer.start(wait)
 	else:
-		_choose_opponent_move()
-
-
-func _choose_opponent_move() -> void:
-	var flash := Settings.anim_sec(opponent_flash_sec) # Fast halves
-	if flash > 0.0:
-		_show_flash(_opponent_column, COLOR_FLASH_OPPONENT)
-		_flash_timer.start(flash)
-	else:
 		_play_opponent_move()
-
-
-func _on_opponent_flash_done() -> void:
-	_hide_flash()
-	_play_opponent_move()
 
 
 func _play_opponent_move() -> void:
