@@ -83,6 +83,32 @@ func _run() -> void:
 	await _test_m6c_waiting()
 	await _test_convincing_flip_colour()
 	await _test_chain_loss_angry()
+	await _test_status_pill_shows_and_toasts()
+	await _test_discard_reveal_not_faster_on_fast()
+	await _test_discard_keeps_fan_in_order()
+	await _test_pills_clear_of_columns(PHONE)
+	await _test_pills_clear_of_columns(Vector2i(1080, 2340))
+	await _test_debug_give_full_hand_replaces_oldest()
+	await _test_debug_give_opponent()
+	await _test_debug_status()
+	await _test_debug_discard_opponent()
+	await _test_debug_no_stale_opponent_plan()
+	await _test_debug_panel_f4()
+	await _test_autoplay_plays_for_player()
+	await _test_autoplay_off_during_think()
+	await _test_autoplay_cancels_drag()
+	await _test_autoplay_draw_replay_keeps_decks()
+	await _test_autoplay_off_at_win()
+	await _test_autoplay_button_hidden_by_setting()
+	await _test_autoplay_off_on_return_to_title()
+	await _test_autoplay_replay_after_view_board()
+	await _test_autoplay_move_needs_flag()
+	await _test_debug_give_refused_in_timeout_reveal()
+	await _test_debug_give_refused_in_draw_reveal()
+	await _test_debug_discard_player_guards()
+	await _test_pills_refresh_on_autoplay_turn_start()
+	await _test_autoplay_no_move_turns_off()
+	await _test_autoplay_flips_up_from_behind()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -743,11 +769,11 @@ func _test_scoring_sequence() -> void:
 	for c in 3:
 		board.drop(c, P)
 	_view(scenario).sync_from_board(board)
-	_give(scenario, PLENTIFUL) # ×0.5, no board change
+	_give(scenario, PLENTIFUL) # ×2, no board change
 	_play_col(scenario, 3)
 	await process_frame
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "scoring: player wins")
-	_check(scenario.sum_label != null and scenario.sum_label.text == "3.5", "scoring: sum 1+1+1+0.5 = 3.5 (got %s)" % (scenario.sum_label.text if scenario.sum_label else "none"))
+	_check(scenario.sum_label != null and scenario.sum_label.text == "5", "scoring: sum 1+1+1+2 = 5 (got %s)" % (scenario.sum_label.text if scenario.sum_label else "none"))
 	_check(scenario.score_labels.is_empty(), "scoring: multipliers collapsed into the sum")
 	_check(absf(scenario.sum_label.get_global_rect().get_center().y - scenario.gap_center().y) < 2.0, "scoring: the total shows in the gap above the board (M6c playtest)")
 	var face_up := true
@@ -860,7 +886,7 @@ func _test_m6c_reactions() -> void:
 func _test_m6c_playtest() -> void:
 	var scenario := await _make(5.0)
 	var hud: ScenarioHud = scenario._hud
-	_check(hud.caption_text() == "Vanilla Goob", "playtest: drawn Goob's name shows above the board (got '%s')" % hud.caption_text())
+	_check(hud.caption_text() == "Goob", "playtest: drawn Goob's name shows above the board (got '%s')" % hud.caption_text())
 	var board := _board(scenario)
 	for c in 3:
 		board.drop(c, P)
@@ -1513,4 +1539,559 @@ func _test_screen_shake_option() -> void:
 	_settings().set_screen_shake(true)
 	scenario._reject_placement("Column full")
 	_check(view._shake_tween != null and view._shake_tween.is_valid(), "shake: On shakes again")
+	await _free(scenario)
+
+
+## M6e: a status shows as a pill in the gap (yours on the left); pressing it
+## toasts its explanation.
+func _test_status_pill_shows_and_toasts() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	loop.add_status(&"t", P, "Test", "Explain", -1)
+	scenario._refresh_hud()
+	await process_frame
+	var pills: StatusPills = scenario._pills
+	var buttons := pills.buttons()
+	_check(buttons.size() == 1, "pills: one pill (got %d)" % buttons.size())
+	if buttons.size() == 1:
+		var pill := buttons[0]
+		_check(pill.is_visible_in_tree() and StatusPills.label_of(pill) == "Test", "pills: shows its label")
+		var rect := pill.get_global_rect()
+		_check(rect.get_center().x < scenario.size.x * 0.5, "pills: yours on the left half")
+		_check(rect.size.x >= 96.0, "pills: at least 96 px wide (got %.0f)" % rect.size.x)
+		_check(rect.position.y >= scenario._hud.bottom() - 0.5 and rect.end.y <= scenario.get_node("%AimLane").get_global_rect().position.y + 0.5, "pills: in the gap above the aim lane (%s)" % rect)
+		pill.pressed.emit()
+		_check(scenario._toast._label.text == "Explain", "pills: press toasts the text")
+	loop.remove_status(&"t", P)
+	scenario._refresh_hud()
+	await process_frame
+	_check(pills.buttons().is_empty(), "pills: removed status clears its pill")
+	await _free(scenario)
+
+
+## M6e: the discard reveal is never sped up by Fast, and only discard_from
+## takes the Goob out of the hand (the fan follows it).
+func _test_discard_reveal_not_faster_on_fast() -> void:
+	var scenario := await _make(5.0, true, 30.0, true)
+	await _wait_input(scenario)
+	_settings().set_speed(1) # Fast
+	var loop: TurnLoop = scenario._loop
+	var before := loop.player_deck.hand.size()
+	var goob := loop.discard_from(P, 0)
+	_check(goob != null and loop.player_deck.hand.size() == before - 1, "discard: discard_from takes it from the hand")
+	var t0 := Time.get_ticks_msec()
+	await scenario._show_discard(goob, P, 0)
+	var took := Time.get_ticks_msec() - t0
+	_check(took >= 1200, "discard: reveal not faster on Fast (%d ms)" % took)
+	_check(loop.player_deck.hand.size() == before - 1, "discard: the reveal itself takes nothing more")
+	_check(_hand_view(scenario).count() == loop.player_deck.hand.size(), "discard: the fan matches the hand")
+	_settings().reset()
+	await _free(scenario)
+
+
+## M6e fix: a discard from the middle of a mixed hand takes that very card out
+## of the fan, so the fan stays in hand order (taps play the right Goob).
+func _test_discard_keeps_fan_in_order() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var v: GoobDefinition = TurnLoop.VANILLA
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	var popular: GoobDefinition = load("res://resources/goobs/popular_goob.tres")
+	var mixed: Array[GoobDefinition] = [v, fat, v, fat, popular]
+	loop.player_deck.hand.assign(mixed)
+	var hand := _hand_view(scenario)
+	hand.rebuild(loop.player_deck.hand)
+	loop.discard_from(P, 1)
+	await scenario._play_effect(loop.effect_steps[-1])
+	var fan := hand.goobs()
+	var same := fan.size() == loop.player_deck.hand.size()
+	for i in mini(fan.size(), loop.player_deck.hand.size()):
+		same = same and fan[i] == loop.player_deck.hand[i]
+	_check(same, "discard fan: fan matches the hand element by element")
+	await _free(scenario)
+
+
+## M6e fix: column input always wins, so no pill covers a column's hit area
+## (column + aim lane), with simulated insets. Pills sit on the aim lane's
+## top, at least 10 game px tall (over the HUD block's edge when the strip
+## above the lane is shorter), always visible, clear of the Pause button.
+func _test_pills_clear_of_columns(window: Vector2i) -> void:
+	root.size = window
+	SafeArea.simulate_insets = true
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	loop.add_status(&"a", P, "Mine", "x", -1)
+	loop.add_status(&"b", P, "Also mine", "x", -1)
+	loop.add_status(&"c", O, "His", "y", -1)
+	scenario._refresh_hud()
+	await process_frame
+	await process_frame
+	var tag := str(window)
+	var buttons: Array[Button] = scenario._pills.buttons()
+	var pause_rect: Rect2 = scenario._hud.pause_button().get_global_rect()
+	var lane_top: float = scenario.get_node("%AimLane").get_global_rect().position.y
+	_check(buttons.size() == 3, "%s: three pills" % tag)
+	for pill in buttons:
+		var rect := pill.get_global_rect()
+		_check(pill.is_visible_in_tree(), "%s: pill visible" % tag)
+		_check(rect.size.x >= 96.0, "%s: pill ≥ 96 px wide" % tag)
+		_check(rect.size.y >= 10.0 * scenario._pills.stage.k - 0.5, "%s: pill ≥ 10 game px tall (%s)" % [tag, rect])
+		_check(rect.end.y <= lane_top + 0.5, "%s: pill bottom on the aim lane's top (%s)" % [tag, rect])
+		var clear := not rect.intersects(pause_rect)
+		for column in BoardState.COLUMNS:
+			if rect.intersects(scenario.column_hit_rect(column)):
+				clear = false
+		_check(clear, "%s: pill clear of column hit rects and Pause (%s)" % [tag, rect])
+	if buttons.size() == 3:
+		_check(buttons[0].get_global_rect().get_center().x < scenario.size.x * 0.5 and buttons[2].get_global_rect().get_center().x > scenario.size.x * 0.5, "%s: yours left, his right" % tag)
+	SafeArea.simulate_insets = false
+	await _free(scenario)
+	root.size = PHONE
+
+
+## M6e debug picker: a full hand drops its oldest Goob for the given one; the
+## fan shows the new hand.
+func _test_debug_give_full_hand_replaces_oldest() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var v: GoobDefinition = TurnLoop.VANILLA
+	var convincing: GoobDefinition = load("res://resources/goobs/convincing_goob.tres")
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	var full: Array[GoobDefinition] = [convincing, v, v, v, v]
+	loop.player_deck.hand.assign(full)
+	_hand_view(scenario).rebuild(loop.player_deck.hand)
+	scenario.debug_give(fat, P)
+	var hand := loop.player_deck.hand
+	_check(hand.size() == Deck.HAND_MAX, "debug give: hand stays at 5 (got %d)" % hand.size())
+	_check(hand.size() > 0 and hand[-1] == fat, "debug give: the given Goob is last")
+	_check(not hand.has(convincing), "debug give: the oldest Goob is gone")
+	_check(_hand_view(scenario).count() == 5, "debug give: the fan shows 5 (got %d)" % _hand_view(scenario).count())
+	await _free(scenario)
+
+
+func _test_debug_give_opponent() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	var before := loop.opponent_deck.hand.size()
+	var fan_before := _hand_view(scenario).count()
+	scenario.debug_give(fat, O)
+	_check(loop.opponent_deck.hand.size() == before + 1 and loop.opponent_deck.hand[-1] == fat, "debug give: the opponent's hand gains it")
+	_check(_hand_view(scenario).count() == fan_before, "debug give: the player fan is untouched")
+	await _free(scenario)
+
+
+func _test_debug_status() -> void:
+	var scenario := await _make(5.0)
+	scenario.debug_add_status(P)
+	await process_frame
+	var buttons: Array[Button] = scenario._pills.buttons()
+	_check(buttons.size() == 1 and StatusPills.label_of(buttons[0]) == "Test", "debug status: the Test pill appears")
+	_check(scenario._loop.has_status(&"debug", P), "debug status: on the player's side")
+	await _free(scenario)
+
+
+## Discard random on the opponent's hand works at any time; on yours only while
+## your input is on.
+func _test_debug_discard_opponent() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var before := loop.opponent_deck.hand.size()
+	await scenario.debug_discard_random(O)
+	_check(loop.opponent_deck.hand.size() == before - 1 and loop.opponent_deck.discard_pile.size() == 1, "debug discard: one opponent Goob discarded")
+	var mine := loop.player_deck.hand.size()
+	scenario._set_input_enabled(false)
+	await scenario.debug_discard_random(P)
+	_check(loop.player_deck.hand.size() == mine, "debug discard: yours ignored while input is locked")
+	scenario._set_input_enabled(true)
+	await scenario.debug_discard_random(P)
+	_check(loop.player_deck.hand.size() == mine - 1 and _hand_view(scenario).count() == mine - 1, "debug discard: yours discarded while input is on (fan follows)")
+	await _free(scenario)
+
+
+func _key(keycode: Key) -> void:
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.pressed = true
+	root.push_input(event)
+
+
+## F4 opens the panel (tree paused) and closes it; its buttons are ≥ 96 px and
+## act on the chosen side; "New game with these" forces the categories.
+func _test_debug_panel_f4() -> void:
+	var scenario := await _make(5.0)
+	var panel: DebugPanel = scenario._debug
+	_check(panel != null and not panel.is_open(), "debug panel: built (debug build), closed at start")
+	_key(KEY_F4)
+	await process_frame
+	_check(panel.is_open() and paused, "debug panel: F4 opens it and pauses the tree")
+	_check(panel.button("Close").get_global_rect().size.y >= 96.0, "debug panel: buttons ≥ 96 px")
+	var loop: TurnLoop = scenario._loop
+	var before := loop.opponent_deck.hand.size()
+	panel.button("Opponent").pressed.emit()
+	panel.button("Fat Goob").pressed.emit()
+	_check(loop.opponent_deck.hand.size() == before + 1, "debug panel: a Goob button gives to the chosen side")
+	panel.button("Add test status").pressed.emit()
+	_check(loop.has_status(&"debug", O), "debug panel: test status on the chosen side")
+	_key(KEY_F4)
+	await process_frame
+	_check(not panel.is_open() and not paused, "debug panel: F4 again closes it and unpauses")
+	panel.open()
+	panel.button("Tech").pressed.emit()
+	panel.button("Move + Discard").pressed.emit()
+	var forced := panel.forced()
+	_check(forced.get("top", -1) == GoobDefinition.Category.TECH, "debug panel: top pool forced")
+	var main: Array = forced.get("main", [])
+	_check(main.size() == 2 and main.has(GoobDefinition.Category.MOVE) and main.has(GoobDefinition.Category.DISCARD), "debug panel: main pair forced")
+	panel.button("Auto top").pressed.emit()
+	panel.button("Auto main").pressed.emit()
+	_check(panel.forced().is_empty(), "debug panel: Auto clears the forcing")
+	panel.button("Close").pressed.emit()
+	_check(not panel.is_open() and not paused, "debug panel: Close unpauses")
+	await _free(scenario)
+	_check(not paused, "debug panel: never left paused")
+
+
+## Fix: after his play the chosen hand index is cleared, so in the window
+## before his next move is chosen a debug discard isn't blocked by a stale one.
+func _test_debug_no_stale_opponent_plan() -> void:
+	var scenario := await _make(0.0)
+	var loop: TurnLoop = scenario._loop
+	_play_col(scenario, 3)
+	await _wait_input(scenario)
+	_check(_count(_board(scenario), O) == 1, "stale plan: the opponent replied")
+	_check(not scenario._opponent_planned(), "stale plan: no plan after his play")
+	loop.phase = TurnLoop.Phase.OPPONENT_TURN # the window before his next choice
+	var one: Array[GoobDefinition] = [TurnLoop.VANILLA]
+	loop.opponent_deck.hand.assign(one)
+	await scenario.debug_discard_random(O)
+	_check(loop.opponent_deck.hand.is_empty(), "stale plan: his only Goob is discarded")
+	loop.phase = TurnLoop.Phase.PLAYER_TURN
+	await _free(scenario)
+
+
+# --- Debug auto-play (M6e) ----------------------------------------------------
+
+## Waits (up to `ms`) until the player has `n` Goobs on the board.
+func _wait_player_goobs(scenario: Control, n: int, ms := 3000) -> void:
+	var deadline := Time.get_ticks_msec() + ms
+	while _count(_board(scenario), P) < n and Time.get_ticks_msec() < deadline:
+		await process_frame
+
+
+func _test_autoplay_plays_for_player() -> void:
+	var scenario := await _make(0.3)
+	var hud: ScenarioHud = scenario._hud
+	_check(scenario._input_enabled and not scenario._turn_timer.is_stopped(), "autoplay: starts on the player's live turn")
+	scenario.set_autoplay(true)
+	_check(_flow().autoplay, "autoplay: the flag is on")
+	_check(not scenario._input_enabled, "autoplay: input locked")
+	_check(scenario._turn_timer.is_stopped(), "autoplay: the turn timer stops")
+	_check(hud.timer_text() == ScenarioHud.NO_TIMER, "autoplay: the timer shows — (got %s)" % hud.timer_text())
+	var timer_ran := false
+	var deadline := Time.get_ticks_msec() + 3000
+	while _count(_board(scenario), P) < 1 and Time.get_ticks_msec() < deadline:
+		await process_frame
+		if scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN and not scenario._turn_timer.is_stopped():
+			timer_ran = true
+	_check(_count(_board(scenario), P) == 1, "autoplay: a player Goob was played (got %d)" % _count(_board(scenario), P))
+	_check(scenario._loop.phase == TurnLoop.Phase.OPPONENT_TURN, "autoplay: then it's the opponent's turn")
+	_check(not timer_ran, "autoplay: the player timer never started")
+	_check(not scenario._fuse.visible, "autoplay: no fuse")
+	scenario.set_autoplay(false)
+	await _free(scenario)
+
+
+func _test_autoplay_off_during_think() -> void:
+	var scenario := await _make(0.5)
+	var hud: ScenarioHud = scenario._hud
+	scenario.set_autoplay(true)
+	scenario.set_autoplay(false)
+	_check(not _flow().autoplay, "autoplay off: the flag is off")
+	_check(scenario._input_enabled, "autoplay off: input unlocked")
+	_check(not scenario._turn_timer.is_stopped() and scenario._turn_timer.time_left > 29.9, "autoplay off: turn timer restarted at 30 s")
+	await process_frame
+	_check(hud.timer_text() == "30", "autoplay off: the timer shows 30 (got %s)" % hud.timer_text())
+	await create_timer(2.0).timeout
+	_check(_count(_board(scenario), P) == 0, "autoplay off: no player Goob dropped")
+	_check(scenario._input_enabled, "autoplay off: input still enabled")
+	await _free(scenario)
+
+
+func _test_autoplay_cancels_drag() -> void:
+	var scenario := await _make(0.3)
+	var hand := _hand_view(scenario)
+	scenario._last_tap_key = ""
+	var start := hand.slot_center(0)
+	_touch(start, true)
+	_drag(start + Vector2(0, -40))
+	_drag(_col_pos(scenario, 5))
+	_check(hand.is_dragging() and _view(scenario).is_preview_visible(), "autoplay drag: dragging with the ghost up")
+	scenario.set_autoplay(true)
+	_check(not _view(scenario).is_preview_visible(), "autoplay drag: the aim ghost is hidden")
+	_check(not hand.is_dragging(), "autoplay drag: the drag is cancelled")
+	_touch(_col_pos(scenario, 5), false) # the finger lifts: ignored
+	_check(_count(_board(scenario), P) == 0, "autoplay drag: releasing doesn't drop")
+	await _wait_player_goobs(scenario, 1)
+	_check(_count(_board(scenario), P) == 1, "autoplay drag: exactly one player Goob played (got %d)" % _count(_board(scenario), P))
+	scenario.set_autoplay(false)
+	await _free(scenario)
+
+
+func _test_autoplay_draw_replay_keeps_decks() -> void:
+	var rolled := {"player": _vanilla_deck(), "opponent": _vanilla_deck()}
+	_flow().rolled_decks = rolled
+	_flow().fade_sec = 0.0
+	var scenario := await _make(0.0)
+	var view := _view(scenario)
+	var board := _board(scenario)
+	for column in BoardState.COLUMNS:
+		for row in BoardState.ROWS:
+			if column == 6 and row == 5:
+				continue
+			board.drop(column, _fill_owner(column, row))
+	view.sync_from_board(board)
+	scenario.set_autoplay(true)
+	await process_frame
+	_check(scenario._loop.result == TurnLoop.Result.DRAW, "autoplay draw: it played the last cell, a draw")
+	_check(scenario.get_node("%EndOverlay").visible, "autoplay draw: the Draw screen shows")
+	var deadline := Time.get_ticks_msec() + 3000
+	while (current_scene == null or current_scene.name != "CoinFlip") and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(current_scene != null and current_scene.name == "CoinFlip", "autoplay draw: Replay pressed by itself → coin flip")
+	_check(is_same(_flow().rolled_decks, rolled), "autoplay draw: the rolled decks are kept")
+	_check(_flow().autoplay, "autoplay draw: auto-play stays on")
+	_flow().autoplay = false
+	if current_scene != null:
+		current_scene.free()
+	current_scene = null
+	_flow().rolled_decks = {}
+	_flow().fade_sec = _flow().FADE_SEC
+	await _free(scenario)
+
+
+func _test_autoplay_off_at_win() -> void:
+	var scenario := await _make(0.0)
+	var board := _board(scenario)
+	for column in 3:
+		board.drop(column, P)
+		board.drop(column, O)
+	_view(scenario).sync_from_board(board)
+	scenario.set_autoplay(true)
+	await process_frame
+	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "autoplay win: it takes the winning column")
+	_check(not _flow().autoplay, "autoplay win: turns itself off at the end")
+	_check(not scenario._hud.autoplay_button().visible, "autoplay win: the button hides with Pause")
+	await _free(scenario)
+
+
+func _test_autoplay_button_hidden_by_setting() -> void:
+	var scenario := await _make(5.0)
+	var hud: ScenarioHud = scenario._hud
+	var button: Button = hud.autoplay_button()
+	_check(button.visible, "autoplay button: shown by default in debug builds")
+	_check(button.size.is_equal_approx(ScenarioHud.PAUSE_SIZE), "autoplay button: same size as Pause")
+	var pause := hud.pause_button()
+	_check(is_equal_approx(button.position.x, pause.position.x + ScenarioHud.PAUSE_SIZE.x + ScenarioHud.PAUSE_INSET), "autoplay button: right of Pause")
+	button.pressed.emit()
+	_check(_flow().autoplay and hud.is_autoplay_lit(), "autoplay button: pressing turns it on, lit")
+	button.pressed.emit()
+	_check(not _flow().autoplay and not hud.is_autoplay_lit(), "autoplay button: pressing again gives control back")
+	_check(scenario._input_enabled, "autoplay button: input back on")
+	_settings().set_autoplay_button(false)
+	_check(not button.visible, "autoplay button: hidden when the option is off")
+	_settings().set_autoplay_button(true)
+	_check(button.visible, "autoplay button: back when the option is on")
+	await _free(scenario)
+
+
+## Fix round 1: quitting to the title (pause Quit, Back to title) turns it off.
+func _test_autoplay_off_on_return_to_title() -> void:
+	_flow().fade_sec = 0.0
+	_flow().autoplay = true
+	_flow().return_to_title()
+	_check(not _flow().autoplay, "autoplay: return to title turns it off")
+	await process_frame
+	await process_frame
+	if current_scene != null:
+		current_scene.free()
+	current_scene = null
+	_flow().fade_sec = _flow().FADE_SEC
+
+
+## Fix round 1: "View board" inside the 1 s doesn't lose the draw's auto Replay.
+func _test_autoplay_replay_after_view_board() -> void:
+	_flow().fade_sec = 0.0
+	var scenario := await _make(0.0)
+	var board := _board(scenario)
+	for column in BoardState.COLUMNS:
+		for row in BoardState.ROWS:
+			if column == 6 and row == 5:
+				continue
+			board.drop(column, _fill_owner(column, row))
+	_view(scenario).sync_from_board(board)
+	scenario.set_autoplay(true)
+	await process_frame
+	scenario.set_reviewing(true)
+	await create_timer(1.3).timeout
+	_check(current_scene == null or current_scene.name != "CoinFlip", "autoplay review: no Replay while viewing the board")
+	scenario.set_reviewing(false)
+	var deadline := Time.get_ticks_msec() + 3000
+	while (current_scene == null or current_scene.name != "CoinFlip") and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(current_scene != null and current_scene.name == "CoinFlip", "autoplay review: Replay after Show result")
+	_flow().autoplay = false
+	if current_scene != null:
+		current_scene.free()
+	current_scene = null
+	_flow().fade_sec = _flow().FADE_SEC
+	await _free(scenario)
+
+
+## Fix round 1: the planned auto move doesn't play once the flag is off.
+func _test_autoplay_move_needs_flag() -> void:
+	var scenario := await _make(0.5)
+	scenario.set_autoplay(true)
+	_flow().autoplay = false # cleared without set_autoplay()
+	await create_timer(1.5).timeout
+	_check(_count(_board(scenario), P) == 0, "autoplay guard: no move once the flag is off")
+	await _free(scenario)
+
+
+# --- Final review fixes (M6e) -------------------------------------------------
+
+## True when the fan shows exactly the player's hand, in order.
+func _fan_in_step(scenario: Control) -> bool:
+	var fan := _hand_view(scenario)
+	var hand: Array[GoobDefinition] = scenario._loop.player_deck.hand
+	var in_step := fan.count() == hand.size()
+	for i in mini(fan.count(), hand.size()):
+		in_step = in_step and fan._cards[i].get_meta(&"goob", null) == hand[i]
+	return in_step
+
+
+## A give during the timeout reveal would re-add the card the timeout already
+## took out of the fan (wrong Goob played): refused with "Not now".
+func _test_debug_give_refused_in_timeout_reveal() -> void:
+	_flow().player_moves_first = true
+	var scenario: Control = load(SCENE).instantiate()
+	scenario.animate_drops = false
+	scenario.deck = _vanilla_deck()
+	scenario.opponent_delay_sec = 5.0
+	scenario.turn_seconds = 0.2
+	scenario.timeout_reveal_sec = 0.4
+	root.add_child(scenario)
+	await process_frame
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	_select_hand(scenario)
+	await create_timer(0.3).timeout
+	_check(scenario._timed_out and _count(_board(scenario), P) == 0, "give in reveal: in the timeout reveal")
+	var before: Array[GoobDefinition] = scenario._loop.player_deck.hand.duplicate()
+	scenario.debug_give(fat, P)
+	_check(scenario._loop.player_deck.hand == before, "give in reveal: hand unchanged")
+	_check(scenario._toast._label.text == "Not now", "give in reveal: toasts Not now (got %s)" % scenario._toast._label.text)
+	await create_timer(0.4).timeout
+	_check(_count(_board(scenario), P) == 1, "give in reveal: the timeout Goob dropped")
+	_check(_fan_in_step(scenario), "give in reveal: fan in step with the hand after the drop")
+	await _free(scenario)
+
+
+## A give during a drawn-Goob reveal would free the revealing card (softlock):
+## refused with "Not now".
+func _test_debug_give_refused_in_draw_reveal() -> void:
+	var scenario := await _make(5.0, true, 30.0, true)
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	_check(scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN and not scenario._input_enabled, "give in draw: input locked at the turn start")
+	var before: Array[GoobDefinition] = scenario._loop.player_deck.hand.duplicate()
+	scenario.debug_give(fat, P)
+	_check(scenario._loop.player_deck.hand == before, "give in draw: hand unchanged")
+	_check(scenario._toast._label.text == "Not now", "give in draw: toasts Not now")
+	await _wait_input(scenario)
+	_check(scenario._input_enabled, "give in draw: the turn still starts (no softlock)")
+	_check(_fan_in_step(scenario), "give in draw: fan in step with the hand")
+	await _free(scenario)
+
+
+## Your last hand Goob can't be discarded (a timeout on an empty hand would
+## error); and nothing is discarded while your hand is moving.
+func _test_debug_discard_player_guards() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var one: Array[GoobDefinition] = [TurnLoop.VANILLA]
+	loop.player_deck.hand.assign(one)
+	_hand_view(scenario).rebuild(loop.player_deck.hand)
+	await scenario.debug_discard_random(P)
+	# Sean (2026-11-23): losing your last Goob is fine; this turn is skipped.
+	_check(loop.player_deck.hand.is_empty() and loop.player_deck.discard_pile.size() == 1, "discard last: your last Goob is discarded")
+	_check(scenario._toast._label.text == "Turn skipped", "discard last: toasts Turn skipped")
+	_check(loop.phase == TurnLoop.Phase.OPPONENT_TURN and loop.last_skipped == [P], "discard last: the turn passes to the opponent")
+	_check(not scenario._input_enabled and scenario._turn_timer.is_stopped(), "discard last: input locked, timer stopped")
+	await _free(scenario)
+	scenario = await _make(5.0, true, 0.2)
+	scenario.timeout_reveal_sec = 0.4
+	loop = scenario._loop
+	await create_timer(0.3).timeout
+	_check(scenario._timed_out, "discard guard: in the timeout reveal")
+	var before := loop.player_deck.hand.size()
+	await scenario.debug_discard_random(P)
+	_check(loop.player_deck.hand.size() == before and loop.player_deck.discard_pile.is_empty(), "discard guard: nothing discarded in the reveal")
+	await create_timer(0.5).timeout
+	_check(_fan_in_step(scenario), "discard guard: fan in step after the timeout drop")
+	await _free(scenario)
+
+
+## Pills follow the statuses at each turn start, also on auto-play turns that
+## never switch input on.
+func _test_pills_refresh_on_autoplay_turn_start() -> void:
+	var scenario := await _make(0.3, false)
+	_flow().autoplay = true
+	scenario._loop.add_status(&"t", P, "Test", "x", -1)
+	var deadline := Time.get_ticks_msec() + 4000
+	while scenario._autoplay_timer.is_stopped() and _count(_board(scenario), P) == 0 and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(_count(_board(scenario), O) == 1, "pills refresh: the opponent played first")
+	_check(scenario._pills.buttons().size() == 1, "pills refresh: the pill shows on the auto-play turn (got %d)" % scenario._pills.buttons().size())
+	scenario.set_autoplay(false)
+	_flow().autoplay = false
+	await _free(scenario)
+
+
+## Auto-play with nothing to play turns itself off, so HUD and flag agree.
+func _test_autoplay_no_move_turns_off() -> void:
+	var scenario := await _make(5.0)
+	_flow().autoplay = true
+	scenario._hud.set_autoplay_lit(true)
+	scenario._set_input_enabled(false)
+	scenario._loop.player_deck.hand.clear()
+	scenario._run_autoplay_turn()
+	_check(not _flow().autoplay, "autoplay no move: the flag is off")
+	_check(not scenario._hud.is_autoplay_lit(), "autoplay no move: the button is unlit")
+	_check(scenario._input_enabled, "autoplay no move: your turn as usual")
+	_flow().autoplay = false
+	await _free(scenario)
+
+
+## Sean (2026-11-23): auto-play's Goob flips up from behind the board like the
+## opponent's.
+func _test_autoplay_flips_up_from_behind() -> void:
+	var scenario := await _make(0.3, true, 30.0, true) # short think: auto-play thinks like him
+	var ready_by := Time.get_ticks_msec() + 10000
+	while Time.get_ticks_msec() < ready_by and not scenario._input_enabled:
+		await process_frame # GAME START, banner, first draw reveal
+	_check(scenario._input_enabled, "auto-play rise: your turn is ready")
+	var behind: Node = scenario._board_view._behind
+	scenario.set_autoplay(true)
+	var seen := false
+	var until := Time.get_ticks_msec() + 4000
+	while Time.get_ticks_msec() < until and not seen:
+		await process_frame
+		seen = behind.get_child_count() > 0
+	_check(seen, "auto-play: a Goob rises from behind the board")
+	var theirs := 0
+	for column in BoardState.COLUMNS:
+		for row in BoardState.ROWS:
+			if scenario._loop.board.get_owner(column, row) == O:
+				theirs += 1
+	_check(seen and theirs == 0, "auto-play: it is your Goob (he hasn't played yet)")
+	_flow().autoplay = false
 	await _free(scenario)

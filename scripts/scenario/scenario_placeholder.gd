@@ -38,6 +38,9 @@ const TURN_SECONDS := 30.0
 const TIMEOUT_REVEAL_SEC := 0.7
 const MSG_TIMES_UP := "Time's up!"
 const MSG_HAND_FULL := "Hand full"
+const MSG_NOT_NOW := "Not now" # debug give / discard while your hand is moving
+const MSG_TURN_SKIPPED := "Turn skipped" # your hand is empty (Sean, 2026-11-23)
+const MSG_OPPONENT_SKIPPED := "Opponent's turn skipped"
 ## Forest hand prop (assets/hand/forest_stump.png), in its game px: the row the
 ## hand Goobs' bottoms rest on, and the usable width of its top.
 const STUMP_SEAT_Y := 34.0
@@ -89,6 +92,8 @@ const TURN_BANNER_SEC := 0.9
 ## "Game start" banner, then a beat before the first turn banner.
 const GAME_START_SEC := 1.3
 const GAME_START_GAP_SEC := 0.25
+## Debug auto-play (M6e): a draw's Replay presses itself after this long.
+const AUTOPLAY_REPLAY_SEC := 1.0
 
 @onready var _hud_slot: Control = %HudSlot
 @onready var _board_view: BoardView2D = %BoardView
@@ -110,7 +115,11 @@ var animate_drops := true
 var deck: Array[GoobDefinition] = []
 
 var _hud: ScenarioHud
+## Active statuses as pills in the gap (M6e).
+var _pills: StatusPills
 var _pause: PauseMenu
+## F4 debug picker (debug builds only; null in a release build).
+var _debug: DebugPanel
 ## Set when the turn timer ran out (the HUD reads 0 until the Goob is played).
 var _timed_out := false
 var _loop := TurnLoop.new()
@@ -123,6 +132,11 @@ var _turn_timer: Timer
 var _timeout_timer: Timer
 var _opponent_column := -1
 var _opponent_hand_index := -1
+## Debug auto-play (M6e): the AI's think delay on your turn, then its move.
+var _autoplay_timer: Timer
+var _autoplay_column := -1
+var _autoplay_hand_index := -1
+var _replay_timer: Timer
 ## The board just before the play now being shown (portrait reactions).
 var _board_before := BoardState.new()
 ## Think-delay spread only, so it never shifts the game's own random draws.
@@ -185,12 +199,14 @@ func _ready() -> void:
 	_opponent_timer = _make_timer(_play_opponent_move)
 	_turn_timer = _make_timer(_on_turn_timeout)
 	_timeout_timer = _make_timer(_finish_timeout)
+	_autoplay_timer = _make_timer(_play_autoplay_move)
+	_replay_timer = _make_timer(_auto_replay)
 	_end_overlay.visible = false
 	Settings.changed.connect(_apply_speed)
 	_apply_speed()
 	_board_view.item_rect_changed.connect(_layout_table.call_deferred)
 	_layout_table.call_deferred()
-	_loop.start(GameFlow.player_moves_first, _rng, deck)
+	_start_loop()
 	_board_view.goob_lookup = _loop.goob_at
 	_board_view.sync_from_board(_loop.board)
 	# The player's first-turn draw is revealed by _after_play(), so the fan
@@ -201,6 +217,24 @@ func _ready() -> void:
 			start_hand.remove_at(start_hand.rfind(goob))
 	_hand.rebuild(start_hand)
 	_start_game()
+
+
+## Test `deck` wins; else the game's rolled decks (kept over draw replays);
+## else roll new ones and remember them.
+func _start_loop() -> void:
+	if not deck.is_empty():
+		_loop.start(GameFlow.player_moves_first, _rng, deck)
+		return
+	var rolled := GameFlow.rolled_decks
+	if not rolled.is_empty():
+		var mine: Array[GoobDefinition] = []
+		var his: Array[GoobDefinition] = []
+		mine.assign(rolled["player"])
+		his.assign(rolled["opponent"])
+		_loop.start(GameFlow.player_moves_first, _rng, mine, his)
+		return
+	_loop.start(GameFlow.player_moves_first, _rng, [], [], GameFlow.debug_forced_categories)
+	GameFlow.rolled_decks = {"player": _loop.player_goobs, "opponent": _loop.opponent_goobs}
 
 
 ## "Game start" banner first, a short beat, then the first turn's banner
@@ -255,12 +289,15 @@ func _refresh_fuse() -> void:
 
 
 ## HUD countdown: the player's seconds left (30 before the turn unlocks, 0 at a
-## timeout), "—" on the opponent's turn and after the end.
+## timeout), "—" on the opponent's turn, after the end and while auto-play
+## plays your turns.
 func _refresh_timer() -> void:
 	if _loop.phase != TurnLoop.Phase.PLAYER_TURN:
 		_hud.set_timer(ScenarioHud.NO_TIMER)
 	elif _timed_out:
 		_hud.set_seconds(0)
+	elif GameFlow.autoplay:
+		_hud.set_timer(ScenarioHud.NO_TIMER)
 	elif not _turn_timer.is_stopped():
 		_hud.set_seconds(ceili(_turn_timer.time_left))
 	else:
@@ -275,15 +312,190 @@ func _build_hud() -> void:
 	move_child(_hud, get_node("%SafeArea").get_index() + 1)
 	_hud.set_objective(OBJECTIVE)
 	_hud.pause_pressed.connect(_on_pause_pressed)
+	_hud.autoplay_pressed.connect(func() -> void:
+		_sfx.play(&"ui_tap")
+		set_autoplay(not GameFlow.autoplay))
+	_hud.set_autoplay_lit(GameFlow.autoplay)
+	_hud.set_autoplay_enabled(Settings.autoplay_button)
+	# The option turned off hides the button: give control back too.
+	Settings.changed.connect(func() -> void:
+		_hud.set_autoplay_enabled(Settings.autoplay_button)
+		if GameFlow.autoplay and not Settings.autoplay_button:
+			set_autoplay(false))
 	_hud.portrait_sound.connect(func(kind: StringName) -> void: _sfx.play(kind))
 	_hud.show_result_pressed.connect(func() -> void:
 		_sfx.play(&"ui_tap")
 		set_reviewing(false))
 	_hud.stage.relayout.connect(_fit_hud_slot)
+	_pills = StatusPills.new()
+	add_child(_pills)
+	move_child(_pills, _hud.get_index() + 1)
+	_pills.pill_pressed.connect(func(text: String) -> void:
+		_toast.show_message(text)
+		_place_toast())
 	_pause = PauseMenu.new()
 	# Time paused doesn't count as the player keeping him waiting.
 	_pause.resumed.connect(func() -> void: _idle_since_msec = Time.get_ticks_msec())
 	add_child(_pause)
+	if OS.is_debug_build():
+		_build_debug_panel()
+
+
+## F4 debug picker (M6e): debug builds only.
+func _build_debug_panel() -> void:
+	_debug = DebugPanel.new()
+	_debug.set_forced(GameFlow.debug_forced_categories)
+	_debug.toggle_requested.connect(_on_debug_toggle)
+	_debug.give_requested.connect(debug_give)
+	_debug.discard_requested.connect(debug_discard_random)
+	_debug.status_requested.connect(debug_add_status)
+	_debug.new_game_requested.connect(func(forced: Dictionary) -> void:
+		GameFlow.debug_forced_categories = forced
+		GameFlow.rolled_decks = {}
+		GameFlow.replay_after_draw())
+	add_child(_debug)
+
+
+func _on_debug_toggle() -> void:
+	if _debug.is_open():
+		_debug.close()
+		_idle_since_msec = Time.get_ticks_msec()
+	elif not _pause.is_open() and not GameFlow.is_fading():
+		_end_touch() # a gesture can't finish while the tree is paused
+		_debug.open()
+
+
+## Debug: puts `goob` at the end of `side`'s hand; a full hand drops its oldest
+## (index 0) first. The player's fan is rebuilt, so yours only while your hand
+## is stable (_hand_stable(); else a "Not now" toast).
+func debug_give(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
+	if side == BoardState.CellOwner.PLAYER and not _hand_stable():
+		_show_not_now()
+		return
+	var hand := _loop.deck_of(side).hand
+	if hand.size() >= Deck.HAND_MAX:
+		hand.remove_at(0)
+		if side == BoardState.CellOwner.OPPONENT and _opponent_planned():
+			# His chosen Goob shifts down; if it was the dropped one, he plays
+			# the given one instead (same column).
+			_opponent_hand_index = _opponent_hand_index - 1 if _opponent_hand_index > 0 else hand.size()
+	hand.append(goob)
+	if side == BoardState.CellOwner.PLAYER:
+		_end_touch()
+		_hand.rebuild(hand)
+		if not _autoplay_timer.is_stopped(): # auto-play re-plans with the new hand
+			_autoplay_timer.stop()
+			_run_autoplay_turn()
+
+
+## Debug: discards a random Goob from `side`'s hand and shows its reveal. Yours
+## only while your hand is stable and never your last Goob (a timeout needs
+## one; else a "Not now" toast); his any time (never the Goob he has chosen to
+## play).
+func debug_discard_random(side: BoardState.CellOwner) -> void:
+	var replan := false
+	if side == BoardState.CellOwner.PLAYER:
+		# Taking your last Goob skips this turn, unless your last turn was
+		# skipped too (never two in a row; Sean, 2026-11-23).
+		if not _hand_stable() or (_loop.player_deck.hand.size() <= 1 and _loop.was_skipped_last(BoardState.CellOwner.PLAYER)):
+			_show_not_now()
+			return
+		replan = not _autoplay_timer.is_stopped()
+		_autoplay_timer.stop() # its chosen hand index is about to shift
+	var choices: Array[int] = []
+	for i in _loop.deck_of(side).hand.size():
+		if not (side == BoardState.CellOwner.OPPONENT and _opponent_planned() and i == _opponent_hand_index):
+			choices.append(i)
+	if choices.is_empty():
+		return
+	var index: int = choices[randi_range(0, choices.size() - 1)]
+	if side == BoardState.CellOwner.OPPONENT and _opponent_planned() and index < _opponent_hand_index:
+		_opponent_hand_index -= 1
+	if side == BoardState.CellOwner.PLAYER:
+		_end_touch()
+	var goob := _loop.discard_from(side, index)
+	await _show_discard(goob, side, index)
+	if not is_inside_tree() or _loop.phase != TurnLoop.Phase.PLAYER_TURN or side != BoardState.CellOwner.PLAYER:
+		return
+	if _loop.player_deck.hand.is_empty():
+		# Your last Goob is gone: this turn is skipped (you draw next turn).
+		_set_input_enabled(false)
+		_loop.skip_turn()
+		_after_play()
+	elif replan and GameFlow.autoplay:
+		_run_autoplay_turn() # auto-play re-plans with the new hand
+
+
+## True while your hand can change under the debug panel: your input is on, or
+## auto-play is thinking. Not during a drawn-Goob reveal, the timeout reveal
+## or a play (the fan is mid-animation or out of step with Deck.hand).
+func _hand_stable() -> bool:
+	return _input_enabled or not _autoplay_timer.is_stopped()
+
+
+func _show_not_now() -> void:
+	_toast.show_message(MSG_NOT_NOW)
+	_place_toast()
+
+
+## Debug: a two-turn test status on `side`.
+func debug_add_status(side: BoardState.CellOwner) -> void:
+	_loop.add_status(&"debug", side, "Test", "A test status from the debug panel.", 2)
+	_refresh_hud()
+
+
+## Debug auto-play (M6e; debug builds only): on, the AI plays your turns with
+## the opponent's think delay, your timer and fuse hidden and input locked
+## (a gesture in progress is cancelled); off gives control back, with a fresh
+## turn timer if it was thinking. Kept over draw replays (GameFlow.autoplay).
+func set_autoplay(on: bool) -> void:
+	if on and not OS.is_debug_build():
+		return
+	GameFlow.autoplay = on
+	_hud.set_autoplay_lit(on)
+	if on:
+		if _input_enabled and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+			_set_input_enabled(false) # stops the timer, drops the touch and aim
+			_run_autoplay_turn()
+	elif not _autoplay_timer.is_stopped():
+		_autoplay_timer.stop()
+		_set_input_enabled(true)
+	_refresh_timer()
+
+
+## The opponent AI picks your move on a mirrored board (it plays as
+## OPPONENT), then thinks like him before playing it.
+func _run_autoplay_turn() -> void:
+	var deck := _loop.player_deck
+	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng)
+	if move["column"] == -1:
+		set_autoplay(false) # nothing it can play: auto-play off, your turn as usual
+		_set_input_enabled(true)
+		return
+	_autoplay_column = move["column"]
+	_autoplay_hand_index = move["hand_index"]
+	var wait := _think_sec(move["blocking"] or move["close"])
+	if wait > 0.0:
+		_autoplay_timer.start(wait)
+	else:
+		_play_autoplay_move()
+
+
+func _play_autoplay_move() -> void:
+	if GameFlow.autoplay and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+		_play_player(_autoplay_column, _autoplay_hand_index, [], true, true)
+
+
+## A draw with auto-play on presses Replay by itself (while you view the
+## board it waits; set_reviewing(false) arms it again).
+func _auto_replay() -> void:
+	if GameFlow.autoplay and _end_overlay.visible:
+		_on_end_pressed()
+
+
+## True while the opponent has chosen his move and not played it yet.
+func _opponent_planned() -> bool:
+	return _loop.phase == TurnLoop.Phase.OPPONENT_TURN and _opponent_hand_index != -1
 
 
 ## The zones reserve the HUD block's height above the board.
@@ -296,6 +508,8 @@ func _fit_hud_slot() -> void:
 ## Turn banners go in the gap between the HUD and the board (Sean, 2026-11-20).
 func _place_banner_band() -> void:
 	_hud.set_banner_band(_hud.bottom(), _board_view.get_global_rect().position.y)
+	# Pills go above the aim lane: column input always wins (M6e review).
+	_pills.set_band(_hud.bottom(), _aim_lane.get_global_rect().position.y)
 
 
 func _on_pause_pressed() -> void:
@@ -429,8 +643,8 @@ func _on_press(event: InputEventScreenTouch) -> void:
 	_idle_since_msec = Time.get_ticks_msec()
 	if _touch_index != -1:
 		return # a second finger; single pointer only
-	if PixelStage.touches_button(_hud, event.position):
-		return # the Pause button (normal Control signal)
+	if PixelStage.touches_button(_hud, event.position) or PixelStage.touches_button(_pills, event.position):
+		return # the Pause button or a status pill (normal Control signals)
 	if _inspect.is_open():
 		# The next tap closes the inspect view and does nothing else.
 		_inspect.close()
@@ -704,23 +918,27 @@ func _play_selected(column: int) -> void:
 ## `in_fan`: false when the card already left the fan (the timeout removes it
 ## as "Time's up!" shows; removing it again dropped the next card from the
 ## fan, so taps played the wrong Goob from then on: Sean, M6c playtest).
-func _play_player(column: int, hand_index: int, roll_path: Array[int] = [], in_fan := true) -> int:
+## `from_behind`: the Goob flips up from behind the board like the
+## opponent's (auto-play; Sean, 2026-11-23).
+func _play_player(column: int, hand_index: int, roll_path: Array[int] = [], in_fan := true, from_behind := false) -> int:
 	_set_input_enabled(false) # locked until the drop finishes
 	if in_fan:
 		_hand.remove(hand_index)
 	var goob: GoobDefinition = _loop.player_deck.hand[hand_index]
 	_board_before = _loop.board.copy()
 	var row := _loop.play(column, hand_index)
-	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path, goob)
+	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path, goob, from_behind)
 	return row
 
 
-## The Goob falls (or rolls) into place, its effect plays, then the next turn
-## starts. §4.2 order: land → special effect → win check last (TurnLoop has
+## The Goob falls (or rolls) into place, its effect steps play in order
+## (TurnLoop.effect_steps), then the next turn starts. §4.2 order: land → special effect → win check last (TurnLoop has
 ## already resolved all three; this shows them in that order).
-## `from_behind`: the opponent's Goob flips up from behind the board first.
+## `from_behind`: the Goob (the opponent's, or yours on auto-play) flips up
+## from behind the board first.
 func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false) -> void:
 	var effect := _loop.last_effect
+	var steps := _loop.effect_steps.duplicate()
 	# The portrait reacts while it happens (Sean, M6c playtest): a timeout roll
 	# as it starts rolling, an effect's outcome as the effect starts, anything
 	# else (a three, a block) as the Goob lands.
@@ -735,10 +953,12 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 		Settings.vibrate() # one pulse when your Goob lands (slice §2B)
 	if face != &"" and not on_effect:
 		_hud.react(face)
-	await _play_effect(effect, face if on_effect else &"")
-	if not is_inside_tree():
-		return
+	for i in steps.size():
+		await _play_effect(steps[i], face if on_effect and i == 0 else &"")
+		if not is_inside_tree():
+			return
 	_board_view.sync_from_board(_loop.board)
+	_refresh_hud() # statuses the effects added or ticked
 	_after_play()
 
 
@@ -789,12 +1009,13 @@ func _chained(effect: Dictionary) -> bool:
 	return not _loop.board.is_empty(target.x, target.y)
 
 
-## Shows what TurnLoop.last_effect did: the type's impact on its target (the
-## target was picked first, slice §4), or a fizzle when it had none.
+## Shows one TurnLoop effect step: the type's impact on its target (the
+## target was picked first, slice §4), a fizzle when it had none, or a
+## discard reveal. Plain Goobs' steps (kind NONE) show nothing.
 ## `face`: the portrait reaction to show as the effect starts ("" = none).
 func _play_effect(effect: Dictionary, face: StringName = &"") -> void:
 	var kind: GoobDefinition.EffectType = effect.get("kind", GoobDefinition.EffectType.NONE)
-	if kind == GoobDefinition.EffectType.NONE:
+	if kind == GoobDefinition.EffectType.NONE and not effect.has("discarded"):
 		return
 	var cell: Vector2i = effect["cell"]
 	var side: BoardState.CellOwner = effect["side"]
@@ -808,6 +1029,9 @@ func _play_effect(effect: Dictionary, face: StringName = &"") -> void:
 
 
 func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> void:
+	if effect.has("discarded"):
+		await _show_discard(effect["discarded"], side, effect.get("index", -1))
+		return
 	if effect["fizzled"]:
 		await _board_view.play_fizzle(cell)
 		return
@@ -896,6 +1120,8 @@ func _roll_path(column: int, rightward: bool) -> Array[int]:
 
 
 func _after_play() -> void:
+	for side in _loop.last_skipped:
+		_toast.show_message(MSG_TURN_SKIPPED if side == BoardState.CellOwner.PLAYER else MSG_OPPONENT_SKIPPED)
 	match _loop.phase:
 		TurnLoop.Phase.OVER:
 			_show_end()
@@ -907,7 +1133,11 @@ func _after_play() -> void:
 				return
 			await _show_turn_draw()
 			if is_inside_tree() and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
-				_set_input_enabled(true)
+				_refresh_hud() # statuses ticked at the turn start (also on auto-play turns)
+				if GameFlow.autoplay:
+					_run_autoplay_turn()
+				else:
+					_set_input_enabled(true)
 
 
 ## The player's start-of-turn draw: each drawn Goob pops in big and flies into
@@ -925,6 +1155,21 @@ func _reveal_drawn(goob: GoobDefinition) -> void:
 	var sec := HandView.REVEAL_POP_SEC + HandView.REVEAL_HOLD_SEC + HandView.REVEAL_FLY_SEC
 	_hud.show_caption(goob.display_name, maxf(sec / Settings.anim_scale() if _animating() else 0.0, CAPTION_MIN_SEC))
 	await _hand.reveal(goob)
+
+
+## A discarded Goob (TurnLoop.discard_from, M6e): it pops in at the centre
+## while its name shows in the gap, then leaves the screen (down = yours, up =
+## his). HandView.DISCARD_SEC, never sped up by Fast; one at a time (await
+## it). `index`: the hand index it left (yours leaves the fan there). Tests
+## (animate_drops = false) skip the motion.
+func _show_discard(goob: GoobDefinition, side: BoardState.CellOwner, index: int = -1) -> void:
+	var start_msec := Time.get_ticks_msec()
+	_hud.show_caption(goob.display_name, HandView.DISCARD_SEC)
+	await _hand.play_discard(goob, side, index)
+	# The tween's first tick can count frame time from before it started: top
+	# up to the full length on the clock (a pause already ran it past that).
+	while _animating() and is_inside_tree() and Time.get_ticks_msec() - start_msec < HandView.DISCARD_SEC * 1000.0:
+		await get_tree().process_frame
 
 
 ## A draw skipped by the hand cap (turn draw or Plentiful): toast + shake.
@@ -976,6 +1221,7 @@ func _run_opponent_turn() -> void:
 
 func _play_opponent_move() -> void:
 	var hand_index := _opponent_hand_index
+	_opponent_hand_index = -1 # played: no plan until his next turn chooses one
 	var goob: GoobDefinition = _loop.opponent_deck.hand[hand_index]
 	_hud.set_base_face(&"idle")
 	_board_before = _loop.board.copy()
@@ -989,6 +1235,10 @@ func _play_opponent_move() -> void:
 func _show_end() -> void:
 	_set_input_enabled(false)
 	_hud.set_pause_visible(false)
+	_autoplay_timer.stop()
+	if _loop.result != TurnLoop.Result.DRAW: # auto-play ends at win / lose
+		GameFlow.autoplay = false
+		_hud.set_autoplay_lit(false)
 	var kind := &"draw"
 	match _loop.result:
 		TurnLoop.Result.PLAYER_WIN:
@@ -1015,6 +1265,8 @@ func _show_end() -> void:
 	_end_screen.set_result(kind)
 	_end_overlay.visible = true
 	_end_screen.play_intro.call_deferred(animate_drops)
+	if kind == &"draw" and GameFlow.autoplay:
+		_replay_timer.start(AUTOPLAY_REPLAY_SEC)
 
 
 ## Win/lose lead-in (slice §2B): the winner's Goobs turn happy, the loser's
@@ -1042,7 +1294,7 @@ func _defeat_face() -> StringName:
 ## Scoring sequence (slice §4, Balatro rhythm): first a moment of recognition
 ## (gold outline, hop, sting); then every Goob in `side`'s
 ## winning lines, lowest column first and bottom to top, bounces and shows its
-## multiplier (×1 / ×0.5) above it, one per SCORE_STEP_SEC on a rising note;
+## multiplier (×1 / ×2) above it, one per SCORE_STEP_SEC on a rising note;
 ## after a pause they collapse into the sum, one big plain number at the board
 ## centre on the top note (Sean, 2026-11-19). Draws never get here.
 func _play_scoring(side: BoardState.CellOwner) -> void:
@@ -1173,6 +1425,7 @@ func gap_center() -> Vector2:
 
 func _refresh_hud() -> void:
 	_refresh_timer()
+	_pills.show_statuses(_loop.statuses)
 
 
 ## Review after the end: a double tap on a board or hand Goob inspects it;
@@ -1203,6 +1456,8 @@ func set_reviewing(on: bool) -> void:
 	_hud.set_show_result_visible(on)
 	if sum_label:
 		sum_label.visible = not on
+	if not on and GameFlow.autoplay and _loop.result == TurnLoop.Result.DRAW and _loop.phase == TurnLoop.Phase.OVER:
+		_replay_timer.start(AUTOPLAY_REPLAY_SEC)
 
 
 func is_reviewing() -> bool:

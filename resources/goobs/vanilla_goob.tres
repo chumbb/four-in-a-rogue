@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "vanilla"
-display_name = "Vanilla Goob"
+display_name = "Goob"
 multiplier = 1.0
 effect_description = ""
 effect_type = 0

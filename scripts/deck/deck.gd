@@ -11,6 +11,10 @@ const START_HAND := 2
 var draw_pile: Array[GoobDefinition] = []
 ## Hand in draw order (oldest first); the player's fan shows it left to right.
 var hand: Array[GoobDefinition] = []
+## Goobs discarded from the hand (M6e).
+var discard_pile: Array[GoobDefinition] = []
+## This side's Goobs destroyed on the board (M6e).
+var destroyed_pile: Array[GoobDefinition] = []
 
 
 ## A shuffled copy of `goobs` as the draw pile, empty hand.
@@ -51,6 +55,15 @@ func take(index: int) -> GoobDefinition:
 	if index < 0 or index >= hand.size():
 		return null
 	return hand.pop_at(index)
+
+
+## Moves the hand Goob at `index` to the discard pile and returns it, or null
+## if out of range.
+func discard(index: int) -> GoobDefinition:
+	var goob := take(index)
+	if goob != null:
+		discard_pile.append(goob)
+	return goob
 
 
 ## True while this side still has a Goob to play now or later.

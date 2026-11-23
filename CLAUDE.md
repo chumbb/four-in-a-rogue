@@ -40,13 +40,13 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently **M7**, on-device check on the Pixel 11; plan in §Milestones "Remaining plan", approved 2026-11-20). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently **M6e Move category**: propose each move Goob's rules for Sean's approval first; plan in §Milestones "M6e" + handoff "M6e Move category", Sean 2026-11-23). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
 | Now | Next |
 |-----|------|
-| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20), **M6a** flow & screens ✅ (accepted and merged 2026-11-20), **M6b** HUD, pause, options ✅ (accepted and merged 2026-11-21), **Art pass D1** Goob type sheets ✅ (accepted and merged 2026-11-21), **Art pass D2** Goob type production ✅ (accepted and merged 2026-11-21), **Specials design grill** ✅ (Sean confirmed 2026-11-22), **M6c** AI, play anims, reactions ✅ (accepted and merged 2026-11-23), **M6d** sound + smoke test ✅ (accepted and merged 2026-11-23) | **M7** on-device check (Pixel 11; required for v0.1) |
+| **M2** ✅, **M3** ✅, **M3.5** portrait & touch ✅, **M3.6** 2D board ✅, **M4** decks & hands ✅, **Art pass A** ✅, **Writing session** ✅ (accepted and merged 2026-11-19), **M5** Goob effects ✅ (accepted and merged 2026-11-20), **Art pass B** UI kit ✅ (accepted and merged 2026-11-20), **Art pass C** Strange Man ✅ (accepted and merged 2026-11-20), **M6a** flow & screens ✅ (accepted and merged 2026-11-20), **M6b** HUD, pause, options ✅ (accepted and merged 2026-11-21), **Art pass D1** Goob type sheets ✅ (accepted and merged 2026-11-21), **Art pass D2** Goob type production ✅ (accepted and merged 2026-11-21), **Specials design grill** ✅ (Sean confirmed 2026-11-22), **M6c** AI, play anims, reactions ✅ (accepted and merged 2026-11-23), **M6d** sound + smoke test ✅ (accepted and merged 2026-11-23), **M6e framework** ✅ (accepted and merged 2026-11-23) | **M6e** special Goobs (framework ✅ → **move** ← next → destroy → discard → draw → tech → uniquely powerful; Sean 2026-11-23), then **Art F**, **Art G**, **M7** on-device check |
 | Local copy → pull (Git Sync) → open `project.godot` → **F5** | On `main`: tap → Strange Man → flip → portrait turn loop vs a hand-aware opponent on the 2D pixel board with decks, a hand fan, drag/tap play, Goob expressions, portrait reactions, fuse and scoring |
 
 ---
@@ -91,6 +91,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 | Deck | 21 Goobs each side, identical; shuffle once; **no reshuffle** |
 | Empty deck | No draws; may still play from hand |
 | Out of Goobs | A side with no Goobs (hand + deck) takes no more turns; the other side plays on until the board is full. A four during those turns still ends the scenario |
+| Empty hand (M6e, Sean 2026-11-23) | Losing your last hand Goob (e.g. a discard) is fine: you draw next turn. If your hand is empty during your turn, or still empty after your turn draw (a discard plus a prevented draw), **your turn is skipped** ("Turn skipped" toast) — only when you have no playable Goob. Skips are **never a draw**: turn order goes on as normal, and the same side is **never skipped twice in a row** (its next turn draw always happens; Sean 2026-11-23) |
 | Turn timer | **30 s** per player turn (Sean, 2026-11-10), a per-scenario value; HUD countdown; starts when input unlocks, never runs while input is locked; opponent untimed. Timeout must be **obvious** (Sean 2026-11-11: input locks, "Time's up!" toast + column flash ~0.7 s, then the drop). M6 low-time warning: a **burning fuse** for the **last 10 s** in a **24 px** strip between board and hand; fuse end = timeout; HUD countdown stays visible all turn. Timeout → Goob plays into the column under the finger, or (none: never touched / cancelled / released on full column) a **random column, full ones included** |
 | Roll | A Goob played into a full column (only at timeout) lands on top, rolls left/right 50/50, keeps going over full columns, **bounces** off the edge, falls into the first open column; then land → effect → win check |
 | Stalemate | Both cannot draw and cannot play, no win → **draw** → replay per flow |
@@ -100,15 +101,17 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 
 ### Starter deck (each side)
 
-**17× Vanilla, 1× Convincing, 1× Fat, 1× Popular, 1× Plentiful** (21). Data in `resources/goobs/*.tres` + `starter_deck.json` (updated 2026-11-09: 17 Vanilla + `plentiful_goob.tres`, `EffectType.DRAW_TWO`). The draw-2 effect itself is implemented in M5.
+**M6e (Sean, 2026-11-23; supersedes the 17 + 4 deck and the ×0.5 values):** each side rolls its own deck per scenario: **11 Goobs + 10 specials** = 1–2 from **uniquely powerful + tech** (one pool), then **2 random categories from move / destroy / discard**, 4–5 each; **draw** Goobs fill **0–1 slots in one of those pools and 0–2 in the other**; no duplicate types while the pool has enough; a draw replay reshuffles the same deck. **Every special ×2, a plain Goob ×1.** **Vanilla Goob is shown as "Goob"** (ids stay `vanilla`). Roster + categories: vault `Design/Special Goobs.md` "2026-11-23 update".
+
+Before M6e: **17× Vanilla, 1× Convincing, 1× Fat, 1× Popular, 1× Plentiful** (21). Data in `resources/goobs/*.tres` + `starter_deck.json` (updated 2026-11-09: 17 Vanilla + `plentiful_goob.tres`, `EffectType.DRAW_TWO`). The draw-2 effect itself is implemented in M5.
 
 | Goob | Mult | Effect (8-way adjacency from **landed** cell) | Card text (exact) |
 |------|------|-----------------------------------------------|-------------------|
-| Vanilla | 1.0 | — | (none) |
-| Convincing | 0.5 | Flip random **adjacent opposing** Goob to yours | “Flip a random adjacent enemy Goob to your side.” |
-| Fat | 0.5 | Destroy random **adjacent** Goob; Goobs above it fall | “Destroy a random adjacent Goob.” |
-| Popular | 0.5 | Extra **Vanilla** (your side) in random column (gravity) | “Drop a Vanilla Goob into a random column.” |
-| Plentiful | 0.5 | Draw 2 after it lands, before win check (fewer if deck short), on top of the turn draw | “Draw 2 Goobs.” |
+| Goob | 1.0 | — | (none) |
+| Convincing | 2.0 | Flip random **adjacent opposing** Goob to yours | “Flip a random adjacent enemy Goob to your side.” |
+| Fat | 2.0 | Destroy random **adjacent** Goob; Goobs above it fall | “Destroy a random adjacent Goob.” |
+| Popular | 2.0 | Extra **Goob** (your side) in random column (gravity) | “Drop a Goob into a random column.” |
+| Plentiful | 2.0 | Draw 2 after it lands, before win check (fewer if deck short), on top of the turn draw | “Draw 2 Goobs.” |
 
 Card text = immediate effect only. Random targets: game picks the target first, then that Goob's impact animation plays on it.
 
@@ -357,9 +360,25 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
   - **No other sound gets the SNES treatment.**
 - [x] Smoke **A1–A10** on desktop: `docs/SMOKE_V0.1.md` (all pass on desktop; known gaps listed there); real-time soak `tests/soak_m6d.gd`
 
+### M6e — Special Goobs (Sean, 2026-11-23; before M7)
+
+Grill + decisions: vault Decision-Log 2026-11-23, spec `Design/Special Goobs.md` "2026-11-23 update". One part per session, each on its own branch and playtested. **No new art** (Vanilla art, told apart by inspect + drawn-Goob name). **Rules, names and card text per Goob are proposed at the start of each category session and approved by Sean** — don't build a Goob before that.
+
+- [x] **Framework** ✅ (accepted and merged 2026-11-23): ×2 / ×1 multipliers, "Goob" display name, rolled decks (11 + 10), discard + destroyed piles, delayed / on-board effect plumbing with text pills in the HUD–board gap (blue yours, red his, tap = toast), discard presentation (Goob big in the centre, name in the gap ~1.2 s, then off screen: down = yours, up = his; one at a time, normal speed), shared roll rule (a Goob moves sideways while the cell beside it in the next column is free, falling to the top of that column; a column level with it or higher, or the edge, stops it, so on the floor or a flat top it rolls on to the next Goob or the edge (Sean, 2026-11-23); never off the board), debug Goob picker, debug category deck, **auto-play** (debug builds only: "»" button right of Pause, Settings row hides it (default On); AI plays your turns, timer + fuse hidden, input locked; press again = control back, timer restarts at 30 s; continues through draws and coin flips, stops at the win/lose screen)
+- [ ] **Move** · [ ] **Destroy** · [ ] **Discard** · [ ] **Draw** · [ ] **Tech** · [ ] **Uniquely powerful** (roster per category in the vault spec)
+
+### Art pass F — special Goob faces (after M6e, before M7)
+
+- [ ] Type sheets + production for every M6e Goob, like D1/D2
+
+### Art pass G — effect icons (after Art F, before M7)
+
+- [ ] Starts with a grill (what each icon shows, size, tap behaviour); replaces the M6e text pills
+
 ### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)
 
 - [ ] Android debug build on the **Pixel 11** (Mobile renderer, then Compatibility); **Pixel 8** if available as the older phone; true low-end check = known gap; A9 on hardware. Retroid Pocket Nova (4:3) saved for the landscape version; iOS when a Mac is available
+- The M7 Android build is a debug export, so the » auto-play button and F4 panel exist on the phone; turn Options → Auto-play button off for the A9 check.
 
 **After v0.1:** Art pass E (per-type pixel impact VFX), polish of rough art, music, landscape/Steam, low-end device check.
 
@@ -382,7 +401,7 @@ Assets in `assets/strange_man/` (build: `python art/strange_man/make_strange_man
 
 ## Out of scope (unless Sean asks)
 
-Music (after v0.1), multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types** (Sean, 2026-11-13: more specials come after the starter four work; 21 new, 25 special types in all, specified in vault `Design/Special Goobs.md` (Sean 2026-11-22); building them is still out of scope), balance changes beyond the starter five, final art (v0.1 art is "real but rough", Sean 2026-11-20).
+Music (after v0.1), multi-scenario runs, biomes, shop, encounters, money, meta, saves, networking, store builds/submission, the landscape Steam version, accessibility pass (comes at the end — gameplay and UI first), non–7×6 boards, **new Goob types beyond the M6e roster** (M6e builds the categorised list in vault `Design/Special Goobs.md` "2026-11-23 update"; terrain Goobs, high-scoring Goobs (Fleeting, Doomed) and Envious are deferred, Vengeful removed), balance changes beyond the starter five, final art (v0.1 art is "real but rough", Sean 2026-11-20).
 
 Full-game vision: GameDev vault `Design/GDD.md` — **not v0.1 tasks**.
 
@@ -411,8 +430,9 @@ Everything else: implement from this file + existing scripts.
 | M6a | Title → Strange Man (+ Skip) → flip → scenario → draw replay | Fades, 5 pages, swipe flip ~4 s to the board |
 | M6b | Pause mid-turn/animation; every option (title + pause); Fast and Skip games | Pause freezes everything; options persist after a restart; Skip game has no stuck input |
 | M6c | Let AI play | Blocks/wins when obvious; reactions + fuse fire right; no softlock |
+| M6e framework | F5, F4 picker, » auto-play | ×2 scoring, rolled decks, pills, discard reveal, auto-play |
 | M6d / M7 | A1–A10 on desktop, then Pixel 11 | Ship checklist passes |
 
 ---
 
-*Last updated: 2026-11-23 (M6d accepted and merged: sound grill (SNES wood block UI, chorus press start, metal coin flick, candle fizzle, SNES horn game start), mobile audio rules, A1–A10 desktop smoke; next = M7; M6c accepted and merged: hand-aware AI, play flips, expressions, portrait reactions, fuse, lead-ins + 18 playtest rounds; next = M6d; 2026-11-22: M6c built on `m6c-ai-animations-reactions`: AI, play flips, expressions, portrait reactions, fuse, lead-ins; playtest pending; Specials design grill done: 21 new specials → 25 types, vault `Design/Special Goobs.md`; next = M6c; 2026-11-21: Art pass D2 accepted and merged: expression loops, stills, flips (Vanilla back/edge reused), SpriteFrames, types shown in game; next = Specials design grill; Art pass D1 accepted and merged: all five type sheets approved, rim motifs as glyphs at even spots, Fat = mouth-crease cheeks per Sean's reference; next = Art pass D2; M6b accepted and merged, plus playtest 2: momentary winner flash, no flicker on the Strange Man → coin flip cut; next = Art pass D1; 2026-11-20: M6b built on `m6b-hud-pause-options`: pixel HUD, pause, Options + Settings, turn banners, Normal/Fast/Skip; playtest pending; M6a accepted and merged: fades, title, Strange Man intro, swipe coin flip, flow sounds; next = M6b; Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*
+*Last updated: 2026-11-23 (M6e framework accepted and merged; next = M6e Move category (fresh session, rules first); built: ×2/×1 scoring, rolled decks, piles, status pills, discard reveal, roll rule, F4 debug panel, auto-play; then = Move category session; M6d accepted and merged: sound grill (SNES wood block UI, chorus press start, metal coin flick, candle fizzle, SNES horn game start), mobile audio rules, A1–A10 desktop smoke; next = M7; M6c accepted and merged: hand-aware AI, play flips, expressions, portrait reactions, fuse, lead-ins + 18 playtest rounds; next = M6d; 2026-11-22: M6c built on `m6c-ai-animations-reactions`: AI, play flips, expressions, portrait reactions, fuse, lead-ins; playtest pending; Specials design grill done: 21 new specials → 25 types, vault `Design/Special Goobs.md`; next = M6c; 2026-11-21: Art pass D2 accepted and merged: expression loops, stills, flips (Vanilla back/edge reused), SpriteFrames, types shown in game; next = Specials design grill; Art pass D1 accepted and merged: all five type sheets approved, rim motifs as glyphs at even spots, Fat = mouth-crease cheeks per Sean's reference; next = Art pass D2; M6b accepted and merged, plus playtest 2: momentary winner flash, no flicker on the Strange Man → coin flip cut; next = Art pass D1; 2026-11-20: M6b built on `m6b-hud-pause-options`: pixel HUD, pause, Options + Settings, turn banners, Normal/Fast/Skip; playtest pending; M6a accepted and merged: fades, title, Strange Man intro, swipe coin flip, flow sounds; next = M6b; Art pass C accepted and merged: Strange Man full body + light pool, intro Goobs (red lying flat), bust × 7 expressions, crack/explode; next = M6a; Art pass B accepted and merged: UI kit, logo, fuse, vignette, title vista, one-block HUD + Forest timer emblem; next = Art pass C; roadmap grill: remaining plan approved, next = Art pass B; M5 accepted and merged: effects, dramatic impacts, scoring sequence, starting hand 2; 2026-11-19: Art pass A accepted and merged: Resurrect 64, transparent holes, Monogram, unblurred Forest, landing sound = lower column click; M4 accepted and merged; 2026-11-13: M3.6 accepted and merged; 2026-11-11: M3.5 accepted and merged; grill: hand fan, hidden opponent hand, win/lose faces, fuse, slice §5 resolved) · Handoff: `docs/CLAUDE_CODE_HANDOFF.md`*

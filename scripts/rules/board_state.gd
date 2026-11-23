@@ -47,6 +47,20 @@ func copy() -> BoardState:
 	return other
 
 
+## A copy with PLAYER and OPPONENT swapped (debug auto-play: the opponent AI
+## plays the player's side on it).
+func mirrored() -> BoardState:
+	var other := copy()
+	for row in ROWS:
+		for column in COLUMNS:
+			var owner: CellOwner = _cells[row][column]
+			if owner == CellOwner.PLAYER:
+				other._cells[row][column] = CellOwner.OPPONENT
+			elif owner == CellOwner.OPPONENT:
+				other._cells[row][column] = CellOwner.PLAYER
+	return other
+
+
 # --- Queries ---------------------------------------------------------------
 
 func is_empty(column: int, row: int) -> bool:

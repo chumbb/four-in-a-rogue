@@ -17,8 +17,13 @@ extends Control
 ## the opponent's think delay) and short reactions (happy, angry, surprised;
 ## REACTION_SEC, then back to the base face); celebrating on his win; on a
 ## player win "well played", then the bust cracks and explodes.
+##
+## M6e (debug builds only): a "»" auto-play toggle right of Pause, lit while on;
+## the Settings "Auto-play button" option hides it.
 
 signal pause_pressed
+## The debug auto-play toggle (the scenario turns auto-play on / off).
+signal autoplay_pressed
 ## "Show result" while the player reviews the board after the end.
 signal show_result_pressed
 ## &"portrait_crack" / &"portrait_explode" during play_defeat() (the scenario plays them).
@@ -93,6 +98,13 @@ var _timer_box: Control
 var _timer_labels: Array[Label] = []
 var _emblem: TextureRect
 var _pause: Button
+var _autoplay: Button
+var _autoplay_lit := false
+## Pause (and so the auto-play button) shown: false after the end.
+var _pause_shown := true
+## The Settings "Auto-play button" option (set by the scenario: a class_name
+## script can't name autoloads in the headless tests).
+var _autoplay_enabled := true
 var _show_result: Button
 var _ribbon: TextureRect
 var _ribbon_label: Label
@@ -159,6 +171,15 @@ func _build() -> void:
 	_pause.size = PAUSE_SIZE
 	stage.add_image(PAUSE_ICON, ((PAUSE_SIZE - PAUSE_ICON.get_size()) * 0.5).floor() + Vector2(0, -1), _pause)
 	_pause.pressed.connect(pause_pressed.emit)
+	_autoplay = stage.add_button("", PAUSE_SIZE.x)
+	_autoplay.name = "AutoplayButton"
+	_autoplay.size = PAUSE_SIZE
+	var arrows := stage.add_label("»", PixelStage.INK0, &"Mono2", _autoplay)
+	arrows.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	arrows.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	arrows.size = Vector2(PAUSE_SIZE.x, PAUSE_SIZE.y - 2.0)
+	_autoplay.pressed.connect(autoplay_pressed.emit)
+	_refresh_autoplay()
 	_show_result = stage.add_button("Show result", SHOW_RESULT_W)
 	_show_result.name = "ShowResultButton"
 	_show_result.size = Vector2(SHOW_RESULT_W, PAUSE_SIZE.y)
@@ -213,6 +234,7 @@ func _layout() -> void:
 	_scenario.size = Vector2(run_w, 32)
 	_centre_timer()
 	_pause.position = Vector2(safe.position.x + PAUSE_INSET, safe.end.y - PAUSE_INSET - PAUSE_SIZE.y)
+	_autoplay.position = _pause.position + Vector2(PAUSE_SIZE.x + PAUSE_INSET, 0)
 	_show_result.position = Vector2(floorf((stage.game_size.x - SHOW_RESULT_W) * 0.5), safe.end.y - PAUSE_INSET - PAUSE_SIZE.y)
 	_ribbon.size = Vector2(stage.game_size.x, RIBBON_BLUE.get_height())
 	_place_ribbon()
@@ -291,6 +313,36 @@ func show_result_button() -> Button:
 
 func set_pause_visible(on: bool) -> void:
 	_pause.visible = on
+	_pause_shown = on
+	_refresh_autoplay()
+
+
+func set_autoplay_enabled(on: bool) -> void:
+	_autoplay_enabled = on
+	_refresh_autoplay()
+
+
+func autoplay_button() -> Button:
+	return _autoplay
+
+
+## Lit (the pressed kit style) while auto-play is on.
+func set_autoplay_lit(on: bool) -> void:
+	_autoplay_lit = on
+	for state: StringName in [&"normal", &"hover"]:
+		if on:
+			_autoplay.add_theme_stylebox_override(state, UiKit.stylebox(&"button_pressed"))
+		else:
+			_autoplay.remove_theme_stylebox_override(state)
+
+
+func is_autoplay_lit() -> bool:
+	return _autoplay_lit
+
+
+## Debug builds only, with the option on, while Pause shows.
+func _refresh_autoplay() -> void:
+	_autoplay.visible = _pause_shown and OS.is_debug_build() and _autoplay_enabled
 
 
 ## Centres the digits' drawn pixels (not the font advance box) on the emblem

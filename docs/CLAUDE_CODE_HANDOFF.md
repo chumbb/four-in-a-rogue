@@ -26,7 +26,8 @@ claude
 - Canonical v0.1 rules: `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md`
 - Full GDD: `Projects/Four-in-a-Rogue/Design/GDD.md`
 - Decision log: `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`
-- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-23 Claude - SNES UI, coin and fizzle sound options.md`
+- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-23 Claude - M6e special Goobs grill.md`
+- Special Goobs spec (M6e roster, categories, deck rule): `Projects/Four-in-a-Rogue/Design/Special Goobs.md` → "2026-11-23 update"
 - Vault agent rules: `GameDev/CLAUDE.md`
 
 **Conflict rule:** Obsidian vault wins over repo `CLAUDE.md` for game design.
@@ -35,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Next: M7 (on-device check).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). Next: M6e Move category, then destroy → discard → draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -47,7 +48,9 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M7** (required) ← **next** | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ← **next** → Destroy → Discard → Draw → Tech → Uniquely powerful | all |
+| 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
+| 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
 After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placeholders).
 
@@ -68,8 +71,64 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **Specials design grill** | Confirmed 2026-11-22 (vault `Design/Special Goobs.md`) |
 | **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
 | **M6d** Sound + smoke | ✅ Accepted and merged 2026-11-23 (sound grill done) |
+| **M6e framework** | ✅ Accepted and merged 2026-11-23 |
 
-### M7 — on-device check ← **next** (required for v0.1; CLAUDE.md §M7)
+### M6e Move category ← **next session** (start a fresh conversation)
+
+- **Branch:** `m6e-move` from `main`.
+- **Step 1, before any code:** propose rules for each move Goob to Sean and get his approval: name ("<Adjective> Goob"), one-line card text, edge cases, AI value. Use the vault spec `Design/Special Goobs.md` ("2026-11-23 update" wins over the older per-Goob rules below it). Don't invent mechanics; ask. Log his answers in the Decision-Log and the spec.
+- **Roster (Sean's list, `resources/goobs/special goobs.txt`):**
+  - **Sinister:** push left (causes rolling).
+  - **Dexterous:** push right (causes rolling).
+  - **Lopsided / Tipsy:** "rolls after falling", both when played and when a destroy makes its column fall.
+  - **Bouncy:** Goobs played here jump up to a higher adjacent column and do not roll.
+  - "Goobs played here roll".
+  - "The highest Goob rolls".
+  - "Bounces rolling Goobs".
+  - "Roll a Goob in this row".
+- **Sean's rules so far:**
+  - A **push pushes a row**. The row rolls, and the Goobs above fall into any empty space below them.
+  - **Roll:** sideways while the cell beside it is free; a column level with it or higher, or the edge, stops it. A floor Goob rolls all the way to the side.
+  - Rolling **never** takes a Goob off the board (only uniquely powerful Goobs do that).
+  - Bouncing no longer always means rolling.
+  - All specials are ×2, Vanilla art for now.
+- **Open questions to put to Sean** (examples):
+  - Which Goobs a push moves: the whole row, or only its side?
+  - Does the pusher move?
+  - Where does Bouncy's jump land?
+  - Which Goob and which direction "roll a Goob in this row" picks (random per the spec)?
+  - Directions for "played here roll" and "highest Goob rolls".
+  - Whether Steadfast/Stalwart-style "can't be moved" matters yet (tech comes later).
+- **Build:**
+  - Effect types plus `.tres` per Goob (`category = MOVE`, multiplier 2.0, `art_id = "vanilla"`), each added to `GoobRoster.PATHS`.
+  - The effect in `TurnLoop._resolve_effect`, using `roll_goob`, appending `effect_steps`.
+  - `effect_outcomes` for the AI.
+  - A roll/push animation in `BoardView2D` (reuse the timeout roll `_queue_roll` style).
+  - The scenario's `_play_effect_impact`.
+  - Unit tests per Goob.
+- **Test in F5:** F4 → category deck main = Move + another → "New game with these", or give yourself each Goob; » auto-play to watch the AI use them.
+- Then playtest → merge → the Destroy session.
+
+### M6e framework (accepted and merged 2026-11-23)
+
+APIs the category sessions use:
+
+- **Goob data:** `GoobDefinition.Category` (NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW) and `category`. `GoobRoster.PATHS` (`scripts/deck/goob_roster.gd`): add each new Goob's `.tres` path here.
+- **Decks:** `DeckBuilder.roll(rng, forced)` / `roll_from(rng, roster, forced)` builds 11 Goobs + 10 specials (`SIZE` 21, `SPECIALS` 10); `forced` is a category dictionary (debug deck). `GameFlow.rolled_decks` (kept over draw replays, cleared for a new game), `GameFlow.debug_forced_categories`, `GameFlow.autoplay`.
+- **Piles:** `Deck.discard_pile`, `Deck.destroyed_pile`, `Deck.discard(index)`.
+- **TurnLoop** (`scripts/rules/turn_loop.gd`):
+  - `destroy_at(cell)` and `_collapse_goobs(column, from_row)`.
+  - `discard_from(side, index)` appends a discard step (`"kind"` NONE, `"discarded"`, `"index"`, `"side"`).
+  - `effect_steps` holds every step of a resolution; `last_effect = effect_steps[0]`.
+  - `statuses` with `add_status(id, side, label, text, turns_left)`, `remove_status(id, side)`, `has_status(id, side)`; hooks `_on_turn_start(side)` / `_on_turn_end(side)`.
+  - Status semantics: `turns_left` ticks at every turn start of **either** side inside `play()`, so a status added during an effect with `turns_left` 1 is gone before anyone sees it, and "for N of his turns" ≈ `2N`; steps appended from `_on_turn_start` during `start()` are not shown.
+  - `roll_goob(cell, dir)`: a Goob moves sideways while the cell beside it in the next column is free, falling to the top of that column; a column level with it or higher, or the edge, stops it, so on the floor or a flat top it rolls on to the next Goob or the edge (Sean, 2026-11-23); never off the board. Logic only, no animation yet.
+  - Empty hand: `skip_turn()` (hand ran out mid-turn), `_turn_draw_count(side)` (draw effects override it), `last_skipped` (sides skipped in the latest turn change; the scenario toasts "Turn skipped" / "Opponent's turn skipped"). An empty hand after the turn draw skips the turn. Skips are never a draw; turn order goes on, and a side skipped last turn always gets its next turn draw (`was_skipped_last(side)`, so never two skips in a row).
+- **View:** `StatusPills` (`scripts/ui/status_pills.gd`) sits in the gap strip above the aim lane and never over a column hit rect. Scenario `_show_discard(goob, side, index)` (centre pop, name, off screen; never sped up by Fast).
+- **Debug (debug builds only):** F4 `DebugPanel` (`scripts/debug/debug_panel.gd`): give a Goob, discard random, add status, category deck + "New game with these". Scenario helpers `debug_give`, `debug_discard_random`, `debug_add_status`.
+- **Auto-play:** "»" button right of Pause; Settings row "Auto-play button" (`Settings.autoplay_button`, default On). Off at win/lose and on quit to title.
+
+### M7 — on-device check (required for v0.1; after M6e + Art F/G; CLAUDE.md §M7)
 
 - **Goal:** an Android debug build on the **Pixel 11**, first with the Mobile renderer, then with Compatibility. Use the **Pixel 8** as the older phone if Sean has one. Check **A9** (portrait touch) on hardware, plus the rest of `docs/SMOKE_V0.1.md`. A true low-end check is a known gap. iOS waits for a Mac; the Retroid Pocket (4:3) is saved for the landscape version.
 - **Starting state on this PC (checked 2026-11-23):**
@@ -93,6 +152,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - the whole-number pixel scale at the phone's width
   - both renderers (the shader baker at export)
 - **Don't change rules or art in M7.** Fixes from the device go on short branches for Sean to check.
+- The M7 Android build is a debug export, so the » auto-play button and F4 panel exist on the phone; turn Options → Auto-play button off for the A9 check.
 
 ### M6d — sound completion + smoke test (accepted and merged to `main` 2026-11-23)
 
@@ -262,14 +322,14 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass on `main`, 911 checks, 2026-11-23)
+### Tests (all pass, 1080 checks, 2026-11-23; counts below are current on `m6e-framework`)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 436 checks
-& $g --headless -s res://tests/test_turn_loop.gd   # 138
-& $g --headless -s res://tests/test_board_state.gd # 74
+& $g --headless -s res://tests/test_scenario.gd    # 547 checks
+& $g --headless -s res://tests/test_turn_loop.gd   # 192
+& $g --headless -s res://tests/test_board_state.gd # 78
 & $g --headless -s res://tests/test_flow_m3.gd     # 186
 & $g --headless -s res://tests/test_opponent_ai.gd # 77
 ```

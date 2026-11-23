@@ -37,6 +37,25 @@ func _initialize() -> void:
 	_test_plentiful_draws_two()
 	_test_effect_before_win_check()
 	_test_scoring_cells()
+	_test_m6e_multipliers_and_names()
+	_test_deck_builder_shape()
+	_test_deck_builder_main_pools()
+	_test_deck_builder_no_dupes_when_enough()
+	_test_start_rolls_per_side()
+	_test_fat_fills_destroyed_pile()
+	_test_discard()
+	_test_effect_steps()
+	_test_status_ticks()
+	_test_discard_step()
+	_test_roll_downhill()
+	_test_roll_stops_equal()
+	_test_roll_border()
+	_test_roll_middle()
+	_test_roll_floor_stays()
+	_test_roll_empty_cell()
+	_test_skip_turn_mid_turn()
+	_test_turn_start_skip_empty_hand()
+	_test_both_skip_is_stalemate()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -509,3 +528,306 @@ func _test_scoring_cells() -> void:
 	_check(cells.size() == 7, "scoring: crossing lines count each Goob once (got %d)" % cells.size())
 	_check(cells.slice(3) == ([Vector2i(3, 0), Vector2i(3, 1), Vector2i(3, 2), Vector2i(3, 3)] as Array[Vector2i]), "scoring: bottom to top within a column")
 	_check(t.scoring_cells(O).is_empty(), "scoring: no line, no cells")
+
+
+func _test_m6e_multipliers_and_names() -> void:
+	var specials := {CONVINCING: GoobDefinition.Category.UNIQUE, FAT: GoobDefinition.Category.DESTROY, POPULAR: GoobDefinition.Category.UNIQUE, PLENTIFUL: GoobDefinition.Category.DRAW}
+	for g: GoobDefinition in specials:
+		_check(g.multiplier == 2.0, "m6e: %s is x2" % g.id)
+		_check(g.category == specials[g], "m6e: %s category" % g.id)
+	var v := TurnLoop.VANILLA
+	_check(v.multiplier == 1.0, "m6e: Vanilla x1")
+	_check(v.display_name == "Goob", "m6e: Vanilla is shown as Goob")
+	_check(v.category == GoobDefinition.Category.NONE, "m6e: Vanilla has no category")
+	_check(POPULAR.effect_description == "Drop a Goob into a random column.", "m6e: Popular card text")
+
+
+func _count_category(goobs: Array[GoobDefinition], category: GoobDefinition.Category) -> int:
+	var n := 0
+	for g in goobs:
+		if g.category == category:
+			n += 1
+	return n
+
+
+func _test_deck_builder_shape() -> void:
+	var roster := GoobRoster.all()
+	var ok := true
+	for s in range(1, 201):
+		var goobs := DeckBuilder.roll(_seeded(s))
+		var top := _count_category(goobs, GoobDefinition.Category.UNIQUE) + _count_category(goobs, GoobDefinition.Category.TECH)
+		var specials_ok := true
+		for g in goobs:
+			specials_ok = specials_ok and roster.has(g)
+		ok = ok and goobs.size() == 21 and _count_category(goobs, GoobDefinition.Category.NONE) >= 11 and top >= 1 and top <= 2 and specials_ok
+	_check(ok, "deck builder: 21 Goobs, >= 11 plain, 1-2 UNIQUE/TECH, all from the roster (seeds 1..200)")
+	var has_top := true
+	for s in range(1, 201):
+		var goobs := DeckBuilder.roll(_seeded(s), {"top": GoobDefinition.Category.UNIQUE})
+		var n := _count_category(goobs, GoobDefinition.Category.UNIQUE)
+		has_top = has_top and n >= 1 and n <= 2
+	_check(has_top, "deck builder: forced UNIQUE gives 1-2 UNIQUE Goobs")
+
+
+func _test_deck_builder_main_pools() -> void:
+	var D := GoobDefinition.Category.DESTROY
+	var X := GoobDefinition.Category.DISCARD
+	var ok := true
+	var saw_draw := false
+	for s in range(1, 201):
+		var goobs := DeckBuilder.roll(_seeded(s), {"main": [D, X], "top": GoobDefinition.Category.UNIQUE})
+		var top := _count_category(goobs, GoobDefinition.Category.UNIQUE)
+		var draws := _count_category(goobs, GoobDefinition.Category.DRAW)
+		var fat := _count_category(goobs, D)
+		var plain := _count_category(goobs, GoobDefinition.Category.NONE)
+		saw_draw = saw_draw or draws > 0
+		# 10 specials: top + DESTROY pool + DISCARD pool (plain, no Goobs yet) + DRAW.
+		var discard_slots := 10 - top - fat - draws
+		ok = ok and draws <= 3 and discard_slots >= 0 and plain == 11 + discard_slots
+		ok = ok and top + fat + draws + discard_slots == 10
+	_check(ok, "deck builder: main pools + top = 10 slots, DRAW <= 3, empty DISCARD slots plain (seeds 1..200)")
+	_check(saw_draw, "deck builder: DRAW Goobs do appear in pools")
+
+
+func _test_deck_builder_no_dupes_when_enough() -> void:
+	var roster: Array[GoobDefinition] = []
+	for i in 6:
+		var g := GoobDefinition.new()
+		g.id = "stub_destroy_%d" % i
+		g.category = GoobDefinition.Category.DESTROY
+		roster.append(g)
+	var ok := true
+	for s in range(1, 201):
+		var goobs := DeckBuilder.roll_from(_seeded(s), roster, {"main": [GoobDefinition.Category.DESTROY, GoobDefinition.Category.MOVE]})
+		var seen := {}
+		for g in goobs:
+			if g.category == GoobDefinition.Category.DESTROY:
+				ok = ok and not seen.has(g.id)
+				seen[g.id] = true
+	_check(ok, "deck builder: no repeated type inside a pool when the roster has enough")
+
+
+func _composition(goobs: Array[GoobDefinition]) -> Dictionary:
+	var counts := {}
+	for g in goobs:
+		counts[g.id] = int(counts.get(g.id, 0)) + 1
+	return counts
+
+
+func _test_start_rolls_per_side() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(3))
+	_check(t.player_goobs.size() == 21 and t.opponent_goobs.size() == 21, "rolls: 21 Goobs per side")
+	_check(t.player_deck.draw_pile.size() + t.player_deck.hand.size() == 21, "rolls: player deck holds 21")
+	var differs := false
+	for s in range(1, 21):
+		t.start(true, _seeded(s))
+		differs = differs or _composition(t.player_goobs) != _composition(t.opponent_goobs)
+	_check(differs, "rolls: the two sides roll their own decks")
+	t.start(true, _seeded(3))
+	var mine := t.player_goobs
+	var his := t.opponent_goobs
+	var t2 := TurnLoop.new()
+	t2.start(true, _seeded(9), mine, his)
+	_check(_composition(t2.player_goobs) == _composition(mine) and _composition(t2.opponent_goobs) == _composition(his), "rolls: passing both lists reproduces the compositions")
+	_check(t2.player_deck.hand.size() + t2.player_deck.draw_pile.size() == 21, "rolls: replay deck holds 21")
+
+
+func _test_fat_fills_destroyed_pile() -> void:
+	var t := _with_special(FAT)
+	t.play(5, 1) # player Vanilla (5,0)
+	t.play(4, 0) # opponent Vanilla (4,0)
+	t.play(3, 0) # Fat at (3,0): only neighbour is the opponent's (4,0)
+	_check(t.opponent_deck.destroyed_pile == [TurnLoop.VANILLA], "destroyed pile: opponent Vanilla")
+	_check(t.player_deck.destroyed_pile.is_empty(), "destroyed pile: player's stays empty")
+	_check(t.board.get_owner(4, 0) == O or t.board.get_owner(4, 0) == BoardState.CellOwner.EMPTY, "destroyed pile: cell cleared")
+
+
+func _test_discard() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(21), _vanilla())
+	var d := t.player_deck
+	var first := d.hand[0]
+	var size := d.hand.size()
+	_check(d.discard(0) == first, "discard: returns the Goob")
+	_check(d.discard_pile == [first] and d.hand.size() == size - 1, "discard: hand to pile")
+	_check(d.discard(9) == null and d.discard_pile.size() == 1 and d.hand.size() == size - 1, "discard: out of range changes nothing")
+	var g := t.discard_from(BoardState.CellOwner.PLAYER, 0)
+	_check(g != null and d.discard_pile.size() == 2, "discard_from: moves to the side's pile")
+
+
+func _test_effect_steps() -> void:
+	var t := _with_special(FAT)
+	t.board.drop(0, O)
+	t.play(1, 0)
+	_check(t.effect_steps.size() == 1 and t.last_effect == t.effect_steps[0], "steps: fat gives one step, last_effect is step 0")
+	var v := TurnLoop.new()
+	v.start(true, _seeded(22), _vanilla())
+	v.play(3, 0)
+	_check(v.effect_steps.size() == 1 and v.effect_steps[0]["kind"] == GoobDefinition.EffectType.NONE, "steps: vanilla gives one NONE step")
+	v.play(3, 0)
+	_check(v.effect_steps.size() == 1, "steps: reset each play")
+
+
+func _test_status_ticks() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(23), _vanilla())
+	t.add_status(&"t", P, "Test", "x", 2)
+	t.add_status(&"f", P, "Forever", "y", -1)
+	_check(t.has_status(&"t", P) and not t.has_status(&"t", O), "status: has_status per side")
+	t.play(0, 0)
+	_check(t.has_status(&"t", P) and t.statuses[0]["turns_left"] == 1, "status: one left after first turn start")
+	t.play(1, 0)
+	_check(not t.has_status(&"t", P), "status: gone after two turn starts")
+	for i in 10:
+		t.play(i % 7, 0)
+	_check(t.has_status(&"f", P), "status: -1 survives 10 plays")
+	t.remove_status(&"f", P)
+	_check(not t.has_status(&"f", P), "status: remove_status")
+	t.add_status(&"f", P, "Forever", "y", -1)
+	t.start(true, _seeded(23), _vanilla())
+	_check(t.statuses.is_empty(), "status: start() clears")
+
+
+func _test_discard_step() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(24), _vanilla())
+	var g := t.discard_from(P, 0)
+	_check(t.effect_steps.size() == 1 and t.effect_steps[0]["discarded"] == g and t.effect_steps[0]["kind"] == GoobDefinition.EffectType.NONE, "discard step: appended")
+	t.discard_from(P, 99)
+	_check(t.effect_steps.size() == 1, "discard step: none when nothing discarded")
+	t.discard_from(P, 1)
+	_check(t.effect_steps[0]["index"] == 0 and t.effect_steps[1]["index"] == 1, "discard step: records the hand index")
+
+
+func _roll_stack(t: TurnLoop, column: int, count: int, owner: BoardState.CellOwner = P) -> void:
+	for i in count:
+		t.board.drop(column, owner)
+		t._cell_goobs[Vector2i(column, i)] = TurnLoop.VANILLA
+
+
+func _test_roll_downhill() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(30), _vanilla())
+	_roll_stack(t, 0, 3)
+	_roll_stack(t, 1, 1)
+	_roll_stack(t, 3, 1) # a Goob beside (2,0) stops the floor roll
+	var path := t.roll_goob(Vector2i(0, 2), 1)
+	_check(path.size() == 2 and path[0] == Vector2i(1, 1) and path[1] == Vector2i(2, 0), "roll downhill: path ends at (2,0)")
+	_check(t.board.get_owner(2, 0) == P and t.goob_at(2, 0) == TurnLoop.VANILLA, "roll downhill: landed Goob kept")
+	_check(t.board.get_owner(0, 2) == BoardState.CellOwner.EMPTY and t.board.get_owner(0, 1) == P, "roll downhill: column 0 height 2")
+
+
+func _test_roll_stops_equal() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(31), _vanilla())
+	_roll_stack(t, 0, 2)
+	_roll_stack(t, 1, 2)
+	_check(t.roll_goob(Vector2i(0, 1), 1).is_empty(), "roll equal: no move")
+	_check(t.board.get_owner(0, 1) == P, "roll equal: Goob stays")
+
+
+func _test_roll_border() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(32), _vanilla())
+	_roll_stack(t, 0, 1)
+	_check(t.roll_goob(Vector2i(0, 0), -1).is_empty(), "roll border: left of column 0")
+	_roll_stack(t, 6, 1)
+	_check(t.roll_goob(Vector2i(6, 0), 1).is_empty(), "roll border: right of column 6")
+
+
+func _test_roll_middle() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(33), _vanilla())
+	_roll_stack(t, 0, 3)
+	_roll_stack(t, 2, 1) # stops the floor roll at (1,0)
+	t.board.set_owner(0, 1, O)
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	t._cell_goobs[Vector2i(0, 1)] = fat
+	var path := t.roll_goob(Vector2i(0, 1), 1)
+	_check(path.size() == 1 and path[0] == Vector2i(1, 0), "roll middle: path")
+	_check(t.board.get_owner(1, 0) == O and t.goob_at(1, 0) == fat, "roll middle: owner and definition kept")
+	_check(t.board.get_owner(0, 1) == P and t.goob_at(0, 1) == TurnLoop.VANILLA, "roll middle: top Goob fell to row 1")
+	_check(t.board.get_owner(0, 2) == BoardState.CellOwner.EMPTY and t.goob_at(0, 2) == null, "roll middle: column 0 height 2")
+
+
+func _test_roll_floor_stays() -> void:
+	# Sean (2026-11-23): a Goob on the floor rolls all the way to the side.
+	var t := TurnLoop.new()
+	t.start(true, _seeded(34), _vanilla())
+	_roll_stack(t, 2, 1)
+	var path := t.roll_goob(Vector2i(2, 0), 1)
+	_check(path.size() == 4 and path[3] == Vector2i(6, 0), "roll floor: rolls to the border (got %s)" % [path])
+	_check(t.board.get_owner(6, 0) == P and t.board.get_owner(2, 0) == E, "roll floor: now at (6,0)")
+	# Over flat tops too: a level row of Goobs carries it to the next Goob or the edge.
+	var u := TurnLoop.new()
+	u.start(true, _seeded(36), _vanilla())
+	_roll_stack(u, 0, 2)
+	for column in range(1, 7):
+		_roll_stack(u, column, 1)
+	var flat := u.roll_goob(Vector2i(0, 1), 1)
+	_check(flat.size() == 6 and flat[5] == Vector2i(6, 1), "roll flat top: rolls along row 1 to the border (got %s)" % [flat])
+
+
+## Final review: an empty cell has nothing to roll.
+func _test_roll_empty_cell() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(35), _vanilla())
+	_roll_stack(t, 0, 1)
+	var path := t.roll_goob(Vector2i(0, 3), 1)
+	_check(path.is_empty(), "roll empty: no path (got %d)" % path.size())
+	var count := 0
+	for column in BoardState.COLUMNS:
+		for row in BoardState.ROWS:
+			if t.board.get_owner(column, row) != BoardState.CellOwner.EMPTY:
+				count += 1
+	_check(count == 1, "roll empty: board unchanged (got %d Goobs)" % count)
+
+
+## Sean (2026-11-23): losing your last Goob is fine (you draw next turn); with
+## no Goob in hand after the draw, the turn is skipped.
+class NoDrawLoop extends TurnLoop:
+	var no_draw: Array = []
+	func _turn_draw_count(side: BoardState.CellOwner) -> int:
+		return 0 if no_draw.has(side) else TURN_DRAW
+
+
+func _test_skip_turn_mid_turn() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(40), _vanilla())
+	while not t.player_deck.hand.is_empty():
+		t.discard_from(P, 0)
+	t.skip_turn()
+	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN, "skip mid-turn: opponent's turn")
+	_check(t.last_skipped == [P] and t.was_skipped_last(P), "skip mid-turn: player recorded")
+	t.play(0)
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN and t.player_deck.hand.size() == 1 and t.last_skipped.is_empty(), "skip mid-turn: next turn draws 1")
+	_check(not t.was_skipped_last(P), "skip mid-turn: cleared once the player has a turn")
+
+
+func _test_turn_start_skip_empty_hand() -> void:
+	var t := NoDrawLoop.new()
+	t.start(true, _seeded(41), _vanilla())
+	t.opponent_deck.hand.clear()
+	t.no_draw = [O]
+	t.play(0)
+	_check(t.last_skipped == [O], "skip at turn start: opponent skipped")
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN and t.result == TurnLoop.Result.NONE, "skip at turn start: back to the player")
+
+
+func _test_both_skip_is_stalemate() -> void:
+	# Sean (2026-11-23): back-to-back skips are NOT a draw; turn order goes on,
+	# and the same side is never skipped twice in a row.
+	var t := NoDrawLoop.new()
+	t.start(true, _seeded(42), _vanilla())
+	t.opponent_deck.hand.clear()
+	var only: Array[GoobDefinition] = [TurnLoop.VANILLA]
+	t.player_deck.hand.assign(only)
+	t.no_draw = [P, O]
+	t.play(0)
+	_check(t.last_skipped == [O, P], "both skip: opponent then player skipped")
+	_check(t.result == TurnLoop.Result.NONE, "both skip: not a draw")
+	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN and t.opponent_deck.hand.size() == 1, "both skip: opponent's turn again, and he draws despite the block (skipped last turn)")
+	t.play(0)
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN and t.player_deck.hand.size() == 1 and t.last_skipped.is_empty(), "both skip: player draws despite the block (never skipped twice in a row)")
+	_check(t.result == TurnLoop.Result.NONE, "both skip: game still running")

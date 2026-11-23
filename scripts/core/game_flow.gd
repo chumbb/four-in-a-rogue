@@ -33,8 +33,16 @@ const VIGNETTE := preload("res://shaders/vignette.gdshader")
 
 ## Set by the coin flip; true = player moves first.
 var player_moves_first: bool = true
+## The two rolled decks of this game ({"player": Array, "opponent": Array}),
+## kept across draw replays; empty = roll new ones. Cleared on a new game.
+var rolled_decks: Dictionary = {}
+## Debug builds: forces the deck roll ({"top": Category, "main": [Category, Category]}).
+var debug_forced_categories: Dictionary = {}
 ## Tests force an auto-flip; players use Options "Auto-flip coin" (Settings).
 var auto_flip_coin := false
+## Debug auto-play (M6e, debug builds only): the AI plays your turns; kept over
+## draw replays and coin flips, off at the win / lose end screen.
+var autoplay := false
 ## Tests set 0 to change scenes at once.
 var fade_sec := FADE_SEC
 ## Flow screens' sounds (press start, pages, coin): owned here so a sound keeps
@@ -133,6 +141,7 @@ func _cut_under_forest(path: String) -> void:
 
 
 func begin_play_flow_from_title() -> void:
+	rolled_decks = {}
 	go_to(SceneKey.STRANGE_MAN)
 
 
@@ -143,6 +152,8 @@ func replay_after_draw() -> void:
 
 
 func return_to_title() -> void:
+	rolled_decks = {}
+	autoplay = false # leaving the game ends debug auto-play
 	go_to(SceneKey.TITLE)
 
 

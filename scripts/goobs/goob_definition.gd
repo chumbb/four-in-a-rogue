@@ -9,11 +9,15 @@ enum EffectType {
 	DRAW_TWO,
 }
 
+## Deck-building pool (M6e framework).
+enum Category { NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW }
+
 @export var id: String = ""
 @export var display_name: String = "Goob"
 @export var multiplier: float = 1.0
 @export_multiline var effect_description: String = ""
 @export var effect_type: EffectType = EffectType.NONE
+@export var category: Category = Category.NONE
 ## Inspect panel lore line (writing session; vault Design/Lore seed.md).
 @export_multiline var flavour_text: String = ""
 ## Art folder under res://assets/goobs/ (Art pass D2): <team>_yaw/frame_00–07

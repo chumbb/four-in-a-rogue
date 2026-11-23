@@ -145,7 +145,7 @@ func _pop_in() -> void:
 	tween.tween_interval(COIN_DELAY_SEC - HEADING_IN_SEC)
 	tween.tween_property(_coin, "scale", Vector2.ONE * COIN_SCALE, POP_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_callback(func() -> void: _ready_for_toss = true)
-	var auto := GameFlow.auto_flip_coin or Settings.auto_flip
+	var auto := GameFlow.auto_flip_coin or Settings.auto_flip or GameFlow.autoplay
 	if not auto: # no swipe hint when it flips by itself (Sean, M6c playtest)
 		tween.tween_callback(_start_hint)
 	if auto:

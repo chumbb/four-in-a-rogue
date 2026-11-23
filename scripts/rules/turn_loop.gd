@@ -41,11 +41,21 @@ var phase: Phase = Phase.PLAYER_TURN
 var result: Result = Result.NONE
 var player_deck := Deck.new()
 var opponent_deck := Deck.new()
+## The unshuffled lists the two decks were built from (a draw replay passes
+## them back to start() to reshuffle the same decks).
+var player_goobs: Array[GoobDefinition] = []
+var opponent_goobs: Array[GoobDefinition] = []
 
 ## The start-of-turn draw of the turn now in progress (empty if nothing was
 ## drawn), and whether it was skipped because the hand was full.
 var last_draw: Array[GoobDefinition] = []
 var last_draw_hand_full := false
+## Sides whose turn was skipped (empty hand) in the latest turn change, in
+## order, for the view's "Turn skipped" toast.
+var last_skipped: Array[BoardState.CellOwner] = []
+## Side -> whether its latest turn was skipped; that side's next turn draw
+## always happens, so no side is skipped twice in a row.
+var _skipped_last: Dictionary = {}
 
 ## What the last play's special effect did (M5), for the view:
 ##   kind: GoobDefinition.EffectType of the played Goob
@@ -55,6 +65,16 @@ var last_draw_hand_full := false
 ##   extra: Vector2i where Popular's Vanilla landed
 ##   drawn: Array[GoobDefinition] and hand_full: bool (Plentiful)
 var last_effect: Dictionary = {}
+
+## Every effect step of the current play(), in order (reset by play()): the
+## same keys as last_effect, plus {"discarded": GoobDefinition, "index": int}
+## (its hand index) for a discard from discard_from(). last_effect is effect_steps[0], or {} when empty.
+var effect_steps: Array[Dictionary] = []
+
+## Active statuses: {id: StringName, side: BoardState.CellOwner, label: String,
+## text: String, turns_left: int}; turns_left -1 = until removed. Ticked in
+## _begin_turn, cleared by start().
+var statuses: Array[Dictionary] = []
 
 ## Vector2i(column, row) -> GoobDefinition of the Goob sitting there.
 var _cell_goobs: Dictionary = {}
@@ -67,19 +87,29 @@ func _init() -> void:
 
 ## New scenario (or draw replay): empty board, both starter decks shuffled,
 ## starting hands of Deck.START_HAND, then the first side's turn begins (with its draw).
-## `deck` replaces the starter deck for both sides (tests).
-func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[GoobDefinition] = []) -> void:
+## `deck` alone replaces the decks of both sides (tests); `deck` and
+## `opponent_deck_goobs` give one each; neither rolls a deck per side
+## (DeckBuilder, `forced` as in DeckBuilder.roll).
+func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[GoobDefinition] = [], opponent_deck_goobs: Array[GoobDefinition] = [], forced := {}) -> void:
 	if rng == null:
 		rng = RandomNumberGenerator.new()
 		rng.randomize()
 	_rng = rng
 	last_effect = {}
+	effect_steps = []
+	statuses = []
 	board.reset()
 	_cell_goobs.clear()
+	_skipped_last.clear()
 	result = Result.NONE
-	var goobs := deck if not deck.is_empty() else StarterDeck.build()
-	player_deck = Deck.shuffled(goobs, rng)
-	opponent_deck = Deck.shuffled(goobs, rng)
+	if deck.is_empty():
+		player_goobs = DeckBuilder.roll(rng, forced)
+		opponent_goobs = DeckBuilder.roll(rng, forced)
+	else:
+		player_goobs = deck
+		opponent_goobs = opponent_deck_goobs if not opponent_deck_goobs.is_empty() else deck
+	player_deck = Deck.shuffled(player_goobs, rng)
+	opponent_deck = Deck.shuffled(opponent_goobs, rng)
 	player_deck.draw(Deck.START_HAND)
 	opponent_deck.draw(Deck.START_HAND)
 	_begin_turn(Phase.PLAYER_TURN if player_first else Phase.OPPONENT_TURN)
@@ -120,11 +150,14 @@ func play(column: int, hand_index: int = 0) -> int:
 	var deck := current_deck()
 	if hand_index < 0 or hand_index >= deck.hand.size():
 		return -1
+	effect_steps = []
+	last_effect = {}
 	var goob := deck.take(hand_index)
 	var side := current_side()
 	var row := board.drop(column, side)
 	_cell_goobs[Vector2i(column, row)] = goob
 	_resolve_effect(goob, Vector2i(column, row), side)
+	_on_turn_end(side)
 	match board.get_outcome():
 		BoardState.Outcome.PLAYER_WIN:
 			_finish(Result.PLAYER_WIN)
@@ -143,48 +176,133 @@ func play(column: int, hand_index: int = 0) -> int:
 ## The played Goob's special effect (slice §4 roster). Random targets come
 ## from the scenario rng; with nothing to act on the effect fizzles.
 func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.CellOwner) -> void:
-	last_effect = {"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false}
+	var step := {"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false}
+	effect_steps.append(step)
+	last_effect = effect_steps[0]
 	match goob.effect_type:
 		GoobDefinition.EffectType.FLIP_ADJACENT:
 			var targets := neighbours(board, cell, enemy_of(side))
 			if targets.is_empty():
-				last_effect["fizzled"] = true
+				step["fizzled"] = true
 				return
 			var target := targets[_rng.randi_range(0, targets.size() - 1)]
 			board.set_owner(target.x, target.y, side)
-			last_effect["target"] = target
+			step["target"] = target
 		GoobDefinition.EffectType.DESTROY_ADJACENT:
 			var targets := neighbours(board, cell, BoardState.CellOwner.EMPTY)
 			if targets.is_empty():
-				last_effect["fizzled"] = true
+				step["fizzled"] = true
 				return
 			var target := targets[_rng.randi_range(0, targets.size() - 1)]
-			board.destroy_cell(target.x, target.y)
-			# Goobs above fall one row (BoardState.destroy_cell); move their defs too.
-			for r in range(target.y, BoardState.ROWS):
-				var above := Vector2i(target.x, r + 1)
-				if _cell_goobs.has(above):
-					_cell_goobs[Vector2i(target.x, r)] = _cell_goobs[above]
-				else:
-					_cell_goobs.erase(Vector2i(target.x, r))
-			last_effect["target"] = target
+			destroy_at(target)
+			step["target"] = target
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
 			var open := open_columns(board)
 			if open.is_empty():
-				last_effect["fizzled"] = true
+				step["fizzled"] = true
 				return
 			var column := open[_rng.randi_range(0, open.size() - 1)]
 			var row := board.drop(column, side)
 			_cell_goobs[Vector2i(column, row)] = VANILLA
-			last_effect["extra"] = Vector2i(column, row)
+			step["extra"] = Vector2i(column, row)
 		GoobDefinition.EffectType.DRAW_TWO:
 			var deck := deck_of(side)
 			var hand_full := deck.draw_blocked_by_hand(PLENTIFUL_DRAW)
 			var drawn := deck.draw(PLENTIFUL_DRAW)
-			last_effect["drawn"] = drawn
-			last_effect["hand_full"] = hand_full
+			step["drawn"] = drawn
+			step["hand_full"] = hand_full
 			# Nothing drawn and not a full hand = an empty deck: fizzle.
-			last_effect["fizzled"] = drawn.is_empty() and not hand_full
+			step["fizzled"] = drawn.is_empty() and not hand_full
+
+
+## Destroys the Goob at `cell`: it goes to the destroyed pile of the side that
+## owned it, and the Goobs above fall one row (BoardState.destroy_cell).
+func destroy_at(cell: Vector2i) -> void:
+	var owner := board.get_owner(cell.x, cell.y)
+	var goob: GoobDefinition = _cell_goobs.get(cell)
+	board.destroy_cell(cell.x, cell.y)
+	if goob != null and owner != BoardState.CellOwner.EMPTY:
+		deck_of(owner).destroyed_pile.append(goob)
+	_collapse_goobs(cell.x, cell.y)
+
+
+## Moves the cell Goob definitions above `from_row` in `column` down one row.
+func _collapse_goobs(column: int, from_row: int) -> void:
+	for r in range(from_row, BoardState.ROWS):
+		var above := Vector2i(column, r + 1)
+		if _cell_goobs.has(above):
+			_cell_goobs[Vector2i(column, r)] = _cell_goobs[above]
+		else:
+			_cell_goobs.erase(Vector2i(column, r))
+
+
+## Rolls the Goob at `cell` sideways (`dir` -1 or +1) while the cell beside it
+## in the next column is free, falling to the top of that column; a column
+## level with it or higher, or the edge, stops it. Returns the cells it passed
+## through after leaving `cell` (empty = didn't move). Keeps owner and
+## definition; the Goobs above its old cell fall. An empty `cell` doesn't move.
+func roll_goob(cell: Vector2i, dir: int) -> Array[Vector2i]:
+	var path: Array[Vector2i] = []
+	var owner := board.get_owner(cell.x, cell.y)
+	if owner == BoardState.CellOwner.EMPTY:
+		return path # nothing to roll
+	var goob: GoobDefinition = _cell_goobs.get(cell)
+	while true:
+		var next := cell.x + dir
+		if not board.is_valid_column(next):
+			break
+		# It moves while the cell beside it is free (a column level with or
+		# higher than it stops it), so on the floor or a flat top it rolls on
+		# to the next Goob or the edge (Sean, 2026-11-23).
+		var height := board.lowest_empty_row(next)
+		if height < 0 or height > cell.y:
+			break
+		board.destroy_cell(cell.x, cell.y)
+		_collapse_goobs(cell.x, cell.y)
+		var row := board.drop(next, owner)
+		cell = Vector2i(next, row)
+		_cell_goobs[cell] = goob
+		path.append(cell)
+	return path
+
+
+## Discards `side`'s hand Goob at `index`; returns it (null if out of range).
+func discard_from(side: BoardState.CellOwner, index: int) -> GoobDefinition:
+	var goob := deck_of(side).discard(index)
+	if goob != null:
+		effect_steps.append({"kind": GoobDefinition.EffectType.NONE, "discarded": goob, "index": index, "side": side, "cell": Vector2i(-1, -1), "fizzled": false})
+		last_effect = effect_steps[0]
+	return goob
+
+
+## Adds a status (replacing one with the same id and side).
+func add_status(id: StringName, side: BoardState.CellOwner, label: String, text: String, turns_left: int) -> void:
+	remove_status(id, side)
+	statuses.append({"id": id, "side": side, "label": label, "text": text, "turns_left": turns_left})
+
+
+func remove_status(id: StringName, side: BoardState.CellOwner) -> void:
+	for i in range(statuses.size() - 1, -1, -1):
+		if statuses[i]["id"] == id and statuses[i]["side"] == side:
+			statuses.remove_at(i)
+
+
+func has_status(id: StringName, side: BoardState.CellOwner) -> bool:
+	for st in statuses:
+		if st["id"] == id and st["side"] == side:
+			return true
+	return false
+
+
+## Hook for category sessions: called at the start of `side`'s turn, after
+## the status tick and before the draw.
+func _on_turn_start(_side: BoardState.CellOwner) -> void:
+	pass
+
+
+## Hook for category sessions: called in play() after the effect, before the win check.
+func _on_turn_end(_side: BoardState.CellOwner) -> void:
+	pass
 
 
 ## Occupied neighbours of `cell` on `board` (8-way). `only` = that side's
@@ -255,9 +373,11 @@ func scoring_cells(side: BoardState.CellOwner) -> Array[Vector2i]:
 
 ## Gives the turn to `next` if that side has Goobs, else back to the other
 ## side; if neither has any, the scenario is a draw. Then the turn's draw.
-func _begin_turn(next: Phase) -> void:
+func _begin_turn(next: Phase, chained := false) -> void:
 	last_draw = []
 	last_draw_hand_full = false
+	if not chained:
+		last_skipped = []
 	var other := Phase.OPPONENT_TURN if next == Phase.PLAYER_TURN else Phase.PLAYER_TURN
 	if _deck_for_phase(next).has_goobs():
 		phase = next
@@ -266,9 +386,48 @@ func _begin_turn(next: Phase) -> void:
 	else:
 		_finish(Result.DRAW)
 		return
+	for i in range(statuses.size() - 1, -1, -1):
+		if statuses[i]["turns_left"] > 0:
+			statuses[i]["turns_left"] -= 1
+			if statuses[i]["turns_left"] == 0:
+				statuses.remove_at(i)
+	_on_turn_start(current_side())
 	var deck := current_deck()
-	last_draw_hand_full = deck.draw_blocked_by_hand(TURN_DRAW)
-	last_draw = deck.draw(TURN_DRAW)
+	var side := current_side()
+	var count := _turn_draw_count(side)
+	if _skipped_last.get(side, false):
+		count = maxi(count, TURN_DRAW) # never two skipped turns in a row
+	last_draw_hand_full = deck.draw_blocked_by_hand(count)
+	last_draw = deck.draw(count)
+	# No playable Goob (empty hand) after the draw, e.g. a discard plus a
+	# prevented draw: this turn is skipped and turn order goes on as normal
+	# (Sean, 2026-11-23; skips are never a draw).
+	_skipped_last[side] = deck.hand.is_empty()
+	if deck.hand.is_empty():
+		last_skipped.append(side)
+		_begin_turn(other if phase == next else next, true)
+
+
+## How many Goobs `side` draws at its turn start. Draw effects (M6e draw
+## session) change this.
+func _turn_draw_count(_side: BoardState.CellOwner) -> int:
+	return TURN_DRAW
+
+
+## Whether `side`'s latest turn was skipped (its next turn can't be).
+func was_skipped_last(side: BoardState.CellOwner) -> bool:
+	return _skipped_last.get(side, false)
+
+
+## The current side's hand ran out during its own turn (e.g. its last Goob was
+## discarded): its turn is skipped and the other side's begins.
+func skip_turn() -> void:
+	if phase == Phase.OVER:
+		return
+	var side := current_side()
+	_begin_turn(Phase.OPPONENT_TURN if phase == Phase.PLAYER_TURN else Phase.PLAYER_TURN)
+	_skipped_last[side] = true
+	last_skipped.push_front(side)
 
 
 func _deck_for_phase(p: Phase) -> Deck:
