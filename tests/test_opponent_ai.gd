@@ -183,6 +183,12 @@ func _test_open_threes() -> void:
 	_check(OpponentAI.open_threes(b, O) == 1, "three with an open fourth counts")
 	b.drop(3, P)
 	_check(OpponentAI.open_threes(b, O) == 0, "three with a blocked fourth does not")
+	var t := BoardState.new()
+	t.drop(0, O)
+	t.drop(1, O)
+	_check(OpponentAI.open_lines(t, O, 2) == 1, "an open two counts (one window: columns 0-3)")
+	t.drop(2, P)
+	_check(OpponentAI.open_lines(t, O, 2) == 0, "a blocked two does not")
 
 
 func _test_full_board_returns_minus_one() -> void:

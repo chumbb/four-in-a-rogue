@@ -35,6 +35,8 @@ const PORTRAITS := {
 	&"well_played": preload("res://assets/strange_man/portrait_well_played.png"),
 	## Waiting on you: 8 s without a touch, or the fuse (Sean, M6c playtest).
 	&"waiting": preload("res://assets/strange_man/portrait_waiting.png"),
+	## Waves hello during the GAME START banner (Sean, M6c playtest).
+	&"greeting": preload("res://assets/strange_man/portrait_greeting.png"),
 }
 const CRACK := preload("res://assets/strange_man/portrait_crack.png") ## 3 × 64 px
 const EXPLODE := preload("res://assets/strange_man/portrait_explode.png") ## 6 × 128 px

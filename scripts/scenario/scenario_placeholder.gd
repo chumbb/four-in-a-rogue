@@ -206,6 +206,7 @@ func _ready() -> void:
 func _start_game() -> void:
 	if animate_drops:
 		_sfx.play(&"game_start")
+		_hud.hold_face(&"greeting") # he waves hello (Sean, M6c playtest)
 		var fast := Settings.speed != Settings.Speed.NORMAL
 		await _hud.show_start_banner(GAME_START_SEC / (Settings.FAST_SCALE if fast else 1.0))
 		if not is_inside_tree():
@@ -213,6 +214,7 @@ func _start_game() -> void:
 		await _wait(GAME_START_GAP_SEC)
 		if not is_inside_tree():
 			return
+		_hud.hold_face(&"idle")
 	_after_play()
 
 
@@ -731,7 +733,9 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 ## 2026-11-22): surprised on a chain (Fat's destroy making Goobs fall) or a
 ## timeout roll; for his play, happy when he makes a new open three or his
 ## effect hits you; for yours, angry when you break up his threes (a block)
-## or your effect hits him. Game over is left to the end lead-in.
+## or your effect hits him. Otherwise surprised when either side blocks the
+## other's two from becoming a three (Sean, M6c playtest). Game over is left
+## to the end lead-in.
 func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> StringName:
 	if _loop.phase == TurnLoop.Phase.OVER:
 		return &""
@@ -754,6 +758,10 @@ func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int
 		var his := BoardState.CellOwner.OPPONENT
 		if hit_other or OpponentAI.open_threes(_loop.board, his) < OpponentAI.open_threes(_board_before, his):
 			face = &"angry"
+	if face == &"":
+		var other := TurnLoop.enemy_of(side)
+		if OpponentAI.open_lines(_loop.board, other, 2) < OpponentAI.open_lines(_board_before, other, 2):
+			face = &"surprised"
 	return face
 
 

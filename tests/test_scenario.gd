@@ -782,6 +782,29 @@ func _test_m6c_reactions() -> void:
 	await process_frame
 	_check(hud.portrait_face() == &"angry", "m6c: a block makes him angry (got %s)" % hud.portrait_face())
 	await _free(scenario)
+	# Blocking his two before it becomes a three surprises him (M6c playtest).
+	scenario = await _make(5.0)
+	hud = scenario._hud
+	board = _board(scenario)
+	board.drop(0, O)
+	board.drop(1, O)
+	_view(scenario).sync_from_board(board)
+	_play_col(scenario, 2)
+	await process_frame
+	_check(hud.portrait_face() == &"surprised", "m6c: blocking his two surprises him (got %s)" % hud.portrait_face())
+	# ... and so does his own block of your two.
+	var before := BoardState.new()
+	before.drop(4, P)
+	before.drop(5, P)
+	scenario._board_before = before
+	scenario._loop.board = before.copy()
+	scenario._loop.board.drop(6, O)
+	_check(scenario._reaction_for(6, O, [] as Array[int], {}) == &"surprised", "m6c: his block of your two surprises him")
+	scenario._board_before = BoardState.new()
+	scenario._loop.board = BoardState.new()
+	scenario._loop.board.drop(3, O)
+	_check(scenario._reaction_for(3, O, [] as Array[int], {}) == &"", "m6c: a quiet move gets no reaction")
+	await _free(scenario)
 	# Player win: winning four celebrates, portrait says well played then explodes.
 	scenario = await _make(5.0)
 	hud = scenario._hud
@@ -1311,9 +1334,11 @@ func _test_turn_banners() -> void:
 	var scenario := await _make(5.0, true, 0.0, 30.0, true)
 	var hud: ScenarioHud = scenario._hud
 	_check(hud.is_banner_visible() and hud.banner_text() == "GAME START", "banner: Game start first (got '%s')" % hud.banner_text())
+	_check(hud.portrait_face() == &"greeting", "banner: he waves hello during Game start (got %s)" % hud.portrait_face())
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_INK, "banner: neutral ink ribbon for Game start")
 	await _wait_banner(hud, "Your turn")
 	_check(hud.is_banner_visible() and hud.banner_text() == "Your turn", "banner: then blue Your turn")
+	_check(hud.portrait_face() != &"greeting", "banner: the wave ends after Game start (got %s)" % hud.portrait_face())
 	_check(hud._ribbon.texture == ScenarioHud.RIBBON_BLUE, "banner: blue ribbon")
 	_check(_heard(scenario, &"turn_whoosh"), "banner: soft whoosh")
 	_check(not scenario._input_enabled, "banner: input waits for the banner + draw")

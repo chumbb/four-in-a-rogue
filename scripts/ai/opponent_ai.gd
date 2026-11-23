@@ -166,6 +166,12 @@ static func winning_drops(board: BoardState, side: BoardState.CellOwner) -> Arra
 ## Number of `side`'s lines of three with the fourth cell empty (any height):
 ## "he makes three" for the happy portrait (Sean, 2026-11-22).
 static func open_threes(board: BoardState, side: BoardState.CellOwner) -> int:
+	return open_lines(board, side, 3)
+
+
+## Four-cell windows holding exactly `goobs` of `side`'s Goobs and nothing
+## else (the rest empty): open_lines(b, s, 2) = twos that could become threes.
+static func open_lines(board: BoardState, side: BoardState.CellOwner, goobs: int) -> int:
 	var count := 0
 	for row in BoardState.ROWS:
 		for column in BoardState.COLUMNS:
@@ -184,6 +190,6 @@ static func open_threes(board: BoardState, side: BoardState.CellOwner) -> int:
 						mine += 1
 					elif owner == BoardState.CellOwner.EMPTY:
 						empty += 1
-				if valid and mine == 3 and empty == 1:
+				if valid and mine == goobs and empty == BoardState.CONNECT - goobs:
 					count += 1
 	return count

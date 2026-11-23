@@ -524,9 +524,21 @@ def logo():
     return img.crop(img.getbbox())
 
 
-def heading_word(text, ramp):
-    """One line in the logo's pixel letters (end screen results; M6c playtest)."""
-    return shade_letters(glyph_mask(text, 3), ramp).crop()
+END_SCALE = 5  # font px -> game px; big and stacked to fill the end screen (Sean, M6c playtest)
+
+
+def heading_word(text, ramp, scale=END_SCALE):
+    """The logo's pixel letters, one line per "\n" (end screen results; M6c playtest:
+    bigger, stacked, filling the dead space)."""
+    lines = [shade_letters(glyph_mask(t, scale), ramp) for t in text.split("\n")]
+    gap = -4  # the drop-shadow rows overlap, like the logo's lines
+    w = max(p.width for p in lines)
+    img = Image.new("RGBA", (w, sum(p.height for p in lines) + gap * (len(lines) - 1)), CLEAR)
+    y = 0
+    for p in lines:
+        img.alpha_composite(p, ((w - p.width) // 2, y))
+        y += p.height + gap
+    return img.crop(img.getbbox())
 
 
 END_RAMPS = {
@@ -642,8 +654,8 @@ def build():
         "icon_speaker_muted": icon_speaker(True),
         "logo": logo(),
         "heading_who_goes_first": heading_who_goes_first(),
-        "heading_you_win": heading_word("YOU WIN!", END_RAMPS["win"]),
-        "heading_you_lose": heading_word("YOU LOSE", END_RAMPS["lose"]),
+        "heading_you_win": heading_word("YOU\nWIN!", END_RAMPS["win"]),
+        "heading_you_lose": heading_word("YOU\nLOSE", END_RAMPS["lose"]),
         "heading_draw": heading_word("DRAW", END_RAMPS["draw"]),
         "fuse_rope": fuse_rope(),
         "fuse_burnt": fuse_burnt(),

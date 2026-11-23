@@ -17,11 +17,13 @@ const HEADINGS := {
 const TEXT := {&"win": "You win!", &"lose": "You lose", &"draw": "Draw"}
 const PRIMARY := {&"win": "Back to title", &"lose": "Back to title", &"draw": "Replay"}
 const WIDTH := 236.0
-const HEIGHT := 104.0
 const BUTTON_W := 104.0
+const BUTTON_H := 36.0
 const BUTTON_GAP := 8.0
-const HEADING_Y := 14.0
-const BUTTONS_Y := 60.0
+## Big stacked heading (Sean, M6c playtest: "take up more dead space, more
+## centred"); the window grows to fit it and stays centred on the screen.
+const PAD_Y := 16.0
+const HEADING_GAP := 14.0
 const INTRO_SEC := 0.35
 
 var _scrim: ColorRect
@@ -52,7 +54,7 @@ func _init() -> void:
 	_window.patch_margin_top = m[1]
 	_window.patch_margin_right = m[2]
 	_window.patch_margin_bottom = m[3]
-	_window.size = Vector2(WIDTH, HEIGHT)
+	_window.size = Vector2(WIDTH, PAD_Y * 2.0 + HEADING_GAP + BUTTON_H)
 	_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage.canvas.add_child(_window)
 	_heading = _stage.add_image(HEADINGS[&"win"], Vector2.ZERO, _window)
@@ -60,15 +62,13 @@ func _init() -> void:
 	_view.name = "ViewButton"
 	_primary = _stage.add_button("Back to title", BUTTON_W, _window)
 	_primary.name = "PrimaryButton"
-	_view.position = Vector2(floorf(WIDTH * 0.5 - BUTTON_W - BUTTON_GAP * 0.5), BUTTONS_Y)
-	_primary.position = Vector2(floorf(WIDTH * 0.5 + BUTTON_GAP * 0.5), BUTTONS_Y)
 	_view.pressed.connect(view_pressed.emit)
 	_primary.pressed.connect(primary_pressed.emit)
 	_stage.relayout.connect(_layout)
 
 
 func _layout() -> void:
-	_window.position = (Vector2(_stage.game_size.x - WIDTH, _stage.game_size.y - HEIGHT) * 0.5).floor()
+	_window.position = ((_stage.game_size - _window.size) * 0.5).floor()
 
 
 ## &"win", &"lose" or &"draw": sets the heading and buttons.
@@ -76,7 +76,13 @@ func set_result(kind: StringName) -> void:
 	_result = kind
 	_heading.texture = HEADINGS[kind]
 	_heading.size = _heading.texture.get_size()
-	_heading.position = Vector2(floorf((WIDTH - _heading.size.x) * 0.5), HEADING_Y)
+	_heading.position = Vector2(floorf((WIDTH - _heading.size.x) * 0.5), PAD_Y)
+	var buttons_y := PAD_Y + _heading.size.y + HEADING_GAP
+	_view.position = Vector2(floorf(WIDTH * 0.5 - BUTTON_W - BUTTON_GAP * 0.5), buttons_y)
+	_primary.position = Vector2(floorf(WIDTH * 0.5 + BUTTON_GAP * 0.5), buttons_y)
+	_window.size = Vector2(WIDTH, buttons_y + BUTTON_H + PAD_Y)
+	_window.pivot_offset = _window.size * 0.5
+	_layout()
 	_primary.text = PRIMARY[kind]
 
 
