@@ -61,7 +61,7 @@ EXPRESSIONS = {  # asset name -> bust/raw_<source>.png
     # Waiting on the player (M6c playtest, Sean 2026-11-22): edit_image of idle, options
     # bust/raw_waiting_a|b|c.png (compare_waiting.png); Sean picked B "with a raised
     # eyebrow" -> hand-pixelled bust/make_waiting_brow.py b1|b2|b3 (b3 arched, pending OK).
-    "waiting": "waiting_b3",
+    "waiting": "waiting_b2",
 }
 GOOB_X = {"blue": 72, "red": 198}  # centre x in game px, either side of him on the pool
 CRACK_DARK, CRACK_LIT = hexc("2e222f"), hexc("c7dcd0")
