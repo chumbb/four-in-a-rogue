@@ -61,8 +61,8 @@ var last_draw_hand_full := false
 var last_effect: Dictionary = {}
 
 ## Every effect step of the current play(), in order (reset by play()): the
-## same keys as last_effect, plus {"discarded": GoobDefinition} for a discard
-## from discard_from(). last_effect is effect_steps[0], or {} when empty.
+## same keys as last_effect, plus {"discarded": GoobDefinition, "index": int}
+## (its hand index) for a discard from discard_from(). last_effect is effect_steps[0], or {} when empty.
 var effect_steps: Array[Dictionary] = []
 
 ## Active statuses: {id: StringName, side: BoardState.CellOwner, label: String,
@@ -257,7 +257,7 @@ func roll_goob(cell: Vector2i, dir: int) -> Array[Vector2i]:
 func discard_from(side: BoardState.CellOwner, index: int) -> GoobDefinition:
 	var goob := deck_of(side).discard(index)
 	if goob != null:
-		effect_steps.append({"kind": GoobDefinition.EffectType.NONE, "discarded": goob, "side": side, "cell": Vector2i(-1, -1), "fizzled": false})
+		effect_steps.append({"kind": GoobDefinition.EffectType.NONE, "discarded": goob, "index": index, "side": side, "cell": Vector2i(-1, -1), "fizzled": false})
 		last_effect = effect_steps[0]
 	return goob
 

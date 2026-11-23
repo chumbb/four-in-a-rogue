@@ -85,6 +85,9 @@ func _run() -> void:
 	await _test_chain_loss_angry()
 	await _test_status_pill_shows_and_toasts()
 	await _test_discard_reveal_not_faster_on_fast()
+	await _test_discard_keeps_fan_in_order()
+	await _test_pills_clear_of_columns(PHONE)
+	await _test_pills_clear_of_columns(Vector2i(1080, 2340))
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -1531,11 +1534,11 @@ func _test_status_pill_shows_and_toasts() -> void:
 	_check(buttons.size() == 1, "pills: one pill (got %d)" % buttons.size())
 	if buttons.size() == 1:
 		var pill := buttons[0]
-		_check(pill.is_visible_in_tree() and pill.text == "Test", "pills: shows its label")
+		_check(pill.is_visible_in_tree() and StatusPills.label_of(pill) == "Test", "pills: shows its label")
 		var rect := pill.get_global_rect()
 		_check(rect.get_center().x < scenario.size.x * 0.5, "pills: yours on the left half")
 		_check(rect.size.x >= 96.0, "pills: at least 96 px wide (got %.0f)" % rect.size.x)
-		_check(rect.position.y >= scenario._hud.bottom() and rect.end.y <= _view(scenario).get_global_rect().position.y + 0.5, "pills: inside the gap")
+		_check(rect.position.y >= scenario._hud.bottom() - 0.5 and rect.end.y <= scenario.get_node("%AimLane").get_global_rect().position.y + 0.5, "pills: in the gap above the aim lane (%s)" % rect)
 		pill.pressed.emit()
 		_check(scenario._toast._label.text == "Explain", "pills: press toasts the text")
 	loop.remove_status(&"t", P)
@@ -1556,10 +1559,71 @@ func _test_discard_reveal_not_faster_on_fast() -> void:
 	var goob := loop.discard_from(P, 0)
 	_check(goob != null and loop.player_deck.hand.size() == before - 1, "discard: discard_from takes it from the hand")
 	var t0 := Time.get_ticks_msec()
-	await scenario._show_discard(goob, P)
+	await scenario._show_discard(goob, P, 0)
 	var took := Time.get_ticks_msec() - t0
 	_check(took >= 1200, "discard: reveal not faster on Fast (%d ms)" % took)
 	_check(loop.player_deck.hand.size() == before - 1, "discard: the reveal itself takes nothing more")
 	_check(_hand_view(scenario).count() == loop.player_deck.hand.size(), "discard: the fan matches the hand")
 	_settings().reset()
 	await _free(scenario)
+
+
+## M6e fix: a discard from the middle of a mixed hand takes that very card out
+## of the fan, so the fan stays in hand order (taps play the right Goob).
+func _test_discard_keeps_fan_in_order() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	var v: GoobDefinition = TurnLoop.VANILLA
+	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
+	var popular: GoobDefinition = load("res://resources/goobs/popular_goob.tres")
+	var mixed: Array[GoobDefinition] = [v, fat, v, fat, popular]
+	loop.player_deck.hand.assign(mixed)
+	var hand := _hand_view(scenario)
+	hand.rebuild(loop.player_deck.hand)
+	loop.discard_from(P, 1)
+	await scenario._play_effect(loop.effect_steps[-1])
+	var fan := hand.goobs()
+	var same := fan.size() == loop.player_deck.hand.size()
+	for i in mini(fan.size(), loop.player_deck.hand.size()):
+		same = same and fan[i] == loop.player_deck.hand[i]
+	_check(same, "discard fan: fan matches the hand element by element")
+	await _free(scenario)
+
+
+## M6e fix: column input always wins, so no pill covers a column's hit area
+## (column + aim lane), with simulated insets. Pills fill the strip above the
+## aim lane; at 1080×1920 with insets that strip is empty, so they hide.
+func _test_pills_clear_of_columns(window: Vector2i) -> void:
+	root.size = window
+	SafeArea.simulate_insets = true
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	loop.add_status(&"a", P, "Mine", "x", -1)
+	loop.add_status(&"b", P, "Also mine", "x", -1)
+	loop.add_status(&"c", O, "His", "y", -1)
+	scenario._refresh_hud()
+	await process_frame
+	await process_frame
+	var buttons: Array[Button] = scenario._pills.buttons()
+	var lane_top: float = scenario.get_node("%AimLane").get_global_rect().position.y
+	var strip: float = lane_top - scenario._hud.bottom()
+	var clear := buttons.size() == 3
+	var shown := 0
+	for pill in buttons:
+		if not pill.is_visible_in_tree():
+			continue
+		shown += 1
+		var rect := pill.get_global_rect()
+		clear = clear and rect.size.x >= 96.0 and rect.position.y >= scenario._hud.bottom() - 0.5
+		for column in BoardState.COLUMNS:
+			if rect.intersects(scenario.column_hit_rect(column)):
+				clear = false
+	_check(clear, "%s: visible pills clear of every column hit rect" % str(window))
+	if strip >= 26.0: # room for a pill (10 game px at 1080 wide)
+		_check(shown == 3, "%s: pills shown in the strip (%d)" % [str(window), shown])
+		_check(buttons[0].get_global_rect().get_center().x < scenario.size.x * 0.5 and buttons[2].get_global_rect().get_center().x > scenario.size.x * 0.5, "%s: yours left, his right" % str(window))
+	else:
+		_check(shown == 0, "%s: no strip above the aim lane, pills hidden" % str(window))
+	SafeArea.simulate_insets = false
+	await _free(scenario)
+	root.size = PHONE

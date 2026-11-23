@@ -692,6 +692,8 @@ func _test_discard_step() -> void:
 	_check(t.effect_steps.size() == 1 and t.effect_steps[0]["discarded"] == g and t.effect_steps[0]["kind"] == GoobDefinition.EffectType.NONE, "discard step: appended")
 	t.discard_from(P, 99)
 	_check(t.effect_steps.size() == 1, "discard step: none when nothing discarded")
+	t.discard_from(P, 1)
+	_check(t.effect_steps[0]["index"] == 0 and t.effect_steps[1]["index"] == 1, "discard step: records the hand index")
 
 
 func _roll_stack(t: TurnLoop, column: int, count: int, owner: BoardState.CellOwner = P) -> void:

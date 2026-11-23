@@ -21,8 +21,9 @@ const REVEAL_HOLD_SEC := 0.55
 const REVEAL_FLY_SEC := 0.25
 const REVEAL_SCALE := 2.0
 ## Discarded Goob (M6e): the same pop, a longer hold, then off the screen;
-## pop + hold + fly = 1.2 s, never sped up by Fast.
+## never sped up by Fast.
 const DISCARD_HOLD_SEC := 0.8
+const DISCARD_SEC := REVEAL_POP_SEC + DISCARD_HOLD_SEC + REVEAL_FLY_SEC
 const COLOR_OUTLINE := Color(0.08, 0.05, 0.1, 1.0)
 const COLOR_OUTLINE_SELECTED := Color(0.85, 0.95, 1.0, 1.0)
 
@@ -266,18 +267,12 @@ func reveal(goob: GoobDefinition) -> void:
 
 ## A discarded Goob (TurnLoop.discard_from) pops in big at the screen centre
 ## like a drawn one, holds, then flies off the bottom (yours) or the top (his)
-## and is freed. One of yours leaves the fan first. Its timing ignores
-## speed_scale (never faster on Fast). Await to know when it has gone.
-func play_discard(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
-	if side == BoardState.CellOwner.PLAYER:
-		for i in range(_cards.size() - 1, -1, -1):
-			if _cards[i].get_meta("goob") == goob and i != _dragged and _cards[i] != _revealing:
-				_cards[i].queue_free()
-				_cards.remove_at(i)
-				if _selected >= _cards.size():
-					_selected = -1
-				layout(animate)
-				break
+## and is freed. Yours first leaves the fan at hand `index` (the fan follows
+## Deck.hand order). Its timing ignores speed_scale (never faster on Fast):
+## DISCARD_SEC in all. Await to know when it has gone.
+func play_discard(goob: GoobDefinition, side: BoardState.CellOwner, index: int = -1) -> void:
+	if side == BoardState.CellOwner.PLAYER and index >= 0 and index < _cards.size():
+		_take_card(index)
 	if not animate or not is_inside_tree():
 		return
 	var card := _make_card(goob, side)
@@ -297,6 +292,31 @@ func play_discard(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
 	await pop.finished
 	if is_instance_valid(card):
 		card.queue_free()
+
+
+## Takes card `index` out of the fan, keeping the selection and the dragged
+## card on the same Goobs (indices above it shift down).
+func _take_card(index: int) -> void:
+	var card := _cards[index]
+	if card == _revealing:
+		_revealing = null
+	card.queue_free()
+	_cards.remove_at(index)
+	for which in [&"_selected", &"_dragged"]:
+		var at: int = get(which)
+		if at == index:
+			set(which, -1)
+		elif at > index:
+			set(which, at - 1)
+	select(_selected) # outlines follow the shifted selection; re-lays out
+
+
+## The Goobs in the fan, in order (tests).
+func goobs() -> Array[GoobDefinition]:
+	var list: Array[GoobDefinition] = []
+	for card in _cards:
+		list.append(card.get_meta("goob"))
+	return list
 
 
 ## Moves every card (except one being dragged) to its fan slot.

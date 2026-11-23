@@ -89,9 +89,6 @@ const TURN_BANNER_SEC := 0.9
 ## "Game start" banner, then a beat before the first turn banner.
 const GAME_START_SEC := 1.3
 const GAME_START_GAP_SEC := 0.25
-## Discard reveal (M6e): the Goob's name in the gap and its pop + exit take
-## this long; never sped up by Fast.
-const DISCARD_SEC := 1.2
 
 @onready var _hud_slot: Control = %HudSlot
 @onready var _board_view: BoardView2D = %BoardView
@@ -325,7 +322,8 @@ func _fit_hud_slot() -> void:
 ## Turn banners go in the gap between the HUD and the board (Sean, 2026-11-20).
 func _place_banner_band() -> void:
 	_hud.set_banner_band(_hud.bottom(), _board_view.get_global_rect().position.y)
-	_pills.set_band(_hud.bottom(), _board_view.get_global_rect().position.y)
+	# Pills go above the aim lane: column input always wins (M6e review).
+	_pills.set_band(_hud.bottom(), _aim_lane.get_global_rect().position.y)
 
 
 func _on_pause_pressed() -> void:
@@ -842,7 +840,7 @@ func _play_effect(effect: Dictionary, face: StringName = &"") -> void:
 
 func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> void:
 	if effect.has("discarded"):
-		await _show_discard(effect["discarded"], side)
+		await _show_discard(effect["discarded"], side, effect.get("index", -1))
 		return
 	if effect["fizzled"]:
 		await _board_view.play_fizzle(cell)
@@ -965,23 +963,16 @@ func _reveal_drawn(goob: GoobDefinition) -> void:
 
 ## A discarded Goob (TurnLoop.discard_from, M6e): it pops in at the centre
 ## while its name shows in the gap, then leaves the screen (down = yours, up =
-## his). DISCARD_SEC, never sped up by Fast; one at a time (await it). Tests
+## his). HandView.DISCARD_SEC, never sped up by Fast; one at a time (await
+## it). `index`: the hand index it left (yours leaves the fan there). Tests
 ## (animate_drops = false) skip the motion.
-func _show_discard(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
-	_hud.show_caption(goob.display_name, DISCARD_SEC)
-	if not _animating():
-		await _hand.play_discard(goob, side)
-		return
+func _show_discard(goob: GoobDefinition, side: BoardState.CellOwner, index: int = -1) -> void:
 	var start_msec := Time.get_ticks_msec()
-	var timer := _make_timer(func() -> void: pass)
-	timer.start(DISCARD_SEC)
-	await _hand.play_discard(goob, side)
-	if not timer.is_stopped():
-		await timer.timeout
-	timer.queue_free()
-	# A timer's first tick can count time from before it started: top up to
-	# the full length on the clock.
-	while is_inside_tree() and Time.get_ticks_msec() - start_msec < DISCARD_SEC * 1000.0:
+	_hud.show_caption(goob.display_name, HandView.DISCARD_SEC)
+	await _hand.play_discard(goob, side, index)
+	# The tween's first tick can count frame time from before it started: top
+	# up to the full length on the clock (a pause already ran it past that).
+	while _animating() and is_inside_tree() and Time.get_ticks_msec() - start_msec < HandView.DISCARD_SEC * 1000.0:
 		await get_tree().process_frame
 
 
