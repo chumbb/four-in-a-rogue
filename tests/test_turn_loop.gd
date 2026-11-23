@@ -44,6 +44,9 @@ func _initialize() -> void:
 	_test_start_rolls_per_side()
 	_test_fat_fills_destroyed_pile()
 	_test_discard()
+	_test_effect_steps()
+	_test_status_ticks()
+	_test_discard_step()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -642,3 +645,45 @@ func _test_discard() -> void:
 	_check(d.discard(9) == null and d.discard_pile.size() == 1 and d.hand.size() == size - 1, "discard: out of range changes nothing")
 	var g := t.discard_from(BoardState.CellOwner.PLAYER, 0)
 	_check(g != null and d.discard_pile.size() == 2, "discard_from: moves to the side's pile")
+
+
+func _test_effect_steps() -> void:
+	var t := _with_special(FAT)
+	t.board.drop(0, O)
+	t.play(1, 0)
+	_check(t.effect_steps.size() == 1 and t.last_effect == t.effect_steps[0], "steps: fat gives one step, last_effect is step 0")
+	var v := TurnLoop.new()
+	v.start(true, _seeded(22), _vanilla())
+	v.play(3, 0)
+	_check(v.effect_steps.size() == 1 and v.effect_steps[0]["kind"] == GoobDefinition.EffectType.NONE, "steps: vanilla gives one NONE step")
+	v.play(3, 0)
+	_check(v.effect_steps.size() == 1, "steps: reset each play")
+
+
+func _test_status_ticks() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(23), _vanilla())
+	t.add_status(&"t", P, "Test", "x", 2)
+	t.add_status(&"f", P, "Forever", "y", -1)
+	_check(t.has_status(&"t", P) and not t.has_status(&"t", O), "status: has_status per side")
+	t.play(0, 0)
+	_check(t.has_status(&"t", P) and t.statuses[0]["turns_left"] == 1, "status: one left after first turn start")
+	t.play(1, 0)
+	_check(not t.has_status(&"t", P), "status: gone after two turn starts")
+	for i in 10:
+		t.play(i % 7, 0)
+	_check(t.has_status(&"f", P), "status: -1 survives 10 plays")
+	t.remove_status(&"f", P)
+	_check(not t.has_status(&"f", P), "status: remove_status")
+	t.add_status(&"f", P, "Forever", "y", -1)
+	t.start(true, _seeded(23), _vanilla())
+	_check(t.statuses.is_empty(), "status: start() clears")
+
+
+func _test_discard_step() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(24), _vanilla())
+	var g := t.discard_from(P, 0)
+	_check(t.effect_steps.size() == 1 and t.effect_steps[0]["discarded"] == g and t.effect_steps[0]["kind"] == GoobDefinition.EffectType.NONE, "discard step: appended")
+	t.discard_from(P, 99)
+	_check(t.effect_steps.size() == 1, "discard step: none when nothing discarded")

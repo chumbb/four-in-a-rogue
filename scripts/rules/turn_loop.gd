@@ -60,6 +60,16 @@ var last_draw_hand_full := false
 ##   drawn: Array[GoobDefinition] and hand_full: bool (Plentiful)
 var last_effect: Dictionary = {}
 
+## Every effect step of the current play(), in order (reset by play()): the
+## same keys as last_effect, plus {"discarded": GoobDefinition} for a discard
+## from discard_from(). last_effect is effect_steps[0], or {} when empty.
+var effect_steps: Array[Dictionary] = []
+
+## Active statuses: {id: StringName, side: BoardState.CellOwner, label: String,
+## text: String, turns_left: int}; turns_left -1 = until removed. Ticked in
+## _begin_turn, cleared by start().
+var statuses: Array[Dictionary] = []
+
 ## Vector2i(column, row) -> GoobDefinition of the Goob sitting there.
 var _cell_goobs: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
@@ -80,6 +90,8 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 		rng.randomize()
 	_rng = rng
 	last_effect = {}
+	effect_steps = []
+	statuses = []
 	board.reset()
 	_cell_goobs.clear()
 	result = Result.NONE
@@ -131,11 +143,14 @@ func play(column: int, hand_index: int = 0) -> int:
 	var deck := current_deck()
 	if hand_index < 0 or hand_index >= deck.hand.size():
 		return -1
+	effect_steps = []
+	last_effect = {}
 	var goob := deck.take(hand_index)
 	var side := current_side()
 	var row := board.drop(column, side)
 	_cell_goobs[Vector2i(column, row)] = goob
 	_resolve_effect(goob, Vector2i(column, row), side)
+	_on_turn_end(side)
 	match board.get_outcome():
 		BoardState.Outcome.PLAYER_WIN:
 			_finish(Result.PLAYER_WIN)
@@ -154,41 +169,43 @@ func play(column: int, hand_index: int = 0) -> int:
 ## The played Goob's special effect (slice §4 roster). Random targets come
 ## from the scenario rng; with nothing to act on the effect fizzles.
 func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.CellOwner) -> void:
-	last_effect = {"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false}
+	var step := {"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false}
+	effect_steps.append(step)
+	last_effect = effect_steps[0]
 	match goob.effect_type:
 		GoobDefinition.EffectType.FLIP_ADJACENT:
 			var targets := neighbours(board, cell, enemy_of(side))
 			if targets.is_empty():
-				last_effect["fizzled"] = true
+				step["fizzled"] = true
 				return
 			var target := targets[_rng.randi_range(0, targets.size() - 1)]
 			board.set_owner(target.x, target.y, side)
-			last_effect["target"] = target
+			step["target"] = target
 		GoobDefinition.EffectType.DESTROY_ADJACENT:
 			var targets := neighbours(board, cell, BoardState.CellOwner.EMPTY)
 			if targets.is_empty():
-				last_effect["fizzled"] = true
+				step["fizzled"] = true
 				return
 			var target := targets[_rng.randi_range(0, targets.size() - 1)]
 			destroy_at(target)
-			last_effect["target"] = target
+			step["target"] = target
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
 			var open := open_columns(board)
 			if open.is_empty():
-				last_effect["fizzled"] = true
+				step["fizzled"] = true
 				return
 			var column := open[_rng.randi_range(0, open.size() - 1)]
 			var row := board.drop(column, side)
 			_cell_goobs[Vector2i(column, row)] = VANILLA
-			last_effect["extra"] = Vector2i(column, row)
+			step["extra"] = Vector2i(column, row)
 		GoobDefinition.EffectType.DRAW_TWO:
 			var deck := deck_of(side)
 			var hand_full := deck.draw_blocked_by_hand(PLENTIFUL_DRAW)
 			var drawn := deck.draw(PLENTIFUL_DRAW)
-			last_effect["drawn"] = drawn
-			last_effect["hand_full"] = hand_full
+			step["drawn"] = drawn
+			step["hand_full"] = hand_full
 			# Nothing drawn and not a full hand = an empty deck: fizzle.
-			last_effect["fizzled"] = drawn.is_empty() and not hand_full
+			step["fizzled"] = drawn.is_empty() and not hand_full
 
 
 ## Destroys the Goob at `cell`: it goes to the destroyed pile of the side that
@@ -214,7 +231,41 @@ func _collapse_goobs(column: int, from_row: int) -> void:
 
 ## Discards `side`'s hand Goob at `index`; returns it (null if out of range).
 func discard_from(side: BoardState.CellOwner, index: int) -> GoobDefinition:
-	return deck_of(side).discard(index)
+	var goob := deck_of(side).discard(index)
+	if goob != null:
+		effect_steps.append({"kind": GoobDefinition.EffectType.NONE, "discarded": goob, "side": side, "cell": Vector2i(-1, -1), "fizzled": false})
+		last_effect = effect_steps[0]
+	return goob
+
+
+## Adds a status (replacing one with the same id and side).
+func add_status(id: StringName, side: BoardState.CellOwner, label: String, text: String, turns_left: int) -> void:
+	remove_status(id, side)
+	statuses.append({"id": id, "side": side, "label": label, "text": text, "turns_left": turns_left})
+
+
+func remove_status(id: StringName, side: BoardState.CellOwner) -> void:
+	for i in range(statuses.size() - 1, -1, -1):
+		if statuses[i]["id"] == id and statuses[i]["side"] == side:
+			statuses.remove_at(i)
+
+
+func has_status(id: StringName, side: BoardState.CellOwner) -> bool:
+	for st in statuses:
+		if st["id"] == id and st["side"] == side:
+			return true
+	return false
+
+
+## Hook for category sessions: called at the start of `side`'s turn, after
+## the status tick and before the draw.
+func _on_turn_start(_side: BoardState.CellOwner) -> void:
+	pass
+
+
+## Hook for category sessions: called in play() after the effect, before the win check.
+func _on_turn_end(_side: BoardState.CellOwner) -> void:
+	pass
 
 
 ## Occupied neighbours of `cell` on `board` (8-way). `only` = that side's
@@ -296,6 +347,12 @@ func _begin_turn(next: Phase) -> void:
 	else:
 		_finish(Result.DRAW)
 		return
+	for i in range(statuses.size() - 1, -1, -1):
+		if statuses[i]["turns_left"] > 0:
+			statuses[i]["turns_left"] -= 1
+			if statuses[i]["turns_left"] == 0:
+				statuses.remove_at(i)
+	_on_turn_start(current_side())
 	var deck := current_deck()
 	last_draw_hand_full = deck.draw_blocked_by_hand(TURN_DRAW)
 	last_draw = deck.draw(TURN_DRAW)
