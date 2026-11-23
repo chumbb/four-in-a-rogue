@@ -178,6 +178,7 @@ var sum_label: Label
 func _ready() -> void:
 	_rng.randomize()
 	_think_rng.randomize()
+	GameFlow.set_ambience(true) # forest ambience (slice §2B Sound)
 	# Art B vignette over the forest + stump, under the board and UI (it matches
 	# GameFlow's forest cover, so the board fades cleanly over the forest).
 	var vignette := GameFlow.make_vignette()
@@ -972,6 +973,7 @@ func _choose_opponent_move() -> void:
 	var flash := Settings.anim_sec(opponent_flash_sec) # Fast halves
 	if flash > 0.0:
 		_show_flash(_opponent_column, COLOR_FLASH_OPPONENT)
+		_sfx.play(&"red_flash")
 		_flash_timer.start(flash)
 	else:
 		_play_opponent_move()
@@ -1020,6 +1022,8 @@ func _show_end() -> void:
 				return
 			_board_view.highlight_cells(_loop.scoring_cells(BoardState.CellOwner.OPPONENT))
 			kind = &"lose"
+	if kind == &"draw":
+		_sfx.play(&"draw_sting")
 	_end_screen.set_result(kind)
 	_end_overlay.visible = true
 	_end_screen.play_intro.call_deferred(animate_drops)

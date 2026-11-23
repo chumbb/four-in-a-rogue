@@ -62,6 +62,9 @@ const STREAMS := {
 	&"lose_sting": preload("res://assets/audio/sfx/lose_sting.ogg"),
 	&"portrait_crack": preload("res://assets/audio/sfx/portrait_crack.ogg"),
 	&"portrait_explode": preload("res://assets/audio/sfx/portrait_explode.ogg"),
+	# M6d remaining events (art/audio/make_m6d_sounds.py): chiptune.
+	&"red_flash": preload("res://assets/audio/sfx/red_flash.ogg"),
+	&"draw_sting": preload("res://assets/audio/sfx/draw_sting.ogg"),
 }
 ## Scoring ladder notes, lowest first; the ladder must stay in tune, so these
 ## get no random pitch.

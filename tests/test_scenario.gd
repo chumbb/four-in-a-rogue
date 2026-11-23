@@ -92,6 +92,10 @@ func _run() -> void:
 	_flow().player_moves_first = saved_first
 	await process_frame
 	await process_frame
+	# Stop the ambience loop and let the mixer release it before quitting
+	# (a loop still playing at exit leaves "resources still in use").
+	_flow().set_ambience(false, 0.0)
+	await create_timer(0.2).timeout
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
 
@@ -392,6 +396,7 @@ func _test_red_opponent_flash() -> void:
 	_play_col(scenario, 3)
 	_check(scenario._flash.visible, "opponent flash shows before its drop")
 	_check(scenario._flash.color.r > scenario._flash.color.b, "opponent flash is red")
+	_check(scenario._sfx.history.back() == &"red_flash", "m6d: red flash blip")
 	_check(_count(board, O) == 0, "opponent has not dropped during the flash")
 	var col: int = scenario._opponent_column
 	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(col)), "flash on the chosen column")
@@ -529,6 +534,7 @@ func _test_draw_shows_replay() -> void:
 	var end_button: Button = scenario._end_screen.primary_button()
 	_check(scenario._loop.result == TurnLoop.Result.DRAW, "full board is a draw")
 	_check(scenario._end_screen.result_text() == "Draw", "announces Draw (got %s)" % scenario._end_screen.result_text())
+	_check(scenario._sfx.history.has(&"draw_sting"), "m6d: draw sting")
 	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown on draw")
 	_check(end_button.is_visible_in_tree(), "end button visible on draw")
 	_check(end_button.text == "Replay", "end button says Replay")
@@ -1447,6 +1453,7 @@ func _test_pause_menu() -> void:
 	var left_before: float = scenario._turn_timer.time_left
 	scenario._hud.pause_button().pressed.emit()
 	_check(pause.is_open() and paused, "pause: Pause opens the menu and pauses the tree")
+	_check(_flow().is_ambience_on() and is_equal_approx(_flow().ambience_target(), 0.3), "m6d: pause ducks the ambience to 30 %")
 	_check(pause.button("Resume").get_global_rect().size.y >= 96.0, "pause: buttons ≥ 96 px")
 	await create_timer(0.3, true).timeout
 	_check(is_equal_approx(scenario._turn_timer.time_left, left_before), "pause: turn timer stopped (%.2f vs %.2f)" % [scenario._turn_timer.time_left, left_before])
@@ -1463,6 +1470,7 @@ func _test_pause_menu() -> void:
 	_check(not pause.is_confirming() and pause._menu.visible and paused, "pause: Cancel goes back, still paused")
 	pause.button("Resume").pressed.emit()
 	_check(not pause.is_open() and not paused, "pause: Resume unpauses")
+	_check(is_equal_approx(_flow().ambience_target(), 1.0), "m6d: Resume restores the ambience")
 	await create_timer(0.2).timeout
 	_check(scenario._turn_timer.time_left < left_before - 0.1, "pause: timer runs again")
 	# The end overlay has no Pause.

@@ -30,6 +30,12 @@ const SCENE_PATHS: Dictionary = {
 const FADE_SEC := 0.3
 const FOREST := preload("res://assets/backgrounds/forest.png")
 const VIGNETTE := preload("res://shaders/vignette.gdshader")
+## Quiet forest loop during the coin flip and scenario (slice §2B Sound).
+const AMBIENCE := preload("res://assets/audio/sfx/forest_ambience.ogg")
+const AMBIENCE_FADE_SEC := 1.0
+## Pause ducks the ambience to this share of its volume.
+const AMBIENCE_DUCK := 0.3
+const AMBIENCE_DUCK_SEC := 0.15
 
 ## Set by the coin flip; true = player moves first.
 var player_moves_first: bool = true
@@ -45,6 +51,10 @@ var _fading := false
 var _cover_layer: CanvasLayer
 var _black: ColorRect
 var _forest: Control
+var _ambience: AudioStreamPlayer
+var _ambience_on := false
+var _ambience_ducked := false
+var _ambience_tween: Tween
 
 
 func _ready() -> void:
@@ -55,6 +65,16 @@ func _ready() -> void:
 	sfx = Sfx.new()
 	sfx.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(sfx)
+	_build_ambience()
+
+
+## Mobile (slice §2B Sound): all audio pauses while the app is in the
+## background. The engine's own settings come back on resume.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED:
+		AudioServer.set_bus_mute(AudioServer.get_bus_index(&"Master"), true)
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		Settings.apply_audio()
 
 
 ## F3 (debug builds only) toggles simulated phone safe-area insets (§2A).
@@ -80,13 +100,17 @@ func go_to(key: SceneKey, transition := Transition.BLACK, sec := -1.0) -> void:
 		return
 	if _fading:
 		return
+	var half := fade_sec if sec < 0.0 else sec
+	# The ambience fades out with the screen when leaving the forest screens;
+	# the coin flip and scenario turn it on themselves.
+	if key != SceneKey.COIN_FLIP and key != SceneKey.SCENARIO:
+		set_ambience(false, 0.0 if fade_sec <= 0.0 else half)
 	if fade_sec <= 0.0:
 		get_tree().change_scene_to_file(path)
 		return
 	if transition == Transition.CUT:
 		_cut_under_forest(path)
 		return
-	var half := fade_sec if sec < 0.0 else sec
 	_fading = true
 	var cover: Control = _black if transition == Transition.BLACK else _forest
 	cover.modulate.a = 0.0
@@ -135,6 +159,66 @@ func replay_after_draw() -> void:
 
 func return_to_title() -> void:
 	go_to(SceneKey.TITLE)
+
+
+## Turns the forest ambience on or off, fading over `sec` (0 = at once).
+## Turning it on again while it plays does nothing; any change clears the
+## pause duck.
+func set_ambience(on: bool, sec := AMBIENCE_FADE_SEC) -> void:
+	if on == _ambience_on:
+		return
+	_ambience_on = on
+	_ambience_ducked = false
+	if on and not _ambience.playing:
+		_ambience.play()
+	_fade_ambience(sec)
+
+
+## Pause menu: ducks the ambience to ~30 % (true) or restores it (false).
+func set_ambience_ducked(ducked: bool) -> void:
+	if ducked == _ambience_ducked:
+		return
+	_ambience_ducked = ducked
+	_fade_ambience(AMBIENCE_DUCK_SEC)
+
+
+func is_ambience_on() -> bool:
+	return _ambience_on
+
+
+## Volume share the ambience is heading to (1 on, 0.3 ducked, 0 off).
+func ambience_target() -> float:
+	if not _ambience_on:
+		return 0.0
+	return AMBIENCE_DUCK if _ambience_ducked else 1.0
+
+
+func _build_ambience() -> void:
+	_ambience = AudioStreamPlayer.new()
+	_ambience.name = "Ambience"
+	var loop: AudioStreamOggVorbis = AMBIENCE.duplicate()
+	loop.loop = true
+	_ambience.stream = loop
+	_ambience.bus = &"SFX"
+	_ambience.volume_linear = 0.0
+	# Keeps playing (ducked) while the tree is paused.
+	_ambience.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_ambience)
+
+
+func _fade_ambience(sec: float) -> void:
+	var target := ambience_target()
+	if _ambience_tween and _ambience_tween.is_valid():
+		_ambience_tween.kill()
+	if sec <= 0.0:
+		_ambience.volume_linear = target
+		if target <= 0.0:
+			_ambience.stop()
+		return
+	_ambience_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_ambience_tween.tween_property(_ambience, "volume_linear", target, sec)
+	if target <= 0.0:
+		_ambience_tween.tween_callback(_ambience.stop)
 
 
 ## Full-screen covers above every scene. The forest cover is drawn exactly like
