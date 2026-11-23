@@ -37,6 +37,9 @@ const PORTRAITS := {
 	&"waiting": preload("res://assets/strange_man/portrait_waiting.png"),
 	## Waves hello during the GAME START banner (Sean, M6c playtest).
 	&"greeting": preload("res://assets/strange_man/portrait_greeting.png"),
+	## He blocks your two; you block his three (Sean, M6c playtest).
+	&"giggle": preload("res://assets/strange_man/portrait_giggle.png"),
+	&"sad": preload("res://assets/strange_man/portrait_sad.png"),
 }
 const CRACK := preload("res://assets/strange_man/portrait_crack.png") ## 3 × 64 px
 const EXPLODE := preload("res://assets/strange_man/portrait_explode.png") ## 6 × 128 px

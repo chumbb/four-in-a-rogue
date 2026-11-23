@@ -740,10 +740,11 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 ## Opponent portrait reaction to the play just shown (slice §2B; Sean,
 ## 2026-11-22): surprised on a chain (Fat's destroy making Goobs fall) or a
 ## timeout roll; for his play, happy when he makes a new open three or his
-## effect hits you; for yours, angry when you break up his threes (a block)
-## or your effect hits him. Otherwise "well played" when either side blocks the
-## other's two (a side-by-side pair) from becoming a three (Sean, M6c playtest). Game over is left
-## to the end lead-in.
+## effect hits you; for yours, angry when your effect hits him and sad
+## (disappointed) when you break up his threes (a block). Otherwise, when a
+## two (a side-by-side pair) is blocked before it becomes a three: "well
+## played" when you block his, a giggle when he blocks yours (Sean, M6c
+## playtest). Game over is left to the end lead-in.
 func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> StringName:
 	if _loop.phase == TurnLoop.Phase.OVER:
 		return &""
@@ -764,12 +765,14 @@ func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int
 			face = &"happy"
 	else:
 		var his := BoardState.CellOwner.OPPONENT
-		if hit_other or OpponentAI.open_threes(_loop.board, his) < OpponentAI.open_threes(_board_before, his):
+		if hit_other:
 			face = &"angry"
+		elif OpponentAI.open_threes(_loop.board, his) < OpponentAI.open_threes(_board_before, his):
+			face = &"sad" # disappointed, not angry (Sean, M6c playtest)
 	if face == &"":
 		var other := TurnLoop.enemy_of(side)
 		if OpponentAI.open_lines(_loop.board, other, 2, true) < OpponentAI.open_lines(_board_before, other, 2, true):
-			face = &"well_played" # acknowledgement, for now (Sean, M6c playtest; was a nod)
+			face = &"well_played" if side == BoardState.CellOwner.PLAYER else &"giggle"
 	return face
 
 
