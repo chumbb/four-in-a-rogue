@@ -5,8 +5,8 @@ Usage (from the repo root):
 
 All synthesised for this project (no packs needed). Outputs (Ogg Vorbis, 44.1 kHz, via
 ffmpeg) in assets/audio/sfx/:
-  press_start.ogg  title Press Start: SNES wood block two-note up (C5 → G5) + echo  (C)
-  ui_tap.ogg       every UI press: SNES wood block tap, dry (740 Hz, low-passed)  (C)
+  press_start.ogg  title Press Start: the "goes first" fanfare with chorus + delay  (C)
+  ui_tap.ogg       every UI press: SNES wood block tap, dry (493 Hz, low-passed)  (C)
   (Sean, 2026-11-23: UI is SNES-like / 16-bit; he picked the wood block, option B in
   make_snes_coin_fizzle_options.py, after the felt tap and bubble were rejected.)
   first_sting.ogg  coin result flash + "goes first" banner: chiptune fanfare     (C)
@@ -36,15 +36,33 @@ UI_TOP_HZ = 1400
 COIN_TOP_HZ = 3800
 
 
+def chorus_delay(x, sec_tail=0.9):
+    """Chorus (two slowly wobbling detuned copies) + a feedback delay with darker repeats."""
+    x = np.concatenate([x, np.zeros(int(SR * sec_tail))])
+    n = len(x)
+    t = np.arange(n) / SR
+    out = x.copy()
+    for base, depth, rate in [(0.018, 0.0025, 0.9), (0.026, 0.0035, 1.3)]:
+        delay = base + depth * np.sin(2 * np.pi * rate * t)
+        out += 0.6 * np.interp(t - delay, t, x, left=0.0)
+    out /= 2.2
+    d = int(SR * 0.17)
+    echo = np.zeros(n)
+    tap = out.copy()
+    for k in range(1, 6):
+        tap = opt.lp(np.concatenate([np.zeros(d), tap[:-d]]), 3500)
+        echo += tap * (0.45 ** k)
+    return out + echo
+
+
 def press_start():
-    """SNES wood block C5 → G5 with the SNES echo (Sean's pick, 2026-11-23)."""
-    x = np.concatenate([opt.woodblock(523.25, 0.09), opt.woodblock(783.99, 0.25, 0.06)])
-    return opt.norm(opt.lp(opt.snes(x, 90, 0.35, 0.25), UI_TOP_HZ, 4), 0.22)
+    """The "goes first" fanfare with chorus + delay (Sean, 2026-11-23)."""
+    return opt.norm(chorus_delay(first_sting()), 0.22)
 
 
 def ui_tap():
-    """SNES wood block tap, dry: mid register, low-passed, no pitch movement."""
-    return opt.norm(opt.lp(opt.snes(opt.woodblock(740)), UI_TOP_HZ, 4), 0.22)
+    """SNES wood block tap, dry, a fifth lower than the pick (740 → 493 Hz; Sean)."""
+    return opt.norm(opt.lp(opt.snes(opt.woodblock(740 / 1.5)), UI_TOP_HZ, 4), 0.22)
 
 
 def first_sting():
