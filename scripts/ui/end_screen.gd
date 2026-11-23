@@ -16,7 +16,7 @@ const HEADINGS := {
 }
 const TEXT := {&"win": "You win!", &"lose": "You lose", &"draw": "Draw"}
 const PRIMARY := {&"win": "Back to title", &"lose": "Back to title", &"draw": "Replay"}
-const WIDTH := 236.0
+const WIDTH := 252.0 ## room for the 5× one-line "YOU LOSE" (220 px)
 const BUTTON_W := 104.0
 const BUTTON_H := 36.0
 const BUTTON_GAP := 8.0

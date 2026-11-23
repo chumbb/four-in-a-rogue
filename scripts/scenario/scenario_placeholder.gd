@@ -734,7 +734,7 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 ## timeout roll; for his play, happy when he makes a new open three or his
 ## effect hits you; for yours, angry when you break up his threes (a block)
 ## or your effect hits him. Otherwise surprised when either side blocks the
-## other's two from becoming a three (Sean, M6c playtest). Game over is left
+## other's two (a side-by-side pair) from becoming a three (Sean, M6c playtest). Game over is left
 ## to the end lead-in.
 func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> StringName:
 	if _loop.phase == TurnLoop.Phase.OVER:
@@ -760,7 +760,7 @@ func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int
 			face = &"angry"
 	if face == &"":
 		var other := TurnLoop.enemy_of(side)
-		if OpponentAI.open_lines(_loop.board, other, 2) < OpponentAI.open_lines(_board_before, other, 2):
+		if OpponentAI.open_lines(_loop.board, other, 2, true) < OpponentAI.open_lines(_board_before, other, 2, true):
 			face = &"surprised"
 	return face
 

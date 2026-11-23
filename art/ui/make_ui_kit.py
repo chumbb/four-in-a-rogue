@@ -524,7 +524,7 @@ def logo():
     return img.crop(img.getbbox())
 
 
-END_SCALE = 5  # font px -> game px; big and stacked to fill the end screen (Sean, M6c playtest)
+END_SCALE = 5  # font px -> game px; big, one line, filling the end screen (Sean, M6c playtest)
 
 
 def heading_word(text, ramp, scale=END_SCALE):
@@ -654,8 +654,8 @@ def build():
         "icon_speaker_muted": icon_speaker(True),
         "logo": logo(),
         "heading_who_goes_first": heading_who_goes_first(),
-        "heading_you_win": heading_word("YOU\nWIN!", END_RAMPS["win"]),
-        "heading_you_lose": heading_word("YOU\nLOSE", END_RAMPS["lose"]),
+        "heading_you_win": heading_word("YOU WIN!", END_RAMPS["win"]),
+        "heading_you_lose": heading_word("YOU LOSE", END_RAMPS["lose"]),
         "heading_draw": heading_word("DRAW", END_RAMPS["draw"]),
         "fuse_rope": fuse_rope(),
         "fuse_burnt": fuse_burnt(),

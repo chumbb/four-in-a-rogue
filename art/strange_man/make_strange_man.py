@@ -63,8 +63,8 @@ EXPRESSIONS = {  # asset name -> bust/raw_<source>.png
     # eyebrow" -> hand-pixelled bust/make_waiting_brow.py b1|b2|b3; Sean picked b2.
     "waiting": "waiting_b2",
     # Game-start greeting (M6c playtest, Sean 2026-11-22: "new wave face"): edit_image of
-    # idle, options bust/raw_greeting_a|b|c.png (compare_greeting.png); a = open-hand wave.
-    "greeting": "greeting_a",
+    # idle, options bust/raw_greeting_a|b|c.png (compare_greeting.png); Sean picked c (tips his beanie).
+    "greeting": "greeting_c",
 }
 GOOB_X = {"blue": 72, "red": 198}  # centre x in game px, either side of him on the pool
 CRACK_DARK, CRACK_LIT = hexc("2e222f"), hexc("c7dcd0")

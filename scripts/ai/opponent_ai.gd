@@ -171,13 +171,17 @@ static func open_threes(board: BoardState, side: BoardState.CellOwner) -> int:
 
 ## Four-cell windows holding exactly `goobs` of `side`'s Goobs and nothing
 ## else (the rest empty): open_lines(b, s, 2) = twos that could become threes.
-static func open_lines(board: BoardState, side: BoardState.CellOwner, goobs: int) -> int:
+## `touching`: the Goobs must sit side by side in the window (no gap), so a
+## "two" is a real pair (portrait surprise; Sean, M6c playtest).
+static func open_lines(board: BoardState, side: BoardState.CellOwner, goobs: int, touching := false) -> int:
 	var count := 0
 	for row in BoardState.ROWS:
 		for column in BoardState.COLUMNS:
 			for dir in _DIRECTIONS:
 				var mine := 0
 				var empty := 0
+				var first := -1
+				var last := -1
 				var valid := true
 				for i in BoardState.CONNECT:
 					var c := column + dir.x * i
@@ -188,8 +192,13 @@ static func open_lines(board: BoardState, side: BoardState.CellOwner, goobs: int
 					var owner := board.get_owner(c, r)
 					if owner == side:
 						mine += 1
+						if first < 0:
+							first = i
+						last = i
 					elif owner == BoardState.CellOwner.EMPTY:
 						empty += 1
+				if touching and last - first != goobs - 1:
+					continue
 				if valid and mine == goobs and empty == BoardState.CONNECT - goobs:
 					count += 1
 	return count

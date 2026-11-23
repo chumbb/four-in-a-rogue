@@ -189,6 +189,12 @@ func _test_open_threes() -> void:
 	_check(OpponentAI.open_lines(t, O, 2) == 1, "an open two counts (one window: columns 0-3)")
 	t.drop(2, P)
 	_check(OpponentAI.open_lines(t, O, 2) == 0, "a blocked two does not")
+	var gap := BoardState.new()
+	gap.drop(0, O)
+	gap.drop(2, O)
+	_check(OpponentAI.open_lines(gap, O, 2) == 1, "O_O_ is an open two")
+	_check(OpponentAI.open_lines(gap, O, 2, true) == 0, "but not a side-by-side pair")
+	_check(OpponentAI.open_lines(t, O, 2, true) == 0 and OpponentAI.open_lines(gap, O, 3) == 0, "touching pairs: blocked still 0")
 
 
 func _test_full_board_returns_minus_one() -> void:
