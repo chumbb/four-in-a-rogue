@@ -51,6 +51,7 @@ func _initialize() -> void:
 	_test_roll_stops_equal()
 	_test_roll_border()
 	_test_roll_middle()
+	_test_roll_floor_stays()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -704,8 +705,6 @@ func _test_roll_downhill() -> void:
 	t.start(true, _seeded(30), _vanilla())
 	_roll_stack(t, 0, 3)
 	_roll_stack(t, 1, 1)
-	for c in range(3, 7):
-		_roll_stack(t, c, 1)
 	var path := t.roll_goob(Vector2i(0, 2), 1)
 	_check(path.size() == 2 and path[0] == Vector2i(1, 1) and path[1] == Vector2i(2, 0), "roll downhill: path ends at (2,0)")
 	_check(t.board.get_owner(2, 0) == P and t.goob_at(2, 0) == TurnLoop.VANILLA, "roll downhill: landed Goob kept")
@@ -737,10 +736,16 @@ func _test_roll_middle() -> void:
 	t.board.set_owner(0, 1, O)
 	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
 	t._cell_goobs[Vector2i(0, 1)] = fat
-	for c in range(2, 7):
-		_roll_stack(t, c, 1)
 	var path := t.roll_goob(Vector2i(0, 1), 1)
 	_check(path.size() == 1 and path[0] == Vector2i(1, 0), "roll middle: path")
 	_check(t.board.get_owner(1, 0) == O and t.goob_at(1, 0) == fat, "roll middle: owner and definition kept")
 	_check(t.board.get_owner(0, 1) == P and t.goob_at(0, 1) == TurnLoop.VANILLA, "roll middle: top Goob fell to row 1")
 	_check(t.board.get_owner(0, 2) == BoardState.CellOwner.EMPTY and t.goob_at(0, 2) == null, "roll middle: column 0 height 2")
+
+
+func _test_roll_floor_stays() -> void:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(34), _vanilla())
+	_roll_stack(t, 2, 1)
+	_check(t.roll_goob(Vector2i(2, 0), 1).is_empty(), "roll floor: lone Goob stays")
+	_check(t.board.get_owner(2, 0) == P, "roll floor: still at (2,0)")

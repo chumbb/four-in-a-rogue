@@ -229,8 +229,8 @@ func _collapse_goobs(column: int, from_row: int) -> void:
 			_cell_goobs.erase(Vector2i(column, r))
 
 
-## Rolls the Goob at `cell` sideways (`dir` -1 or +1) while the cell beside it
-## is empty, falling to the top of that column. Returns the cells it passed
+## Rolls the Goob at `cell` sideways (`dir` -1 or +1) while the next column is
+## strictly lower than the row it rests on, falling to the top of that column. Returns the cells it passed
 ## through after leaving `cell` (empty = didn't move). Keeps owner and
 ## definition; the Goobs above its old cell fall.
 func roll_goob(cell: Vector2i, dir: int) -> Array[Vector2i]:
@@ -239,7 +239,10 @@ func roll_goob(cell: Vector2i, dir: int) -> Array[Vector2i]:
 	var goob: GoobDefinition = _cell_goobs.get(cell)
 	while true:
 		var next := cell.x + dir
-		if not board.is_valid_column(next) or board.get_owner(next, cell.y) != BoardState.CellOwner.EMPTY:
+		if not board.is_valid_column(next):
+			break
+		var height := board.lowest_empty_row(next)
+		if height < 0 or height >= cell.y:
 			break
 		board.destroy_cell(cell.x, cell.y)
 		_collapse_goobs(cell.x, cell.y)
