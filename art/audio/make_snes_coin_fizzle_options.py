@@ -330,6 +330,71 @@ def build_game_start():
         write_ogg(norm(x, 0.3), f"4_game_start_{name}.ogg")
 
 
+def brr(x, block=16):
+    """SNES BRR-style 4-bit ADPCM (filter 1: predict 15/16 of the last sample),
+    one shift per 16-sample block. Adds the console's grainy hiss on quiet parts."""
+    y = np.zeros(len(x))
+    prev = 0.0
+    for start in range(0, len(x), block):
+        seg = x[start : start + block]
+        est = np.max(np.abs(seg - 0.9375 * np.concatenate([[prev], seg[:-1]]))) + 1e-9
+        step = 2.0 ** np.ceil(np.log2(est / 7.0))
+        for i, v in enumerate(seg):
+            q = np.clip(np.round((v - 0.9375 * prev) / step), -8, 7)
+            prev = 0.9375 * prev + q * step
+            y[start + i] = prev
+    return y
+
+
+def snes_sampled(x, rate, echo_ms=128, feedback=0.4, wet=0.3):
+    """Play x like a SNES sample: stored at `rate` Hz, BRR-squashed, Gaussian-
+    interpolated up to the 32 kHz DSP, then the echo unit."""
+    from math import gcd
+    g = gcd(SR, rate)
+    lo = resample_poly(np.concatenate([x, np.zeros(int(SR * 0.6))]), rate // g, SR // g)
+    lo = brr(lo / np.max(np.abs(lo)) * 0.9)
+    g2 = gcd(rate, 32000)
+    y = resample_poly(lo, 32000 // g2, rate // g2)
+    y = sosfilt(butter(2, min(0.42 * rate, 7000), "lowpass", fs=32000, output="sos"), y)
+    d = int(32 * echo_ms)
+    buf = np.zeros(len(y))
+    for i in range(d + 3, len(y)):
+        buf[i] = y[i - d] + feedback * 0.25 * (buf[i - d] + buf[i - d - 1] + buf[i - d - 2] + buf[i - d - 3])
+    y = resample_poly(y + wet * buf, 441, 320)
+    keep = np.nonzero(np.abs(y) > 1e-3)[0]
+    return y[: keep[-1] + 1]
+
+
+def snes_horn(freq, sec, release):
+    """A short 'recorded' horn: the swell is the sample attack, then the sustain
+    is a short loop repeated (no evolving tone), SNES ADSR release."""
+    attack_sec, loop_sec = 0.08, 0.03
+    one = horn(freq, attack_sec + loop_sec, bright=4.5, vib=0.0, release=0.001)
+    a_n, l_n = int(SR * attack_sec), int(SR * loop_sec)
+    loop = one[a_n : a_n + l_n]
+    period = SR / freq
+    l_n = int(round(int(l_n / period) * period))  # loop on whole cycles, no click
+    loop = one[a_n : a_n + l_n]
+    n = int(SR * sec)
+    out = np.concatenate([one[:a_n]] + [loop] * (n // max(l_n, 1) + 1))[:n]
+    t = np.arange(n) / SR
+    return out * np.minimum(1.0, (sec - t) / release) * np.exp(-t / 2.5)
+
+
+def snes_section(rate):
+    gap = np.zeros(int(SR * 0.02))
+    def line(f1, f2, detune=1.0):
+        return np.concatenate([snes_horn(f1 * detune, 0.2, 0.03), gap, snes_horn(f2 * detune, 0.75, 0.25)])
+    x = line(261.63, 392.0) + 0.45 * line(523.25, 783.99, 1.003)
+    return snes_sampled(x, rate)
+
+
+def build_game_start_snes():
+    """Sean (2026-11-23): "C horn section BUT SNES"."""
+    for name, rate in {"C1_snes": 22050, "C2_snes_crunchy": 11025}.items():
+        write_ogg(norm(snes_section(rate), 0.3), f"4_game_start_{name}.ogg")
+
+
 def main():
     fx.OUT_DIR = COMPARE_DIR
     os.makedirs(COMPARE_DIR, exist_ok=True)
@@ -338,6 +403,7 @@ def main():
     build_fizzle()
     build_fizzle_soft()
     build_game_start()
+    build_game_start_snes()
     print("wrote options to", fx.OUT_DIR)
 
 
