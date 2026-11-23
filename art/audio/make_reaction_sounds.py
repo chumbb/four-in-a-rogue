@@ -5,8 +5,9 @@ Usage (from the repo root):
 
 All synthesised for this project (no packs needed). Outputs (Ogg Vorbis, 44.1 kHz, via
 ffmpeg) in assets/audio/sfx/; T = tactile, C = chiptune (slice §2B Sound):
-  game_start.ogg       C  "GAME START" banner: SNES horn section, 2 notes I -> V (C4 -> G4 + octave),
-                          sampled at 22 kHz with BRR grain + SNES echo (Sean's pick C1, 2026-11-23)
+  game_start.ogg       C  "GAME START" banner: bright SNES horn section, 2 notes I -> V (C4 -> G4 +
+                          a trumpet-like octave on top), 32 kHz sample, BRR grain, SNES echo
+                          (Sean's pick D3, 2026-11-23; C1 was "too warm")
   goob_flip.ogg        T  a Goob flips out of the hand / up from behind the board: short
                           airy flick (filtered noise, fast swell) + a soft tick
   fuse_burn.ogg        T  low-time fuse: crackling hiss, seamless ~1 s loop
@@ -107,9 +108,9 @@ def portrait_explode(sec=0.6, seed=13):
 
 
 def game_start():
-    """SNES horn section, I -> V (Sean, 2026-11-23: "C horn section BUT SNES", pick C1)."""
+    """Bright SNES horn section, I -> V (Sean, 2026-11-23: pick D3 after C1 was too warm)."""
     import make_snes_coin_fizzle_options as opt
-    return opt.norm(opt.snes_section(22050), 0.3)
+    return opt.norm(opt.snes_section(32000, bright=10.0, hi_gain=1.0, hi_bright=13.0, top_hz=10000, shelf_db=6.0), 0.3)
 
 
 def main():
