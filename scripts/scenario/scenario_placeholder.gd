@@ -1012,8 +1012,6 @@ func _show_end() -> void:
 				return
 			_board_view.highlight_cells(_loop.scoring_cells(BoardState.CellOwner.OPPONENT))
 			kind = &"lose"
-	if kind == &"draw":
-		_sfx.play(&"draw_sting")
 	_end_screen.set_result(kind)
 	_end_overlay.visible = true
 	_end_screen.play_intro.call_deferred(animate_drops)

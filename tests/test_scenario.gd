@@ -527,7 +527,6 @@ func _test_draw_shows_replay() -> void:
 	var end_button: Button = scenario._end_screen.primary_button()
 	_check(scenario._loop.result == TurnLoop.Result.DRAW, "full board is a draw")
 	_check(scenario._end_screen.result_text() == "Draw", "announces Draw (got %s)" % scenario._end_screen.result_text())
-	_check(scenario._sfx.history.has(&"draw_sting"), "m6d: draw sting")
 	_check(scenario.get_node("%EndOverlay").visible, "result overlay shown on draw")
 	_check(end_button.is_visible_in_tree(), "end button visible on draw")
 	_check(end_button.text == "Replay", "end button says Replay")

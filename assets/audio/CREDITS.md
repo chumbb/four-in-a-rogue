@@ -23,7 +23,6 @@ fallback credited here). Files in `sfx/` were trimmed / converted to Ogg Vorbis.
 | `sfx/press_start.ogg`, `sfx/ui_tap.ogg`, `sfx/page_click.ogg`, `sfx/first_sting.ogg`, `sfx/coin_whirr.ogg`, `sfx/coin_clink.ogg` | Made for this project (`art/audio/make_flow_sounds.py`: chiptune blips + synthesised whirr/clink, 2026-11-20) | — |
 | `sfx/pause_open.ogg`, `sfx/pause_close.ogg`, `sfx/slider_tick.ogg`, `sfx/turn_whoosh.ogg` | Made for this project (`art/audio/make_menu_sounds.py`: chiptune blips; soft turn-banner whoosh, 2026-11-20) | — |
 | `sfx/game_start.ogg`, `sfx/goob_flip.ogg`, `sfx/fuse_burn.ogg`, `sfx/win_sting.ogg`, `sfx/lose_sting.ogg`, `sfx/portrait_crack.ogg`, `sfx/portrait_explode.ogg` | Made for this project (`art/audio/make_reaction_sounds.py`: chiptune stings, synthesised flick/fuse/crack/burst, 2026-11-22) | — |
-| `sfx/draw_sting.ogg` | Made for this project (`art/audio/make_m6d_sounds.py`: chiptune sting, 2026-11-23) | — |
 | `sfx/inspect_close.ogg` | Kenney — RPG Audio (OpenGameArt "50 RPG sound effects") | `OGG/bookClose.ogg` (low-passed, quieter, softened attack) |
 
 Kenney starter kits: code MIT, bundled assets CC0 (per each kit's README). Small Sound Kit: CC0 (store listing). Kenney RPG Audio: CC0 (pack `license.txt`).
