@@ -83,6 +83,8 @@ func _run() -> void:
 	await _test_m6c_waiting()
 	await _test_convincing_flip_colour()
 	await _test_chain_loss_angry()
+	await _test_status_pill_shows_and_toasts()
+	await _test_discard_reveal_not_faster_on_fast()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
 	await _test_layout(Vector2i(1080, 2340), true)
@@ -1513,4 +1515,51 @@ func _test_screen_shake_option() -> void:
 	_settings().set_screen_shake(true)
 	scenario._reject_placement("Column full")
 	_check(view._shake_tween != null and view._shake_tween.is_valid(), "shake: On shakes again")
+	await _free(scenario)
+
+
+## M6e: a status shows as a pill in the gap (yours on the left); pressing it
+## toasts its explanation.
+func _test_status_pill_shows_and_toasts() -> void:
+	var scenario := await _make(5.0)
+	var loop: TurnLoop = scenario._loop
+	loop.add_status(&"t", P, "Test", "Explain", -1)
+	scenario._refresh_hud()
+	await process_frame
+	var pills: StatusPills = scenario._pills
+	var buttons := pills.buttons()
+	_check(buttons.size() == 1, "pills: one pill (got %d)" % buttons.size())
+	if buttons.size() == 1:
+		var pill := buttons[0]
+		_check(pill.is_visible_in_tree() and pill.text == "Test", "pills: shows its label")
+		var rect := pill.get_global_rect()
+		_check(rect.get_center().x < scenario.size.x * 0.5, "pills: yours on the left half")
+		_check(rect.size.x >= 96.0, "pills: at least 96 px wide (got %.0f)" % rect.size.x)
+		_check(rect.position.y >= scenario._hud.bottom() and rect.end.y <= _view(scenario).get_global_rect().position.y + 0.5, "pills: inside the gap")
+		pill.pressed.emit()
+		_check(scenario._toast._label.text == "Explain", "pills: press toasts the text")
+	loop.remove_status(&"t", P)
+	scenario._refresh_hud()
+	await process_frame
+	_check(pills.buttons().is_empty(), "pills: removed status clears its pill")
+	await _free(scenario)
+
+
+## M6e: the discard reveal is never sped up by Fast, and only discard_from
+## takes the Goob out of the hand (the fan follows it).
+func _test_discard_reveal_not_faster_on_fast() -> void:
+	var scenario := await _make(5.0, true, 30.0, true)
+	await _wait_input(scenario)
+	_settings().set_speed(1) # Fast
+	var loop: TurnLoop = scenario._loop
+	var before := loop.player_deck.hand.size()
+	var goob := loop.discard_from(P, 0)
+	_check(goob != null and loop.player_deck.hand.size() == before - 1, "discard: discard_from takes it from the hand")
+	var t0 := Time.get_ticks_msec()
+	await scenario._show_discard(goob, P)
+	var took := Time.get_ticks_msec() - t0
+	_check(took >= 1200, "discard: reveal not faster on Fast (%d ms)" % took)
+	_check(loop.player_deck.hand.size() == before - 1, "discard: the reveal itself takes nothing more")
+	_check(_hand_view(scenario).count() == loop.player_deck.hand.size(), "discard: the fan matches the hand")
+	_settings().reset()
 	await _free(scenario)

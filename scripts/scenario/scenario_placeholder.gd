@@ -89,6 +89,9 @@ const TURN_BANNER_SEC := 0.9
 ## "Game start" banner, then a beat before the first turn banner.
 const GAME_START_SEC := 1.3
 const GAME_START_GAP_SEC := 0.25
+## Discard reveal (M6e): the Goob's name in the gap and its pop + exit take
+## this long; never sped up by Fast.
+const DISCARD_SEC := 1.2
 
 @onready var _hud_slot: Control = %HudSlot
 @onready var _board_view: BoardView2D = %BoardView
@@ -110,6 +113,8 @@ var animate_drops := true
 var deck: Array[GoobDefinition] = []
 
 var _hud: ScenarioHud
+## Active statuses as pills in the gap (M6e).
+var _pills: StatusPills
 var _pause: PauseMenu
 ## Set when the turn timer ran out (the HUD reads 0 until the Goob is played).
 var _timed_out := false
@@ -298,6 +303,12 @@ func _build_hud() -> void:
 		_sfx.play(&"ui_tap")
 		set_reviewing(false))
 	_hud.stage.relayout.connect(_fit_hud_slot)
+	_pills = StatusPills.new()
+	add_child(_pills)
+	move_child(_pills, _hud.get_index() + 1)
+	_pills.pill_pressed.connect(func(text: String) -> void:
+		_toast.show_message(text)
+		_place_toast())
 	_pause = PauseMenu.new()
 	# Time paused doesn't count as the player keeping him waiting.
 	_pause.resumed.connect(func() -> void: _idle_since_msec = Time.get_ticks_msec())
@@ -314,6 +325,7 @@ func _fit_hud_slot() -> void:
 ## Turn banners go in the gap between the HUD and the board (Sean, 2026-11-20).
 func _place_banner_band() -> void:
 	_hud.set_banner_band(_hud.bottom(), _board_view.get_global_rect().position.y)
+	_pills.set_band(_hud.bottom(), _board_view.get_global_rect().position.y)
 
 
 func _on_pause_pressed() -> void:
@@ -447,8 +459,8 @@ func _on_press(event: InputEventScreenTouch) -> void:
 	_idle_since_msec = Time.get_ticks_msec()
 	if _touch_index != -1:
 		return # a second finger; single pointer only
-	if PixelStage.touches_button(_hud, event.position):
-		return # the Pause button (normal Control signal)
+	if PixelStage.touches_button(_hud, event.position) or PixelStage.touches_button(_pills, event.position):
+		return # the Pause button or a status pill (normal Control signals)
 	if _inspect.is_open():
 		# The next tap closes the inspect view and does nothing else.
 		_inspect.close()
@@ -733,12 +745,13 @@ func _play_player(column: int, hand_index: int, roll_path: Array[int] = [], in_f
 	return row
 
 
-## The Goob falls (or rolls) into place, its effect plays, then the next turn
-## starts. §4.2 order: land → special effect → win check last (TurnLoop has
+## The Goob falls (or rolls) into place, its effect steps play in order
+## (TurnLoop.effect_steps), then the next turn starts. §4.2 order: land → special effect → win check last (TurnLoop has
 ## already resolved all three; this shows them in that order).
 ## `from_behind`: the opponent's Goob flips up from behind the board first.
 func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll_path: Array[int] = [], goob: GoobDefinition = null, from_behind: bool = false) -> void:
 	var effect := _loop.last_effect
+	var steps := _loop.effect_steps.duplicate()
 	# The portrait reacts while it happens (Sean, M6c playtest): a timeout roll
 	# as it starts rolling, an effect's outcome as the effect starts, anything
 	# else (a three, a block) as the Goob lands.
@@ -753,9 +766,10 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 		Settings.vibrate() # one pulse when your Goob lands (slice §2B)
 	if face != &"" and not on_effect:
 		_hud.react(face)
-	await _play_effect(effect, face if on_effect else &"")
-	if not is_inside_tree():
-		return
+	for i in steps.size():
+		await _play_effect(steps[i], face if on_effect and i == 0 else &"")
+		if not is_inside_tree():
+			return
 	_board_view.sync_from_board(_loop.board)
 	_after_play()
 
@@ -807,12 +821,13 @@ func _chained(effect: Dictionary) -> bool:
 	return not _loop.board.is_empty(target.x, target.y)
 
 
-## Shows what TurnLoop.last_effect did: the type's impact on its target (the
-## target was picked first, slice §4), or a fizzle when it had none.
+## Shows one TurnLoop effect step: the type's impact on its target (the
+## target was picked first, slice §4), a fizzle when it had none, or a
+## discard reveal. Plain Goobs' steps (kind NONE) show nothing.
 ## `face`: the portrait reaction to show as the effect starts ("" = none).
 func _play_effect(effect: Dictionary, face: StringName = &"") -> void:
 	var kind: GoobDefinition.EffectType = effect.get("kind", GoobDefinition.EffectType.NONE)
-	if kind == GoobDefinition.EffectType.NONE:
+	if kind == GoobDefinition.EffectType.NONE and not effect.has("discarded"):
 		return
 	var cell: Vector2i = effect["cell"]
 	var side: BoardState.CellOwner = effect["side"]
@@ -826,6 +841,9 @@ func _play_effect(effect: Dictionary, face: StringName = &"") -> void:
 
 
 func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> void:
+	if effect.has("discarded"):
+		await _show_discard(effect["discarded"], side)
+		return
 	if effect["fizzled"]:
 		await _board_view.play_fizzle(cell)
 		return
@@ -943,6 +961,28 @@ func _reveal_drawn(goob: GoobDefinition) -> void:
 	var sec := HandView.REVEAL_POP_SEC + HandView.REVEAL_HOLD_SEC + HandView.REVEAL_FLY_SEC
 	_hud.show_caption(goob.display_name, maxf(sec / Settings.anim_scale() if _animating() else 0.0, CAPTION_MIN_SEC))
 	await _hand.reveal(goob)
+
+
+## A discarded Goob (TurnLoop.discard_from, M6e): it pops in at the centre
+## while its name shows in the gap, then leaves the screen (down = yours, up =
+## his). DISCARD_SEC, never sped up by Fast; one at a time (await it). Tests
+## (animate_drops = false) skip the motion.
+func _show_discard(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
+	_hud.show_caption(goob.display_name, DISCARD_SEC)
+	if not _animating():
+		await _hand.play_discard(goob, side)
+		return
+	var start_msec := Time.get_ticks_msec()
+	var timer := _make_timer(func() -> void: pass)
+	timer.start(DISCARD_SEC)
+	await _hand.play_discard(goob, side)
+	if not timer.is_stopped():
+		await timer.timeout
+	timer.queue_free()
+	# A timer's first tick can count time from before it started: top up to
+	# the full length on the clock.
+	while is_inside_tree() and Time.get_ticks_msec() - start_msec < DISCARD_SEC * 1000.0:
+		await get_tree().process_frame
 
 
 ## A draw skipped by the hand cap (turn draw or Plentiful): toast + shake.
@@ -1191,6 +1231,7 @@ func gap_center() -> Vector2:
 
 func _refresh_hud() -> void:
 	_refresh_timer()
+	_pills.show_statuses(_loop.statuses)
 
 
 ## Review after the end: a double tap on a board or hand Goob inspects it;

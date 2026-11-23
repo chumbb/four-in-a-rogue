@@ -20,6 +20,9 @@ const REVEAL_POP_SEC := 0.15
 const REVEAL_HOLD_SEC := 0.55
 const REVEAL_FLY_SEC := 0.25
 const REVEAL_SCALE := 2.0
+## Discarded Goob (M6e): the same pop, a longer hold, then off the screen;
+## pop + hold + fly = 1.2 s, never sped up by Fast.
+const DISCARD_HOLD_SEC := 0.8
 const COLOR_OUTLINE := Color(0.08, 0.05, 0.1, 1.0)
 const COLOR_OUTLINE_SELECTED := Color(0.85, 0.95, 1.0, 1.0)
 
@@ -261,6 +264,41 @@ func reveal(goob: GoobDefinition) -> void:
 	layout(false) # settle every card on the current layout
 
 
+## A discarded Goob (TurnLoop.discard_from) pops in big at the screen centre
+## like a drawn one, holds, then flies off the bottom (yours) or the top (his)
+## and is freed. One of yours leaves the fan first. Its timing ignores
+## speed_scale (never faster on Fast). Await to know when it has gone.
+func play_discard(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
+	if side == BoardState.CellOwner.PLAYER:
+		for i in range(_cards.size() - 1, -1, -1):
+			if _cards[i].get_meta("goob") == goob and i != _dragged and _cards[i] != _revealing:
+				_cards[i].queue_free()
+				_cards.remove_at(i)
+				if _selected >= _cards.size():
+					_selected = -1
+				layout(animate)
+				break
+	if not animate or not is_inside_tree():
+		return
+	var card := _make_card(goob, side)
+	card.z_index = 20
+	var view := get_viewport_rect().size
+	card.position = get_global_transform().affine_inverse() * (view * 0.5)
+	card.scale = Vector2(0.4, 0.4)
+	var pop := card.create_tween()
+	pop.tween_callback(hand_sound.emit.bind(&"draw_pop"))
+	pop.tween_property(card, "scale", Vector2.ONE * REVEAL_SCALE, REVEAL_POP_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	pop.tween_interval(DISCARD_HOLD_SEC)
+	pop.tween_callback(hand_sound.emit.bind(&"fly"))
+	var off := GOOB_PX * _px * REVEAL_SCALE
+	var exit_y := view.y + off if side == BoardState.CellOwner.PLAYER else -off
+	var target := get_global_transform().affine_inverse() * Vector2(view.x * 0.5, exit_y)
+	pop.tween_property(card, "position", target, REVEAL_FLY_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await pop.finished
+	if is_instance_valid(card):
+		card.queue_free()
+
+
 ## Moves every card (except one being dragged) to its fan slot.
 func layout(animated: bool) -> void:
 	for i in _cards.size():
@@ -305,13 +343,13 @@ func _slot(index: int) -> Transform2D:
 
 # --- Cards -------------------------------------------------------------------
 
-func _make_card(goob: GoobDefinition) -> Node2D:
+func _make_card(goob: GoobDefinition, side := BoardState.CellOwner.PLAYER) -> Node2D:
 	var card := Node2D.new()
 	card.name = "Goob"
 	card.set_meta("goob", goob)
 	var sprite := Sprite2D.new()
 	sprite.name = "Sprite"
-	sprite.texture = goob.still(BoardState.CellOwner.PLAYER)
+	sprite.texture = goob.still(side)
 	sprite.material = _outline
 	sprite.scale = Vector2(_px, _px)
 	card.add_child(sprite)
