@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ← **playtest** → Draw → Tech → Uniquely powerful | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ← **next** → Tech → Uniquely powerful | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -74,9 +74,9 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6e framework** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Move** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Destroy** | ✅ Accepted and merged 2026-11-23 |
-| **M6e Discard** | Built on `m6e-discard`, playtest pending |
+| **M6e Discard** | ✅ Accepted and merged 2026-11-23 |
 
-### M6e Discard category ← **built, playtest pending** (branch `m6e-discard`)
+### M6e Discard category (accepted and merged 2026-11-23)
 
 - **Rules approved by Sean (2026-11-23):** vault spec `Design/Special Goobs.md` → "M6e Discard rules", Decision-Log 2026-11-23. Distracting (opponent discards a random Goob), Defiant (when discarded, it drops for its owner into a random open column instead), Fickle (discard 1, then draw 1; empty hand fizzles), Ruthless (discard 2, then destroy a random enemy Goob), Reckless (discard your hand, +2 on your next turn draw), Thrifty (a random Goob from your discard pile drops for you, like Occult), Desperate (discard 1, then destroy a random Goob, never itself). **Discard costs are paid in full or the whole effect fizzles, nothing discarded.**
 - **Engine (`TurnLoop`):** every discard goes through `_discard` (Defiant drops instead; `_can_discard` hook for tech) and `_discard_random`. Discard Goobs record a `cue` step, then one step per discard; Fickle's draw and Ruthless / Desperate's destroy are their own later steps (the destroy is `last_effect`). Reckless: `_bonus_draws` → `_turn_draw_count`, used up by that draw, "Reckless" pill. Thrifty shares Occult's branch. `sim_state(mirrored)` gives the AI its own hand, the other hand as plain Goobs, and both discard piles.
@@ -85,7 +85,9 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Claude's calls to confirm in the playtest:** each discard Goob winds up before its reveals; Reckless discards from the right end of the hand; Defiant's drop counts as a landing but not as the turn's play.
 - **Test in F5:** F4 → category deck main = Discard + another → "New game with these", or give yourself each Goob (F4 picker); » auto-play to watch the AI.
 
-### M6e Draw category ← next after Discard is accepted (fresh session, rules first)
+### M6e Draw category ← **next** (fresh session; branch `m6e-draw` from `main`)
+
+- **Step 1, before any code:** propose rules, names and card text per draw Goob (edge cases, fizzles); Sean approves; log to the Decision-Log and a new spec section "M6e Draw rules". **Build nothing before that.**
 
 - Roster: Plentiful · Jinxing · Generous · "whenever your opponent draws a Goob, you draw a Goob" (vault spec "2026-11-23 update"). `_turn_draw_count` + `_bonus_draws` already exist.
 
@@ -415,7 +417,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently **M6e Discard**: propose each discard Goob's rules for Sean's approval first, see "M6e Discard category" above) on a new branch (`m6e-discard`); push it for Sean's check.
+3. Do the next item in CLAUDE.md §Milestones (currently **M6e Draw**: propose each draw Goob's rules for Sean's approval first, see "M6e Draw category" above) on a new branch (`m6e-draw`); push it for Sean's check.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, Goobs beyond the M6e roster).
 6. When done: exact F5 playtest steps for Sean, then stop.
