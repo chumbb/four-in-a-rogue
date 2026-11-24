@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ← **next** → Discard → Draw → Tech → Uniquely powerful | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ← **built, playtest pending** → Discard → Draw → Tech → Uniquely powerful | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -74,7 +74,21 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6e framework** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Move** | ✅ Accepted and merged 2026-11-23 |
 
-### M6e Destroy category ← **next** (fresh session; Sean 2026-11-23)
+### M6e Destroy category ← **built on `m6e-destroy`, playtest pending** (2026-11-23)
+
+- **Rules approved by Sean:** vault spec `Design/Special Goobs.md` → "M6e Destroy rules", Decision-Log 2026-11-23. Volatile (any Goob, itself included), Spiteful ("Destroy the next Goob that lands on this Goob": any landing, either side, once; the lander's effect still fires, then it is destroyed), Occult (a random Goob from your destroyed pile drops for you; its effect fires), Crushing (below), Brawling (one random side), Smouldering (at the start of the next turn of the player who played it, a random adjacent Goob around where it is then).
+- **Engine (`TurnLoop`):**
+  - Per-Goob state is metadata on a **copy-on-write copy** of the cell's definition (`_mark`, `base_of`): `armed_by` for Spiteful / Smouldering, `doomed` for a Spiteful's lander. It moves with the Goob, and `play_results` simulations never touch the real board. Piles always get the plain definition.
+  - `_check_landing` runs at every landing: drop, Popular, roll (also sliding across the top), bounce, gravity (not riding down), and the Goob that drops into a destroyed cell.
+  - `_play_goob` = land and resolve → `_destroy_doomed` → `_sync_board_statuses` (pills).
+  - `_destroy_target` is the one destroy path (Fat too), with the `_can_destroy` hook for tech; steps carry `fell`.
+  - `turn_start_steps`: `_on_turn_start` runs `_smoulder`; the scenario's `_play_turn_start` shows them after the banner (before your draw / his think delay); `_land_then_continue` skips its sync while they're pending.
+- **AI:** `_drop_moves` also simulates drops onto an armed Spiteful. **View:** `play_destroy` handles source == target; `play_summon(…, goob)` for Occult's art.
+- **Tests:** `tests/test_turn_loop.gd` (10 destroy tests), `tests/test_scenario.gd` `_test_destroy_animations`, fuzz `godot --headless -s res://tests/fuzz_m6e_destroy.gd`.
+- **Claude's calls to confirm in the playtest:** a Spiteful lander that its own effect removed just spends the curse; Smouldering fires before the turn draw and its destroy is win-checked at the end of that turn; Occult reuses Popular's summon animation and sound.
+- **Next:** playtest → merge on Sean's OK → **M6e Discard** (fresh session, rules first).
+
+#### Original plan for this session (kept for reference)
 
 - **Branch:** **`m6e-destroy`** from `main` (Move is merged).
 - **Step 1, before any code:** propose rules, names ("<Adjective> Goob") and one-line card text for each destroy Goob, with edge cases and fizzles. Get Sean's approval, then log it to the Decision-Log and the spec (a new "M6e Destroy rules" section like "M6e Move rules"). **Build nothing before that.** Don't invent mechanics; ask.

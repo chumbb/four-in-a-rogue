@@ -79,6 +79,11 @@ var effect_steps: Array[Dictionary] = []
 ## _begin_turn, cleared by start().
 var statuses: Array[Dictionary] = []
 
+## Effect steps that ran at the start of the turn now in progress (same format
+## as effect_steps; Smouldering, M6e Destroy), for the view to show after the
+## turn banner. Reset by each new turn (a skipped turn's steps are kept).
+var turn_start_steps: Array[Dictionary] = []
+
 ## Vector2i(column, row) -> GoobDefinition of the Goob sitting there.
 var _cell_goobs: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
@@ -173,7 +178,7 @@ func play(column: int, hand_index: int = 0, rolled_dir: int = 0) -> int:
 	last_effect = {}
 	var goob := deck.take(hand_index)
 	var side := current_side()
-	var row := _land_and_resolve(goob, column, side, rolled_dir)
+	var row := _play_goob(goob, column, side, rolled_dir)
 	_on_turn_end(side)
 	match board.get_outcome():
 		BoardState.Outcome.PLAYER_WIN:
@@ -190,6 +195,16 @@ func play(column: int, hand_index: int = 0, rolled_dir: int = 0) -> int:
 	return row
 
 
+## The whole play of `goob`: it lands and resolves, then the Goobs a Spiteful
+## doomed are destroyed (after their own effects; M6e Destroy). Returns the
+## row it first landed in.
+func _play_goob(goob: GoobDefinition, column: int, side: BoardState.CellOwner, rolled_dir: int = 0) -> int:
+	var row := _land_and_resolve(goob, column, side, rolled_dir)
+	_destroy_doomed()
+	_sync_board_statuses()
+	return row
+
+
 ## Drops `goob` for `side` into `column`; a Bouncy or Slippery Goob under it
 ## moves it first (M6e), then its effect resolves where it ended up. Returns
 ## the row it first landed in.
@@ -197,6 +212,7 @@ func _land_and_resolve(goob: GoobDefinition, column: int, side: BoardState.CellO
 	var row := board.drop(column, side)
 	var cell := Vector2i(column, row)
 	_cell_goobs[cell] = goob
+	_check_landing(cell)
 	cell = _landing_step(cell, rolled_dir)
 	_resolve_effect(goob, cell, side)
 	return row
@@ -238,6 +254,7 @@ func _landing_move(cell: Vector2i, dir: int = 0) -> Vector2i:
 		var to := _bounce(cell, dir, points)
 		_put(to, carried)
 		_record(cell, to, points)
+		_check_landing(to)
 		return to
 	var dirs := _roll_dirs(cell)
 	if dirs.is_empty():
@@ -263,22 +280,30 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			step["target_owner"] = board.get_owner(target.x, target.y)
 			board.set_owner(target.x, target.y, side)
 			step["target"] = target
-		GoobDefinition.EffectType.DESTROY_ADJACENT:
-			var targets := neighbours(board, cell, BoardState.CellOwner.EMPTY)
+		GoobDefinition.EffectType.DESTROY_ADJACENT, GoobDefinition.EffectType.DESTROY_RANDOM, GoobDefinition.EffectType.DESTROY_BELOW, GoobDefinition.EffectType.DESTROY_BESIDE:
+			var targets := _destroy_targets(goob.effect_type, cell)
 			if targets.is_empty():
 				step["fizzled"] = true
 				return
-			var target := targets[_pick(targets.size())]
-			var height := _column_height(target.x)
-			step["target_owner"] = board.get_owner(target.x, target.y)
-			destroy_at(target)
-			step["target"] = target
-			# The Goobs above it fell: chains (Lopsided / Tipsy, landing on a
-			# Bouncy / Slippery) follow as their own step.
-			var fell: Array[Vector2i] = []
-			for r in range(target.y, height - 1):
-				fell.append(Vector2i(target.x, r))
-			_roll_fallen(fell)
+			_destroy_target(step, targets[_pick(targets.size())])
+		GoobDefinition.EffectType.DESTROY_LANDER, GoobDefinition.EffectType.DESTROY_LATER:
+			# Spiteful / Smouldering arm for the side that played them; they
+			# act later (a landing, or that side's next turn start).
+			_mark(cell, &"armed_by", side)
+		GoobDefinition.EffectType.RESURRECT:
+			# Occult: one of your destroyed Goobs drops for you into a random
+			# open column, and its own on-land effect fires (Sean, 2026-11-23).
+			var pile := deck_of(side).destroyed_pile
+			var open := open_columns(board)
+			if pile.is_empty() or open.is_empty():
+				step["fizzled"] = true
+				return
+			var back: GoobDefinition = pile.pop_at(_pick(pile.size()))
+			var column := open[_pick(open.size())]
+			step["returned"] = back
+			var row := _land_and_resolve(back, column, side)
+			step["extra"] = Vector2i(column, row)
+			last_effect = step
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
 			var open := open_columns(board)
 			if open.is_empty():
@@ -288,6 +313,7 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			var row := board.drop(column, side)
 			_cell_goobs[Vector2i(column, row)] = VANILLA
 			step["extra"] = Vector2i(column, row)
+			_check_landing(Vector2i(column, row))
 			# Landing on a Bouncy / Slippery moves it too (Sean, 2026-11-23).
 			_landing_step(Vector2i(column, row))
 		GoobDefinition.EffectType.DRAW_TWO:
@@ -350,8 +376,200 @@ func destroy_at(cell: Vector2i) -> void:
 	var goob: GoobDefinition = _cell_goobs.get(cell)
 	board.destroy_cell(cell.x, cell.y)
 	if goob != null and owner != BoardState.CellOwner.EMPTY:
-		deck_of(owner).destroyed_pile.append(goob)
+		deck_of(owner).destroyed_pile.append(base_of(goob))
 	_collapse_goobs(cell.x, cell.y)
+	# The lowest Goob that fell landed on something new (the rest rode down).
+	_check_landing(cell)
+
+
+# --- Destroy effects (M6e; Sean, 2026-11-23: vault Special Goobs "M6e Destroy
+# rules"). Per-Goob state (an armed Spiteful / Smouldering, a doomed lander)
+# lives in metadata on a copy of the cell's GoobDefinition, swapped in
+# copy-on-write, so it moves with the Goob and play_results' simulations never
+# touch the real board's state. base_of() gives the plain definition back.
+
+const _MAX_DESTROYS := 64
+
+
+## The plain definition behind a marked copy (or `goob` itself).
+static func base_of(goob: GoobDefinition) -> GoobDefinition:
+	if goob == null:
+		return null
+	return goob.get_meta(&"base", goob)
+
+
+## Sets (or with null, clears) per-Goob state `key` on the Goob in `cell`.
+func _mark(cell: Vector2i, key: StringName, value: Variant) -> void:
+	var goob: GoobDefinition = _cell_goobs.get(cell)
+	if goob == null:
+		return
+	var copy := goob.duplicate() as GoobDefinition
+	for k in goob.get_meta_list():
+		copy.set_meta(k, goob.get_meta(k))
+	copy.set_meta(&"base", base_of(goob))
+	if value == null:
+		copy.remove_meta(key)
+	else:
+		copy.set_meta(key, value)
+	_cell_goobs[cell] = copy
+
+
+## The side an armed Spiteful / Smouldering in `cell` acts for (EMPTY = none).
+func armed_side(cell: Vector2i) -> BoardState.CellOwner:
+	var goob: GoobDefinition = _cell_goobs.get(cell)
+	if goob == null or board.is_empty(cell.x, cell.y):
+		return BoardState.CellOwner.EMPTY
+	return goob.get_meta(&"armed_by", BoardState.CellOwner.EMPTY)
+
+
+## Whether `cell` holds an armed Spiteful.
+func _armed_spiteful(cell: Vector2i) -> bool:
+	return _effect_at(cell) == GoobDefinition.EffectType.DESTROY_LANDER and armed_side(cell) != BoardState.CellOwner.EMPTY
+
+
+## A Goob at `at` lands on top of an armed Spiteful: the Spiteful is spent
+## (it acts once). Returns whether it was there.
+func _spite_under(at: Vector2i) -> bool:
+	var below := at + Vector2i(0, -1)
+	if below.y < 0 or not board.in_bounds(below.x, below.y) or not _armed_spiteful(below):
+		return false
+	_mark(below, &"armed_by", null)
+	return true
+
+
+## The Goob in `cell` just landed (played, dropped, rolled, bounced or fell
+## onto what is under it): on an armed Spiteful it is doomed, destroyed at the
+## end of the play (after its own effect; Sean, 2026-11-23).
+func _check_landing(cell: Vector2i) -> void:
+	if board.in_bounds(cell.x, cell.y) and not board.is_empty(cell.x, cell.y) and _spite_under(cell):
+		_mark(cell, &"doomed", true)
+
+
+## Cells the destroy effect `kind` of a Goob in `cell` can pick from.
+func _destroy_targets(kind: GoobDefinition.EffectType, cell: Vector2i) -> Array[Vector2i]:
+	var targets: Array[Vector2i] = []
+	match kind:
+		GoobDefinition.EffectType.DESTROY_ADJACENT:
+			targets = neighbours(board, cell, BoardState.CellOwner.EMPTY)
+		GoobDefinition.EffectType.DESTROY_RANDOM:
+			# Volatile: any Goob on the board, itself included.
+			for c in BoardState.COLUMNS:
+				for r in BoardState.ROWS:
+					if not board.is_empty(c, r):
+						targets.append(Vector2i(c, r))
+		GoobDefinition.EffectType.DESTROY_BELOW:
+			if cell.y > 0 and not board.is_empty(cell.x, cell.y - 1):
+				targets.append(cell + Vector2i(0, -1))
+		GoobDefinition.EffectType.DESTROY_BESIDE:
+			# Brawling: one random side; only one occupied → that one.
+			for dir: int in [-1, 1]:
+				var at := cell + Vector2i(dir, 0)
+				if board.get_owner(at.x, at.y) != BoardState.CellOwner.EMPTY:
+					targets.append(at)
+	return targets
+
+
+## Whether the Goob in `cell` can be destroyed. Stalwart / Loyal (tech
+## session) block here; nothing does yet.
+func _can_destroy(_cell: Vector2i) -> bool:
+	return true
+
+
+## Destroys `target` for `step` (target, target_owner, fell = how many Goobs
+## above it fell); the falls' chains (Lopsided / Tipsy, landing on a Bouncy /
+## Slippery) follow as their own step. A Goob that can't be destroyed wastes
+## the effect (fizzle).
+func _destroy_target(step: Dictionary, target: Vector2i) -> void:
+	step["target"] = target
+	step["target_owner"] = board.get_owner(target.x, target.y)
+	if not _can_destroy(target):
+		step["fizzled"] = true
+		return
+	var height := _column_height(target.x)
+	destroy_at(target)
+	var fell: Array[Vector2i] = []
+	for r in range(target.y, height - 1):
+		fell.append(Vector2i(target.x, r))
+	step["fell"] = fell.size()
+	_roll_fallen(fell)
+
+
+## Destroys every doomed Goob (a Spiteful's lander), bottom to top, each as a
+## DESTROY_LANDER step from the Spiteful under it; Goobs falling onto another
+## armed Spiteful are doomed in turn.
+func _destroy_doomed() -> void:
+	for i in _MAX_DESTROYS:
+		var at := _find_cell(func(cell: Vector2i) -> bool:
+			var goob: GoobDefinition = _cell_goobs.get(cell)
+			return goob != null and goob.has_meta(&"doomed"))
+		if at.x < 0:
+			return
+		_mark(at, &"doomed", null)
+		var source := at + Vector2i(0, -1)
+		if _effect_at(source) != GoobDefinition.EffectType.DESTROY_LANDER:
+			source = at # the Spiteful went elsewhere: the Goob just bursts
+		var step := {"kind": GoobDefinition.EffectType.DESTROY_LANDER, "cell": source, "side": board.get_owner(source.x, source.y), "fizzled": false}
+		effect_steps.append(step)
+		_destroy_target(step, at)
+
+
+## The first occupied cell (bottom to top, left to right) where `test` holds;
+## (-1, -1) if none.
+func _find_cell(test: Callable) -> Vector2i:
+	for r in BoardState.ROWS:
+		for c in BoardState.COLUMNS:
+			var cell := Vector2i(c, r)
+			if not board.is_empty(c, r) and test.call(cell):
+				return cell
+	return Vector2i(-1, -1)
+
+
+## Smouldering: at the start of the turn of the side that played it, each one
+## armed for `side` destroys a random adjacent Goob around where it is now.
+func _smoulder(side: BoardState.CellOwner) -> void:
+	for i in _MAX_DESTROYS:
+		var at := _find_cell(func(cell: Vector2i) -> bool:
+			return _effect_at(cell) == GoobDefinition.EffectType.DESTROY_LATER and armed_side(cell) == side)
+		if at.x < 0:
+			break
+		_mark(at, &"armed_by", null)
+		var step := {"kind": GoobDefinition.EffectType.DESTROY_LATER, "cell": at, "side": side, "fizzled": false}
+		effect_steps.append(step)
+		var targets := neighbours(board, at, BoardState.CellOwner.EMPTY)
+		if targets.is_empty():
+			step["fizzled"] = true
+			continue
+		_destroy_target(step, targets[_pick(targets.size())])
+	_destroy_doomed()
+
+
+## Status pills for the armed Spiteful / Smouldering Goobs on the board, one
+## per kind and side (tap = which columns).
+func _sync_board_statuses() -> void:
+	for id: StringName in [&"spiteful", &"smouldering"]:
+		for side in [BoardState.CellOwner.PLAYER, BoardState.CellOwner.OPPONENT]:
+			remove_status(id, side)
+	for side in [BoardState.CellOwner.PLAYER, BoardState.CellOwner.OPPONENT]:
+		var spiteful: Array[String] = []
+		var smouldering: Array[String] = []
+		for c in BoardState.COLUMNS:
+			for r in BoardState.ROWS:
+				var cell := Vector2i(c, r)
+				if armed_side(cell) != side:
+					continue
+				if _effect_at(cell) == GoobDefinition.EffectType.DESTROY_LANDER:
+					spiteful.append(str(c + 1))
+				elif _effect_at(cell) == GoobDefinition.EffectType.DESTROY_LATER:
+					smouldering.append(str(c + 1))
+		var whose := "your" if side == BoardState.CellOwner.PLAYER else "his"
+		if not spiteful.is_empty():
+			add_status(&"spiteful", side, "Spiteful", "Spiteful (%s): the next Goob that lands on it is destroyed." % _columns_text(spiteful), -1)
+		if not smouldering.is_empty():
+			add_status(&"smouldering", side, "Smouldering", "Smouldering (%s): destroys a random adjacent Goob at the start of %s next turn." % [_columns_text(smouldering), whose], -1)
+
+
+static func _columns_text(columns: Array[String]) -> String:
+	return ("column " if columns.size() == 1 else "columns ") + ", ".join(columns)
 
 
 ## Moves the cell Goob definitions above `from_row` in `column` down one row.
@@ -500,6 +718,9 @@ func _roll(cell: Vector2i, dir: int) -> Vector2i:
 	var carried := _lift(cell)
 	var points: Array = []
 	var at := cell
+	# Resting on an armed Spiteful anywhere along the way counts as landing
+	# on it (like a Bouncy; M6e Destroy).
+	var doomed := false
 	while true:
 		var next := at.x + dir
 		if not board.is_valid_column(next):
@@ -512,6 +733,7 @@ func _roll(cell: Vector2i, dir: int) -> Vector2i:
 			if y != at.y:
 				points.append({"at": Vector2i(next, y), "how": &"fall"})
 			at = Vector2i(next, y)
+			doomed = _spite_under(at) or doomed
 			if _effect_at(at + Vector2i(0, -1)) == GoobDefinition.EffectType.BOUNCY:
 				at = _bounce(at, dir, points, cell)
 				break
@@ -521,8 +743,12 @@ func _roll(cell: Vector2i, dir: int) -> Vector2i:
 			if _effect_at(at + Vector2i(0, -1)) == GoobDefinition.EffectType.BOUNCY:
 				at = _bounce(at, _last_dir, points, cell)
 		break
+	if at != cell:
+		doomed = _spite_under(at) or doomed
 	_put(at, carried)
 	_record(cell, at, points)
+	if doomed:
+		_mark(at, &"doomed", true)
 	return at
 
 
@@ -579,6 +805,7 @@ func _apply_gravity() -> Dictionary:
 	_group += 1
 	for c in BoardState.COLUMNS:
 		var write := 0
+		var below_fell := false
 		for r in BoardState.ROWS:
 			if board.is_empty(c, r):
 				continue
@@ -588,6 +815,11 @@ func _apply_gravity() -> Dictionary:
 				_put(to, _lift(from))
 				_record(from, to, [{"at": to, "how": &"fall"}], _group)
 				moved[from] = to
+				if not below_fell:
+					_check_landing(to) # riding a falling Goob down isn't landing
+				below_fell = true
+			else:
+				below_fell = false
 			write += 1
 	return moved
 
@@ -711,9 +943,11 @@ func has_status(id: StringName, side: BoardState.CellOwner) -> bool:
 
 
 ## Hook for category sessions: called at the start of `side`'s turn, after
-## the status tick and before the draw.
-func _on_turn_start(_side: BoardState.CellOwner) -> void:
-	pass
+## the status tick and before the draw. Its effect steps go to
+## turn_start_steps.
+func _on_turn_start(side: BoardState.CellOwner) -> void:
+	_smoulder(side)
+	_sync_board_statuses()
 
 
 ## Hook for category sessions: called in play() after the effect, before the win check.
@@ -798,7 +1032,7 @@ static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition
 		sim._cell_goobs = goobs.duplicate()
 		sim._scripted = true
 		sim._script = script
-		sim._land_and_resolve(goob, column, side)
+		sim._play_goob(goob, column, side)
 		var weight := 1.0
 		for pick: Array in sim._picks:
 			weight /= pick[1]
@@ -841,6 +1075,7 @@ func _begin_turn(next: Phase, chained := false) -> void:
 	last_draw_hand_full = false
 	if not chained:
 		last_skipped = []
+		turn_start_steps = []
 	var other := Phase.OPPONENT_TURN if next == Phase.PLAYER_TURN else Phase.PLAYER_TURN
 	if _deck_for_phase(next).has_goobs():
 		phase = next
@@ -854,7 +1089,14 @@ func _begin_turn(next: Phase, chained := false) -> void:
 			statuses[i]["turns_left"] -= 1
 			if statuses[i]["turns_left"] == 0:
 				statuses.remove_at(i)
+	# The turn-start effects get their own step list; the play's stays intact.
+	var play_steps := effect_steps
+	var play_effect := last_effect
+	effect_steps = []
 	_on_turn_start(current_side())
+	turn_start_steps.append_array(effect_steps)
+	effect_steps = play_steps
+	last_effect = play_effect
 	var deck := current_deck()
 	var side := current_side()
 	var count := _turn_draw_count(side)

@@ -70,6 +70,7 @@ func _run() -> void:
 	await _test_effects_on_board()
 	await _test_effect_animations()
 	await _test_move_animations()
+	await _test_destroy_animations()
 	await _test_scoring_sequence()
 	await _test_scoring_animated()
 	await _test_hud()
@@ -936,9 +937,9 @@ func _test_chain_loss_angry() -> void:
 	var scenario := await _make(5.0)
 	var loop: TurnLoop = scenario._loop
 	loop.board.drop(1, P) # a Goob fell into the destroyed cell: a chain
-	loop.last_effect = {"kind": GoobDefinition.EffectType.DESTROY_ADJACENT, "target": Vector2i(1, 0), "cell": Vector2i(0, 0), "side": P, "fizzled": false}
+	loop.last_effect = {"kind": GoobDefinition.EffectType.DESTROY_ADJACENT, "target": Vector2i(1, 0), "cell": Vector2i(0, 0), "side": P, "fizzled": false, "fell": 1}
 	_check(scenario._defeat_face() == &"angry", "chain loss: angry")
-	loop.last_effect = {"kind": GoobDefinition.EffectType.DESTROY_ADJACENT, "target": Vector2i(1, 1), "cell": Vector2i(0, 0), "side": P, "fizzled": false}
+	loop.last_effect = {"kind": GoobDefinition.EffectType.DESTROY_ADJACENT, "target": Vector2i(1, 1), "cell": Vector2i(0, 0), "side": P, "fizzled": false, "fell": 0}
 	_check(scenario._defeat_face() == &"well_played", "no chain (nothing fell): well played")
 	loop.last_effect = {}
 	_check(scenario._defeat_face() == &"well_played", "plain win: well played")
@@ -2132,4 +2133,45 @@ func _test_move_animations() -> void:
 		for sound: StringName in setup[4]:
 			_check(scenario._sfx.history.has(sound), "move %s: sound %s" % [label, sound])
 		_check(_view_matches(scenario), "move %s: animated view matches the board" % label)
+		await _free(scenario)
+
+
+## M6e Destroy: each destroy Goob plays its step through to the opponent's
+## turn with the view matching the board. Setup: [label, played Goob, column,
+## [[column, owner, Goob, armed_by]], sounds, player's destroyed pile].
+func _test_destroy_animations() -> void:
+	var g := func(id: String) -> GoobDefinition: return load("res://resources/goobs/%s_goob.tres" % id)
+	var V := TurnLoop.VANILLA
+	var setups := [
+		["volatile", g.call("volatile"), 3, [[0, O, V, E]], [&"crunch"], []],
+		["crushing", g.call("crushing"), 2, [[2, O, V, E], [2, O, V, E]], [&"crunch"], []],
+		["brawling", g.call("brawling"), 3, [[2, O, V, E]], [&"crunch"], []],
+		["spiteful", V, 3, [[3, O, g.call("spiteful"), O]], [&"crunch"], []],
+		["occult", g.call("occult"), 6, [[0, O, V, E]], [&"popular"], [FAT]],
+		# His Smouldering fires at his turn start, after the red banner.
+		["smouldering", V, 6, [[3, O, g.call("smouldering"), O], [2, P, V, E]], [&"crunch"], []],
+	]
+	for setup in setups:
+		var label: String = setup[0]
+		var scenario := await _make(5.0, true, 30.0, true)
+		await _wait_input(scenario)
+		var board := _board(scenario)
+		var loop: TurnLoop = scenario._loop
+		for put: Array in setup[3]:
+			var row := board.drop(put[0], put[1])
+			loop._cell_goobs[Vector2i(put[0], row)] = put[2]
+			if put[3] != E:
+				loop._mark(Vector2i(put[0], row), &"armed_by", put[3])
+		for goob: GoobDefinition in setup[5]:
+			loop.player_deck.destroyed_pile.append(goob)
+		_view(scenario).sync_from_board(board)
+		_give(scenario, setup[1])
+		_play_col(scenario, setup[2])
+		var deadline := Time.get_ticks_msec() + 15000
+		while scenario._opponent_timer.is_stopped() and Time.get_ticks_msec() < deadline:
+			await process_frame
+		_check(not scenario._opponent_timer.is_stopped(), "destroy %s: play finishes, opponent's turn starts" % label)
+		for sound: StringName in setup[4]:
+			_check(scenario._sfx.history.has(sound), "destroy %s: sound %s" % [label, sound])
+		_check(_view_matches(scenario), "destroy %s: animated view matches the board" % label)
 		await _free(scenario)

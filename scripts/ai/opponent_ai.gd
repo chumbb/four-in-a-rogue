@@ -174,7 +174,8 @@ static func winning_drops(board: BoardState, side: BoardState.CellOwner, goobs: 
 	return found
 
 
-## Whether a Goob dropped into `column` lands on a Bouncy or Slippery.
+## Whether a Goob dropped into `column` lands on a Bouncy or Slippery, or on
+## an armed Spiteful (which destroys it; M6e Destroy).
 static func _drop_moves(board: BoardState, goobs: Dictionary, column: int) -> bool:
 	if goobs.is_empty():
 		return false
@@ -182,6 +183,8 @@ static func _drop_moves(board: BoardState, goobs: Dictionary, column: int) -> bo
 	var goob: GoobDefinition = goobs.get(Vector2i(column, row))
 	if goob == null or row < 0 or board.is_empty(column, row):
 		return false
+	if goob.effect_type == GoobDefinition.EffectType.DESTROY_LANDER and goob.has_meta(&"armed_by"):
+		return true
 	return goob.effect_type == GoobDefinition.EffectType.BOUNCY or goob.effect_type == GoobDefinition.EffectType.SLIPPERY
 
 
