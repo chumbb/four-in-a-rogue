@@ -26,7 +26,7 @@ claude
 - Canonical v0.1 rules: `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md`
 - Full GDD: `Projects/Four-in-a-Rogue/Design/GDD.md`
 - Decision log: `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`
-- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-23 Claude - M6e Move category.md`
+- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-23 Claude - M6e Destroy category.md`
 - Special Goobs spec (M6e roster, categories, deck rule): `Projects/Four-in-a-Rogue/Design/Special Goobs.md` → "2026-11-23 update"
 - Vault agent rules: `GameDev/CLAUDE.md`
 
@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move and M6e Destroy accepted and merged (2026-11-23). Next: M6e Discard category, then → draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move and M6e Destroy accepted and merged (2026-11-23). Next: M6e Discard category, then draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -98,38 +98,6 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Claude's calls to confirm in the playtest:** a Spiteful lander that its own effect removed just spends the curse; Smouldering fires before the turn draw and its destroy is win-checked at the end of that turn; Occult reuses Popular's summon animation, with its own resurrect sound (Sean picked A, 2026-11-23).
 - Playtest OK (Sean, 2026-11-23) → merged. Code review fixes and the new `resurrect` sound (Sean picked A) are in.
 
-#### Original plan for this session (kept for reference)
-
-- **Branch:** **`m6e-destroy`** from `main` (Move is merged).
-- **Step 1, before any code:** propose rules, names ("<Adjective> Goob") and one-line card text for each destroy Goob, with edge cases and fizzles. Get Sean's approval, then log it to the Decision-Log and the spec (a new "M6e Destroy rules" section like "M6e Move rules"). **Build nothing before that.** Don't invent mechanics; ask.
-- **Roster** (vault `Design/Special Goobs.md` "2026-11-23 update" + Sean's list `resources/goobs/special goobs.txt`):
-  - **Fat** (built in M5): "Destroy a random adjacent Goob." It already rolls fallen Lopsided/Tipsy and moves Goobs that fall onto a Bouncy/Slippery.
-  - **Volatile:** destroy a random Goob, any side, itself included (older per-Goob rules in the spec, §10).
-  - **Spiteful:** "destroy the next Goob played here (on top)". This **differs from the spec's older §3** ("the opponent's next played Goob" anywhere), so ask which one wins.
-  - **Occult:** bring back one of your destroyed Goobs to your side, into a random column; it triggers its on-land effect (spec §18, framework rule "only the played Goob triggers on land, except Occult's").
-  - **Destroy below** (unnamed).
-  - **Destroy left or right** (unnamed; random side? both? what if one side is empty?).
-  - **At the start of your next turn, destroy an adjacent Goob** (unnamed, delayed; adjacent to where it is then? fizzle if it is gone?).
-- **Questions to put to Sean** (examples):
-  - Names for the unnamed ones.
-  - Spiteful's scope.
-  - "Adjacent" = 8-way like Fat?
-  - Which side Occult's Goob drops for, and whether its Bouncy/Slippery landing applies.
-  - Whether a delayed destroy follows the Goob if it moved or flipped.
-  - Do destroy Goobs ever target themselves (only Volatile)?
-  - How Spiteful's pending curse shows (status pill vs the spec's portrait mark).
-- **What exists to build on:**
-  - `TurnLoop.destroy_at(cell)` (destroyed pile per owner) and `_roll_fallen(fell)` (a chain step: gravity, then Lopsided/Tipsy rolls and Bouncy/Slippery landings, one at a time).
-  - `_pick(n)` for every random choice, so `play_results` gives the AI weighted outcomes for free. `effect_outcomes` is the older M5 helper.
-  - `_land_and_resolve(goob, column, side)` is the play path (landing moves, then the effect), probably the one to reuse for Occult's drop.
-  - Delayed effects: `statuses` + `_on_turn_start` / `_on_turn_end` hooks + `StatusPills` (see "M6e framework" below for the ticking semantics).
-  - Destroyed piles: `Deck.destroyed_pile`.
-  - View: `BoardView2D.play_destroy(source, target)`, `play_fizzle`, `play_move` for chain steps; scenario `_play_effect_impact`.
-  - Debug: F4 give / category deck; » auto-play.
-- **Not yet:** Stalwart / Loyal "can't be destroyed" are tech, so leave a single place where a destroy could be blocked, but no blocking.
-- **Tests:** unit tests per Goob in `tests/test_turn_loop.gd`, scenario animation checks like `_test_move_animations`, and a fuzz like `tests/fuzz_m6e_move.gd` with a Destroy (+ Move) deck.
-- **Vault:** session log `Session-Logs/2026-11-2x Claude - M6e Destroy category.md`, Decision-Log, spec. Push every commit. When done: F5 steps for Sean, then stop.
-
 ### M6e Move category (accepted and merged 2026-11-23)
 
 - **Rules approved by Sean** (2 rounds): vault spec `Design/Special Goobs.md` → "M6e Move rules", Decision-Log 2026-11-23.
@@ -155,7 +123,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - `play_motions` waits for every tween in a batch.
   - About 40 ms per AI move in the fuzz run; check in M7.
   - Open: Slippery's card text could become "Goobs that land on this Goob roll." (waiting for Sean).
-- Then more playtest → merge on Sean's OK → the Destroy session (fresh session, rules first).
+- Then playtest → merged; the Destroy session followed (done).
 
 #### Original plan (for reference)
 
@@ -191,7 +159,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - The scenario's `_play_effect_impact`.
   - Unit tests per Goob.
 - **Test in F5:** F4 → category deck main = Move + another → "New game with these", or give yourself each Goob; » auto-play to watch the AI use them.
-- Then playtest → merge → the Destroy session.
+- Then playtest → merged (done).
 
 ### M6e framework (accepted and merged 2026-11-23)
 
@@ -442,9 +410,9 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently **M7**: Android debug build on the Pixel 11, Mobile then Compatibility; see §M7 above for the setup needed first) on a new branch; push it for Sean's check.
+3. Do the next item in CLAUDE.md §Milestones (currently **M6e Discard**: propose each discard Goob's rules for Sean's approval first, see "M6e Discard category" above) on a new branch (`m6e-discard`); push it for Sean's check.
 4. One milestone only; small commits, push each; match existing GDScript style.
-5. Do not invent mechanics or add scope (no shop, runs, new Goobs).
+5. Do not invent mechanics or add scope (no shop, runs, Goobs beyond the M6e roster).
 6. When done: exact F5 playtest steps for Sean, then stop.
 
 If a design rule is missing, ask Sean — do not guess.
@@ -474,4 +442,4 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 
 ---
 
-*Last updated: 2026-11-23 (M6d accepted and merged after the sound grill; next = M7. Earlier: M6c accepted and merged, plus the chain-loss fix)*
+*Last updated: 2026-11-23 (M6e Destroy accepted and merged with code review fixes and the resurrect sound; next = M6e Discard. Earlier: M6e Move and framework accepted and merged; M6d accepted and merged after the sound grill)*
