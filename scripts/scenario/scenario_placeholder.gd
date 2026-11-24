@@ -971,16 +971,15 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 ## two (a side-by-side pair) is blocked before it becomes a three: "well
 ## played" when you block his, a giggle when he blocks yours (Sean, M6c
 ## playtest). Game over is left to the end lead-in.
-func _reaction_for(column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> StringName:
+func _reaction_for(_column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> StringName:
 	if _loop.phase == TurnLoop.Phase.OVER:
 		return &""
-	var landed := _board_before.copy()
-	landed.drop(column, side)
 	var hit_other := false
 	var chain := false
 	if effect.has("target"):
-		var target: Vector2i = effect["target"]
-		hit_other = landed.get_owner(target.x, target.y) == TurnLoop.enemy_of(side)
+		# Who owned the target just before the effect (a Bouncy / Slippery
+		# can move the Goob first, so the board before the play won't do).
+		hit_other = effect.get("target_owner", BoardState.CellOwner.EMPTY) == TurnLoop.enemy_of(side)
 		chain = _chained(effect)
 	var face := &""
 	if chain or roll_path.size() > 1:

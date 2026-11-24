@@ -71,6 +71,12 @@ func _initialize() -> void:
 	_test_springy()
 	_test_fidgety()
 	_test_play_outcomes_moves()
+	_test_stacked_lopsided()
+	_test_popular_on_bouncy()
+	_test_fall_onto_bouncy()
+	_test_outcome_weights()
+	_test_threat_on_bouncy()
+	_test_chain_loop_stops()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -1117,3 +1123,106 @@ func _test_play_outcomes_moves() -> void:
 	var hand: Array[GoobDefinition] = [TurnLoop.VANILLA]
 	var move := OpponentAI.choose_move(b, hand, 0, _seeded(5), goobs)
 	_check(move["column"] >= 0, "outcomes: AI chooses with board Goobs")
+
+
+## Code review fixes (M6e Move) ------------------------------------------------
+
+func _test_stacked_lopsided() -> void:
+	var t := TurnLoop.new()
+	_place(t, 1) # stops a floor roll at column 2
+	_place(t, 3)
+	_place(t, 3, LOPSIDED)
+	_place(t, 3, LOPSIDED)
+	t.destroy_at(Vector2i(3, 0))
+	t._roll_fallen([Vector2i(3, 0), Vector2i(3, 1)] as Array[Vector2i])
+	_check(t.goob_at(2, 0) == LOPSIDED, "stacked Lopsided: the lower one rolls to (2,0)")
+	_check(t.goob_at(3, 0) == LOPSIDED, "stacked Lopsided: the upper one falls into the hole first, then is blocked")
+	_check(t.board.is_empty(3, 1) and t.board.is_empty(2, 1), "stacked Lopsided: nothing left floating or rolled from row 1")
+
+
+func _test_popular_on_bouncy() -> void:
+	var t := TurnLoop.new()
+	for c in 5:
+		for r in BoardState.ROWS:
+			_place(t, c)
+	_place(t, 5, BOUNCY)
+	t._scripted = true
+	t._script = [0, 1] # Popular's column 5, then bounce right
+	t.effect_steps = []
+	t._resolve_effect(POPULAR, Vector2i(6, 0), O)
+	_check(t.board.get_owner(6, 0) == O and t.goob_at(6, 0) == TurnLoop.VANILLA, "Popular on Bouncy: the extra Goob bounces to column 6")
+	_check(t.board.is_empty(5, 1), "Popular on Bouncy: it leaves the Bouncy")
+	_check(t.effect_steps.size() == 2 and t.effect_steps[1].get("instant", false), "Popular on Bouncy: an instant move step follows Popular's")
+
+
+func _test_fall_onto_bouncy() -> void:
+	var t := TurnLoop.new()
+	_place(t, 2, BOUNCY)
+	_place(t, 2)
+	_place(t, 2, TurnLoop.VANILLA, P)
+	t._scripted = true
+	t._script = [1] # bounce right
+	t.effect_steps = []
+	t.destroy_at(Vector2i(2, 1))
+	t._roll_fallen([Vector2i(2, 1)] as Array[Vector2i])
+	_check(t.board.get_owner(3, 0) == P and t.board.is_empty(2, 1), "fall onto Bouncy: the fallen Goob bounces on")
+	_check(t.effect_steps.size() == 1 and t.effect_steps[0]["kind"] == GoobDefinition.EffectType.BOUNCY and t.effect_steps[0].get("chain", false), "fall onto Bouncy: shown as a Bouncy chain step")
+	# A Goob that falls together with the Bouncy under it stays put.
+	var u := TurnLoop.new()
+	_place(u, 2)
+	_place(u, 2, BOUNCY)
+	_place(u, 2, TurnLoop.VANILLA, P)
+	u.destroy_at(Vector2i(2, 0))
+	u._roll_fallen([Vector2i(2, 0), Vector2i(2, 1)] as Array[Vector2i])
+	_check(u.board.get_owner(2, 1) == P and u.goob_at(2, 0) == BOUNCY, "fall with Bouncy: riding it down is not landing on it")
+
+
+func _test_outcome_weights() -> void:
+	# Blustery: (1,1) can roll both ways, (5,1) only left (Sean's tie = random).
+	var b := BoardState.new()
+	var goobs := {}
+	for c: int in [1, 5, 6]:
+		for r in 2:
+			b.drop(c, O)
+			goobs[Vector2i(c, r)] = TurnLoop.VANILLA
+	var weights: Array = []
+	for result in TurnLoop.play_results(b, goobs, BLUSTERY, 3, O):
+		weights.append(result["weight"])
+	weights.sort()
+	_check(weights == [0.25, 0.25, 0.5], "weights: uneven picks give 1/4, 1/4, 1/2 (got %s)" % [weights])
+
+
+func _test_threat_on_bouncy() -> void:
+	var b := BoardState.new()
+	var goobs := {}
+	var row0 := [O, P, O, O]
+	for c in 4:
+		b.drop(c, row0[c])
+		goobs[Vector2i(c, 0)] = BOUNCY if c == 3 else TurnLoop.VANILLA
+	for c in 3:
+		b.drop(c, P)
+		goobs[Vector2i(c, 1)] = TurnLoop.VANILLA
+	_check(OpponentAI.winning_drops(b, P).has(3), "threat: a plain board sees the win at (3,1)")
+	_check(not OpponentAI.winning_drops(b, P, goobs).has(3), "threat: on a Bouncy the drop bounces away, no win")
+
+
+## Slippery → Springy → over the full columns → back onto the same Slippery,
+## two Goobs taking turns: the chain stops instead of looping, nothing floats.
+func _test_chain_loop_stops() -> void:
+	var t := TurnLoop.new()
+	for c: int in [0, 1, 2, 4, 5, 6]:
+		for r in BoardState.ROWS:
+			_place(t, c, SPRINGY if r == 1 and (c == 2 or c == 4) else TurnLoop.VANILLA, P if (c + r) % 2 == 0 else O)
+	_place(t, 3, SLIPPERY)
+	_place(t, 3)
+	_place(t, 3, TurnLoop.VANILLA, P)
+	_place(t, 3, LOPSIDED, P)
+	t.destroy_at(Vector2i(3, 1))
+	t._roll_fallen([Vector2i(3, 1), Vector2i(3, 2)] as Array[Vector2i])
+	_check(not t.board.is_empty(3, 2) and t.board.is_empty(3, 3), "chain loop: stops with column 3 packed (3 Goobs)")
+	var gap := false
+	for r in BoardState.ROWS:
+		if t.board.is_empty(3, r):
+			gap = true
+		elif gap:
+			_check(false, "chain loop: floating Goob at (3,%d)" % r)

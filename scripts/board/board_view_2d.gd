@@ -534,7 +534,7 @@ func play_motions(motions: Array) -> void:
 		var moving: Array = []
 		for m: Dictionary in batch:
 			moving.append(_take_token(m["from"]))
-		var last: Tween = null
+		var tweens: Array[Tween] = []
 		for k in batch.size():
 			var entry: Dictionary = moving[k]
 			if entry.is_empty():
@@ -546,10 +546,13 @@ func play_motions(motions: Array) -> void:
 			if not animate:
 				entry["token"].position = cell_position(to.x, to.y)
 				continue
-			last = _queue_motion(entry["token"], batch[k]["points"], entry["owner"])
+			tweens.append(_queue_motion(entry["token"], batch[k]["points"], entry["owner"]))
 			set_face(to, &"surprised", REACTION_SEC)
-		if last != null:
-			await last.finished
+		if not tweens.is_empty():
+			# Wait for every Goob in the batch (falls can differ in length).
+			for tween in tweens:
+				if tween.is_valid() and tween.is_running():
+					await tween.finished
 			drop_sound.emit(&"land", moving[0].get("owner", BoardState.CellOwner.PLAYER))
 
 
@@ -591,9 +594,10 @@ func _queue_motion(token: Sprite2D, points: Array, side: BoardState.CellOwner) -
 					tween.parallel().tween_method(_set_y.bind(token), pos.y, apex.y, HOP_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 				else:
 					tween.tween_method(_set_hop.bind(token, pos, apex), 0.0, 1.0, HOP_SEC).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+				# Back behind the board front before it falls into the hole.
+				tween.tween_callback(token.reparent.bind(_goobs, false))
 				if apex != to:
 					_queue_fall(tween, token, apex.y, to)
-				tween.tween_callback(token.reparent.bind(_goobs, false))
 				pos = to
 			&"edge":
 				var wall := pos.x + signf(to.x - pos.x) * ROLL_BUMP_PX

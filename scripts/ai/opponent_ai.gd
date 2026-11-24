@@ -4,8 +4,8 @@ extends RefCounted
 ## the strongest play it can see, one move ahead.
 ##
 ## Every (hand Goob, legal column) pair is simulated with its effect; random
-## effects are averaged over all their equally likely outcomes
-## (TurnLoop.play_outcomes, M6e move Goobs included). Each resulting board is scored:
+## effects are averaged over all their outcomes, weighted by their chance
+## (TurnLoop.play_results, M6e move Goobs included). Each resulting board is scored:
 ##   1. its own four wins; a player four (or a mutual four) is avoided,
 ##   2. leaving the player an immediate winning drop is nearly as bad
 ##      (this is the block, and "never play under the player's winning cell"),
@@ -47,7 +47,7 @@ static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_cou
 	var legal := TurnLoop.open_columns(board)
 	if legal.is_empty() or hand.is_empty():
 		return move
-	move["blocking"] = not winning_drops(board, _P).is_empty()
+	move["blocking"] = not winning_drops(board, _P, goobs).is_empty()
 	var scored: Array[Dictionary] = []
 	var seen_types: Dictionary = {}
 	for i in hand.size():
@@ -93,11 +93,12 @@ static func choose_column(board: BoardState, rng: RandomNumberGenerator) -> int:
 
 ## Expected score of playing `goob` into `column`.
 static func _play_value(board: BoardState, goob: GoobDefinition, column: int, hand_size: int, deck_count: int, goobs: Dictionary = {}) -> float:
-	var outcomes := TurnLoop.play_outcomes(board, goobs, goob, column, _O)
 	var total := 0.0
-	for outcome in outcomes:
-		total += score_board(outcome)
-	var value := total / outcomes.size()
+	var weights := 0.0
+	for result in TurnLoop.play_results(board, goobs, goob, column, _O):
+		total += score_board(result["board"], result["goobs"]) * result["weight"]
+		weights += result["weight"]
+	var value := total / weights
 	if goob.effect_type == GoobDefinition.EffectType.DRAW_TWO:
 		var room := Deck.HAND_MAX - (hand_size - 1)
 		value += DRAW_VALUE * mini(mini(TurnLoop.PLENTIFUL_DRAW, deck_count), room)
@@ -105,7 +106,8 @@ static func _play_value(board: BoardState, goob: GoobDefinition, column: int, ha
 
 
 ## Score of a board after the opponent's play (win check after effects).
-static func score_board(board: BoardState) -> float:
+## `goobs`: its cell -> GoobDefinition map (Bouncy / Slippery threats).
+static func score_board(board: BoardState, goobs: Dictionary = {}) -> float:
 	match board.get_outcome():
 		BoardState.Outcome.OPPONENT_WIN:
 			return WIN
@@ -114,7 +116,7 @@ static func score_board(board: BoardState) -> float:
 		BoardState.Outcome.DRAW:
 			return MUTUAL_FOUR
 	var score := 0.0
-	if not winning_drops(board, _P).is_empty():
+	if not winning_drops(board, _P, goobs).is_empty():
 		score += PLAYER_THREAT
 	for row in BoardState.ROWS:
 		for column in BoardState.COLUMNS:
@@ -152,15 +154,35 @@ static func _window_score(board: BoardState, column: int, row: int, dir: Vector2
 	return 0.0
 
 
-## Columns where a plain drop by `side` makes its four right now.
-static func winning_drops(board: BoardState, side: BoardState.CellOwner) -> Array[int]:
+## Columns where a plain drop by `side` makes its four right now. With
+## `goobs` (cell -> GoobDefinition), a drop onto a Bouncy / Slippery is
+## simulated: it counts when any way it can go makes the four.
+static func winning_drops(board: BoardState, side: BoardState.CellOwner, goobs: Dictionary = {}) -> Array[int]:
 	var found: Array[int] = []
 	for column in TurnLoop.open_columns(board):
+		if _drop_moves(board, goobs, column):
+			for result in TurnLoop.play_results(board, goobs, TurnLoop.VANILLA, column, side):
+				var after: BoardState = result["board"]
+				if not after.find_winning_line(side).is_empty():
+					found.append(column)
+					break
+			continue
 		var trial := board.copy()
 		trial.drop(column, side)
 		if not trial.find_winning_line(side).is_empty():
 			found.append(column)
 	return found
+
+
+## Whether a Goob dropped into `column` lands on a Bouncy or Slippery.
+static func _drop_moves(board: BoardState, goobs: Dictionary, column: int) -> bool:
+	if goobs.is_empty():
+		return false
+	var row := board.lowest_empty_row(column) - 1
+	var goob: GoobDefinition = goobs.get(Vector2i(column, row))
+	if goob == null or row < 0 or board.is_empty(column, row):
+		return false
+	return goob.effect_type == GoobDefinition.EffectType.BOUNCY or goob.effect_type == GoobDefinition.EffectType.SLIPPERY
 
 
 ## Number of `side`'s lines of three with the fourth cell empty (any height):
