@@ -1127,9 +1127,22 @@ func _test_blustery() -> void:
 func _test_springy() -> void:
 	var t := _with_special(LOPSIDED)
 	_place(t, 2, SPRINGY)
+	_place(t, 2) # Springy's column is higher than the Lopsided
 	t.play(4, 0) # rolls left from (4,0), hits Springy at (2,0)
-	_check(t.goob_at(2, 1) == LOPSIDED, "springy: bounced on top of Springy's column")
+	_check(t.goob_at(2, 2) == LOPSIDED, "springy: a higher column = bounced on top of it")
 	_check(t.board.is_empty(3, 0) and t.board.is_empty(1, 0), "springy: the bounce ends the roll")
+	# Level with it: bounces back and rolls on the other way (Sean, 2026-11-24).
+	t = _with_special(LOPSIDED)
+	_place(t, 2, SPRINGY)
+	t.play(4, 0)
+	_check(t.goob_at(6, 0) == LOPSIDED and t.board.is_empty(2, 1), "springy level: bounced back to the right edge")
+	# Lower: it would roll onto the Springy, but bounces back instead.
+	t = _with_special(LOPSIDED)
+	_place(t, 3)
+	_place(t, 2, SPRINGY)
+	t.player_deck.hand[0] = LOPSIDED
+	t.play(3, 0) # Lopsided at (3,1); column 2 is lower, topped by the Springy
+	_check(t.board.is_empty(2, 1) and t.goob_at(6, 0) == LOPSIDED, "springy lower: bounces back instead of rolling onto it")
 	# Springy's column full: rolls from the top into the first open column.
 	t = _with_special(LOPSIDED)
 	_place(t, 2, SPRINGY)

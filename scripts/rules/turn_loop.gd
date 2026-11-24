@@ -937,14 +937,33 @@ func _put(cell: Vector2i, carried: Dictionary) -> void:
 
 
 ## Whether the Goob in `cell` can roll `dir`: the cell beside it is free, or
-## holds a Springy it would bounce off.
+## holds a Springy it would bounce off; a Springy that sends it back needs the
+## cell behind it free.
 func _can_roll(cell: Vector2i, dir: int) -> bool:
 	if not _can_move(cell):
 		return false # a wall for the Goobs rolling into it
 	var next := cell + Vector2i(dir, 0)
 	if not board.in_bounds(next.x, next.y):
 		return false
-	return board.is_empty(next.x, next.y) or _effect_at(next) == GoobDefinition.EffectType.SPRINGY
+	if not board.is_empty(next.x, next.y) and _effect_at(next) != GoobDefinition.EffectType.SPRINGY:
+		return false
+	if _springs_back(cell, dir):
+		var back := cell - Vector2i(dir, 0)
+		return board.in_bounds(back.x, back.y) and board.is_empty(back.x, back.y)
+	return true
+
+
+## Springy (Sean, 2026-11-24): a Goob in `cell` rolling `dir` into a Springy
+## (beside it, or the top of the next column it would fall onto) bounces back
+## when that column is level with it or lower; a higher column = it jumps on.
+func _springs_back(cell: Vector2i, dir: int) -> bool:
+	var next := cell.x + dir
+	if not board.is_valid_column(next):
+		return false
+	var top := _column_height(next)
+	if top == 0 or top > cell.y + 1:
+		return false
+	return _effect_at(Vector2i(next, top - 1)) == GoobDefinition.EffectType.SPRINGY
 
 
 ## Directions the Goob in `cell` can roll (random rolls pick one of these).
@@ -978,8 +997,9 @@ func _rollable_in_row(row: int, skip: Vector2i) -> Array[Vector2i]:
 
 
 ## Rolls the Goob at `cell` `dir` by the roll rule and records the motion. A
-## Springy beside it bounces it onto the top of the Springy's column; landing
-## on a Bouncy bounces it on; a bounce ends the roll (Sean, 2026-11-23). The
+## Springy in a higher column beside it bounces it onto the top of that column
+## (a bounce ends the roll); one level with it or lower sends it rolling back
+## (Sean, 2026-11-24); landing on a Bouncy bounces it on (2026-11-23). The
 ## Goobs above its old cell wait for the next gravity pass. Returns where it
 ## ended up.
 func _roll(cell: Vector2i, dir: int) -> Vector2i:
@@ -989,10 +1009,18 @@ func _roll(cell: Vector2i, dir: int) -> Vector2i:
 	# Resting on an armed Spiteful anywhere along the way counts as landing
 	# on it (like a Bouncy; M6e Destroy).
 	var doomed := false
+	var bounces := 0
 	while true:
 		var next := at.x + dir
 		if not board.is_valid_column(next):
 			break
+		if _springs_back(at, dir) and bounces < _MAX_BOUNCES:
+			# A Springy level with it or lower sends it back the way it came
+			# (Sean, 2026-11-24): it bumps it and rolls on the other way.
+			points.append({"at": Vector2i(next, at.y), "how": &"edge"})
+			dir = -dir
+			bounces += 1
+			continue
 		if board.is_empty(next, at.y):
 			points.append({"at": Vector2i(next, at.y), "how": &"slide"})
 			var y := at.y
