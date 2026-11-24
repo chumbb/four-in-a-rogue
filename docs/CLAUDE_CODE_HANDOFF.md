@@ -80,7 +80,14 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **View:** `BoardView2D.play_move(source, motions, marked, wind_up)` / `play_motions`; scenario `_play_effect` skips `"passive"` steps (Bouncy/Slippery/Springy played) and plays `"instant"` ones without the lead wait; `roll_dir(path)` passes the timeout roll direction to `TurnLoop.play`.
 - **Claude's calls to confirm in the playtest:** Bouncy → Bouncy keeps its direction; Bouncy with no column that way bounces back; sliding across a Bouncy's top counts as landing; Slippery boxed in just stays; Blustery fizzles if nothing in the highest row can move.
 - **Test in F5:** F4 → category deck main = Move + another → "New game with these", or give yourself each Goob; » auto-play to watch the AI. Fuzz: `godot --headless -s res://tests/fuzz_m6e_move.gd` (~3 min).
-- Then playtest → merge → the Destroy session.
+- **Playtest 1 (Sean, 2026-11-23):**
+  - "Give doesn't work, no move Goobs drawn" was not a bug. The move Goobs were in the deck but look exactly like plain Goobs (Vanilla art).
+  - Testing aid (`0ce50a2`): every special still on Vanilla art shows its name (minus " Goob") in Monogram under it in the hand. This is `HandView._make_card` / `_place_name`, and Art F removes it.
+    - The label needs an explicit font override, because the root theme doesn't reach Controls under the Node2D card.
+  - Bounce arc (`81a55bb`): a bouncing Goob rises to the cell **above its landing cell**, then gravity-falls in (the `&"hop"` branch of `BoardView2D._queue_motion`).
+    - Landing in the top row, or rolling along the top, uses the top of the board.
+    - Claude's reading of Sean's "as high as the space above where it will land". If he meant always the top of the board, it is a one-line change.
+- Then more playtest → merge on Sean's OK → the Destroy session (fresh session, rules first).
 
 #### Original plan (for reference)
 
