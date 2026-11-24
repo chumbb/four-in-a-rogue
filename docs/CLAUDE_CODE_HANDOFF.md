@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23), Draw (2026-11-24). Next: M6e Tech category, then uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23), Draw, Tech and Uniquely powerful (2026-11-24): M6e is done. Next: Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ✅ → Tech ✅ → Uniquely powerful ← **next** | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ✅ | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ✅ → Tech ✅ → Uniquely powerful ✅ (M6e done; next Art F) | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -110,7 +110,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Test in F5:** F4 → category deck top = Tech → "New game with these", or give yourself / him each tech Goob; » auto-play to watch the AI.
 - Playtest OK (Sean: "playtest is good", 2026-11-24) → code review fixes → merged. Fixes: the AI gives discard Goobs no value when a Hoarding makes them fizzle; a stifled passive (Generous / Plentiful / Hoarding) keeps its value. Left open (nits): the AI's threat check ignores your Territorial-locked column; an Inspiring-triggered hit gets no portrait reaction. Not changed: `_window_turns`' 3-tick branch is for off-turn drops (a Defiant Steadfast dropping on his turn).
 
-### M6e Uniquely powerful category ← **built, playtest pending** (branch `m6e-unique`)
+### M6e Uniquely powerful category (accepted and merged 2026-11-24)
 
 - **Rules approved by Sean (2026-11-24):** vault spec `Design/Special Goobs.md` → "M6e Uniquely powerful rules", Decision-Log "M6e Uniquely powerful rules". **Seismic** (every Goob one column, random side; the edge column falls off), **Sinking** (bottom row falls out), **Rowdy** (top Goob of every column bounces, left to right), **Nostalgic** / **Mocking** (become the last Goob you / he played: its landing effect fires, its passives stay). Goobs that leave the board are **destroyed** (piles; Loyal / Stalwart keep them on). Convincing and Popular unchanged.
 - **Engine (`TurnLoop`):** `SHIFT` / `SINK` / `BOUNCE_TOPS` / `COPY_OWN` / `COPY_ENEMY`; `_shift` (rows slide edge-first, unmovable / protected-edge Goobs wall their row), `_sink`, `_fall_off` (destroyed pile, step `fallen`, motion `gone: true` ending on an `&"off"` point), `_bounce_tops` (temporary `rowdy` mark, cleared after), `_last_played` (what each side's played Goob counts as; a copy records what it became; `_played_as`, static `copy_source`), `_become` (copy-on-write, "Copied X: …" inspect text). `sim_state` carries `last_played`.
