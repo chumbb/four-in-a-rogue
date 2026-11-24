@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23). Next: M6e Draw category, then tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23), Draw (2026-11-24). Next: M6e Tech category, then uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw (built, playtest pending) → Tech → Uniquely powerful | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ✅ → Tech ← **next** → Uniquely powerful | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -75,7 +75,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6e Move** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Destroy** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Discard** | ✅ Accepted and merged 2026-11-23 |
-| **M6e Draw** | Built on `m6e-draw`, playtest pending |
+| **M6e Draw** | ✅ Accepted and merged 2026-11-24 |
 
 ### M6e Discard category (accepted and merged 2026-11-23)
 
@@ -88,7 +88,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - Playtest OK (Sean: "playtest is good", 2026-11-23) → merged (`aaf18e3`); Claude's calls stand. Destroy fuzz re-run after the change: 300 games, 0 failures.
 - **Post-merge code review:** Sean started `/code-review` on 2026-11-23 after the merge; its findings weren't in when this handoff was written. If they're still open next session, triage them (fix on `main` or a small branch, push) before starting Draw.
 
-### M6e Draw category ← **built, playtest pending** (branch `m6e-draw`)
+### M6e Draw category (accepted and merged 2026-11-24)
 
 - **Rules approved by Sean (2026-11-23/24):** vault spec `Design/Special Goobs.md` → "M6e Draw rules", Decision-Log "M6e Draw rules". **Renames:** draw-2 = **Greedy** (`greedy_goob.tres`, Vanilla art); **Plentiful** (`plentiful_goob.tres`, keeps the Plentiful art + flavour) = "While on the board, you draw a Goob whenever your opponent draws one." **Jinxing** "Your opponent skips their next draw." (−1 on his next turn draw per copy, all on that one turn; never below 0; a forced draw after a skip wins and uses it up; fizzle: his deck empty). **Generous** "While on the board, draw an extra Goob each turn." (+1 per copy owned at the turn start).
 - **Engine (`TurnLoop`):** `_turn_draw_count(side, jinxed)` = 1 + Reckless + Generous − Jinxings; `_jinxes` + "Jinxed" pill; `last_jinx_lost` / `last_draw_count` for the toast; `_echo_draws(drawer, n)` after every draw (turn draw → `turn_draw_steps`; Greedy / Fickle → `effect_steps`); echo draws never echo. Generous / Plentiful are passive with board pills (`_sync_board_statuses`, `_owned_cells`).
@@ -97,6 +97,11 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Tests:** 7 unit tests (`tests/test_turn_loop.gd`), `_test_draw_animations` (`tests/test_scenario.gd`), fuzz `godot --headless -s res://tests/fuzz_m6e_draw.gd` (100 games: 505 Plentiful draws, 149 jinxed draws, 0 failures).
 - **Claude's calls to confirm in the playtest:** "Jinxed: N fewer" toast when Reckless / Generous still leave a draw; a Plentiful's echo shows as its own draw cue from the Plentiful's cell; each Plentiful copy is its own step.
 - **Test in F5:** F4 → give yourself Jinxing / Generous / Plentiful / Greedy; » auto-play to watch the AI.
+- Playtest OK (Sean: "playtest works", 2026-11-24) → code review fixes → merged. Fixes: the Jinxed pill lasts through the jinxed turn (2 ticks); the toast counts only Goobs the deck / hand cap would really have given; a Plentiful whose owner's hand is full (or deck empty) draws nothing, silently; Generous pill wording; Locked rules say Greedy. Left open (nits): the AI's flat draw values ignore the hand cap and a forced draw after a skip; a jinx toast is lost when the jinx skips the turn (the skip toast still shows).
+
+### M6e Tech category ← **next** (fresh session; branch `m6e-tech` from `main`)
+
+- **Step 1, before any code:** propose rules, names and card text per tech Goob (vault `Design/Special Goobs.md` "2026-11-23 update": Steadfast, Loyal, Stalwart, Territorial, retrigger an adjacent special Goob, your opponent's next Goob fizzles, steal an opponent Goob's effect, your Goobs can't be discarded); Sean approves; log to the Decision-Log and a spec section "M6e Tech rules". **Build nothing before that.** Hooks already in `TurnLoop`: `_can_destroy`, `_can_discard`.
 
 #### Original plan (for reference)
 
@@ -433,7 +438,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently **M6e Draw**: propose each draw Goob's rules for Sean's approval first, see "M6e Draw category" above) on a new branch (`m6e-draw`); push it for Sean's check.
+3. Do the next item in CLAUDE.md §Milestones (currently **M6e Tech**: propose each tech Goob's rules for Sean's approval first, see "M6e Tech category" above) on a new branch (`m6e-tech`); push it for Sean's check.
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, Goobs beyond the M6e roster).
 6. When done: exact F5 playtest steps for Sean, then stop.
@@ -465,4 +470,4 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 
 ---
 
-*Last updated: 2026-11-23 (M6e Discard accepted and merged; post-merge /code-review running; next = M6e Draw. Earlier: M6e Destroy accepted and merged with code review fixes and the resurrect sound. Earlier: M6e Move and framework accepted and merged; M6d accepted and merged after the sound grill)*
+*Last updated: 2026-11-24 (M6e Draw accepted and merged with code review fixes; next = M6e Tech. Earlier: M6e Discard accepted and merged; next = M6e Draw. Earlier: M6e Destroy accepted and merged with code review fixes and the resurrect sound. Earlier: M6e Move and framework accepted and merged; M6d accepted and merged after the sound grill)*
