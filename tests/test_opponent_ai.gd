@@ -21,7 +21,7 @@ func _initialize() -> void:
 	_test_avoids_playing_under_player_win()
 	_test_flip_to_win()
 	_test_saves_specials()
-	_test_plays_plentiful_with_room()
+	_test_plays_greedy_with_room()
 	_test_blocking_flag()
 	_test_open_threes()
 	_test_full_board_returns_minus_one()
@@ -158,12 +158,12 @@ func _test_saves_specials() -> void:
 		_check(move["hand_index"] == 2, "empty board: plays Vanilla, saves specials (seed %d)" % s)
 
 
-func _test_plays_plentiful_with_room() -> void:
-	var plentiful: GoobDefinition = load("res://resources/goobs/plentiful_goob.tres")
-	var move := OpponentAI.choose_move(BoardState.new(), _hand([TurnLoop.VANILLA, plentiful]), 10, _rng(1))
-	_check(move["hand_index"] == 1, "plays Plentiful when the hand has room")
-	move = OpponentAI.choose_move(BoardState.new(), _hand([TurnLoop.VANILLA, plentiful]), 0, _rng(1))
-	_check(move["hand_index"] == 0, "empty deck: Plentiful gains nothing, Vanilla instead")
+func _test_plays_greedy_with_room() -> void:
+	var greedy: GoobDefinition = load("res://resources/goobs/greedy_goob.tres")
+	var move := OpponentAI.choose_move(BoardState.new(), _hand([TurnLoop.VANILLA, greedy]), 10, _rng(1))
+	_check(move["hand_index"] == 1, "plays Greedy when the hand has room")
+	move = OpponentAI.choose_move(BoardState.new(), _hand([TurnLoop.VANILLA, greedy]), 0, _rng(1))
+	_check(move["hand_index"] == 0, "empty deck: Greedy gains nothing, Vanilla instead")
 
 
 func _test_blocking_flag() -> void:

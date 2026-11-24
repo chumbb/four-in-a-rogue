@@ -27,7 +27,7 @@ enum Result {
 }
 
 const TURN_DRAW := 1
-const PLENTIFUL_DRAW := 2
+const GREEDY_DRAW := 2
 ## Reckless: extra Goobs on its owner's next turn draw (M6e Discard).
 const RECKLESS_DRAW := 2
 const VANILLA := preload("res://resources/goobs/vanilla_goob.tres")
@@ -60,6 +60,16 @@ var last_skipped: Array[BoardState.CellOwner] = []
 var _skipped_last: Dictionary = {}
 ## Side -> extra Goobs on its next turn draw (Reckless), used up by that draw.
 var _bonus_draws: Dictionary = {}
+## Side -> Jinxings on its next turn draw (one Goob fewer each), used up by
+## that turn start (M6e Draw).
+var _jinxes: Dictionary = {}
+## Goobs the current turn draw lost to Jinxing (0 = not jinxed), for the view's
+## toast, and how many it then drew for (0 = no draw at all).
+var last_jinx_lost := 0
+var last_draw_count := 0
+## Plentiful's draws set off by the current turn draw (effect steps with
+## "drawn"), for the view to show after that draw. Reset by each turn start.
+var turn_draw_steps: Array[Dictionary] = []
 
 ## What the last play's special effect did (M5), for the view:
 ##   kind: GoobDefinition.EffectType of the played Goob
@@ -68,7 +78,7 @@ var _bonus_draws: Dictionary = {}
 ##   target: Vector2i flipped (Convincing) or destroyed (Fat) cell, and
 ##   target_owner: who owned it before
 ##   extra: Vector2i where Popular's Vanilla landed
-##   drawn: Array[GoobDefinition] and hand_full: bool (Plentiful)
+##   drawn: Array[GoobDefinition] and hand_full: bool (Greedy, Fickle, Plentiful)
 var last_effect: Dictionary = {}
 
 ## Every effect step of the current play(), in order (reset by play()): the
@@ -132,6 +142,8 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	_cell_goobs.clear()
 	_skipped_last.clear()
 	_bonus_draws.clear()
+	_jinxes.clear()
+	turn_draw_steps = []
 	result = Result.NONE
 	if deck.is_empty():
 		player_goobs = DeckBuilder.roll(rng, forced)
@@ -342,6 +354,7 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			var drawn := deck.draw(1)
 			if not drawn.is_empty() or hand_full:
 				effect_steps.append({"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false, "drawn": drawn, "hand_full": hand_full})
+			effect_steps.append_array(_echo_draws(side, drawn.size()))
 		GoobDefinition.EffectType.DISCARD_DESTROY_ENEMY, GoobDefinition.EffectType.DISCARD_DESTROY:
 			# Ruthless (cost 2) / Desperate (cost 1): the cost is paid in full or
 			# the whole effect fizzles, nothing discarded (Sean, 2026-11-23).
@@ -383,13 +396,25 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			# Landing on a Bouncy / Slippery moves it too (Sean, 2026-11-23).
 			_landing_step(Vector2i(column, row))
 		GoobDefinition.EffectType.DRAW_TWO:
+			# Greedy (was Plentiful until M6e Draw).
 			var deck := deck_of(side)
-			var hand_full := deck.draw_blocked_by_hand(PLENTIFUL_DRAW)
-			var drawn := deck.draw(PLENTIFUL_DRAW)
+			var hand_full := deck.draw_blocked_by_hand(GREEDY_DRAW)
+			var drawn := deck.draw(GREEDY_DRAW)
 			step["drawn"] = drawn
 			step["hand_full"] = hand_full
 			# Nothing drawn and not a full hand = an empty deck: fizzle.
 			step["fizzled"] = drawn.is_empty() and not hand_full
+			effect_steps.append_array(_echo_draws(side, drawn.size()))
+		GoobDefinition.EffectType.JINX:
+			# Jinxing: the opponent's next turn draw gives one Goob fewer;
+			# copies add up on that one turn (Sean, 2026-11-23).
+			var enemy := enemy_of(side)
+			if deck_of(enemy).draw_pile.is_empty():
+				step["fizzled"] = true
+				return
+			step["cue"] = true
+			_jinxes[enemy] = _jinxes.get(enemy, 0) + 1
+			_sync_jinx_status(enemy)
 		GoobDefinition.EffectType.PUSH_LEFT, GoobDefinition.EffectType.PUSH_RIGHT:
 			step["motions"] = []
 			_motions = step["motions"]
@@ -612,7 +637,7 @@ func _smoulder(side: BoardState.CellOwner) -> void:
 ## Status pills for the armed Spiteful / Smouldering Goobs on the board, one
 ## per kind and side (tap = which columns).
 func _sync_board_statuses() -> void:
-	for id: StringName in [&"spiteful", &"smouldering"]:
+	for id: StringName in [&"spiteful", &"smouldering", &"generous", &"plentiful"]:
 		for side in [BoardState.CellOwner.PLAYER, BoardState.CellOwner.OPPONENT]:
 			remove_status(id, side)
 	for side in [BoardState.CellOwner.PLAYER, BoardState.CellOwner.OPPONENT]:
@@ -628,10 +653,56 @@ func _sync_board_statuses() -> void:
 				elif _effect_at(cell) == GoobDefinition.EffectType.DESTROY_LATER:
 					smouldering.append(str(c + 1))
 		var whose := "your" if side == BoardState.CellOwner.PLAYER else "his"
+		var generous := _owned_columns(GoobDefinition.EffectType.GENEROUS, side)
+		var plentiful := _owned_columns(GoobDefinition.EffectType.DRAW_ECHO, side)
+		if not generous.is_empty():
+			add_status(&"generous", side, "Generous +%d" % generous.size(), "Generous (%s): %s turn draw is %d extra Goob%s." % [_columns_text(generous), whose, generous.size(), "" if generous.size() == 1 else "s"], -1)
+		if not plentiful.is_empty():
+			var who := "you draw a Goob whenever he draws one" if side == BoardState.CellOwner.PLAYER else "he draws a Goob whenever you draw one"
+			add_status(&"plentiful", side, "Plentiful", "Plentiful (%s): %s." % [_columns_text(plentiful), who], -1)
 		if not spiteful.is_empty():
 			add_status(&"spiteful", side, "Spiteful", "Spiteful (%s): the next Goob that lands on it is destroyed." % _columns_text(spiteful), -1)
 		if not smouldering.is_empty():
 			add_status(&"smouldering", side, "Smouldering", "Smouldering (%s): destroys a random adjacent Goob at the start of %s next turn." % [_columns_text(smouldering), whose], -1)
+
+
+## Columns (1-based, as text) of the Goobs with `kind` that `side` owns now,
+## one entry per Goob.
+func _owned_columns(kind: GoobDefinition.EffectType, side: BoardState.CellOwner) -> Array[String]:
+	var columns: Array[String] = []
+	for cell in _owned_cells(kind, side):
+		columns.append(str(cell.x + 1))
+	return columns
+
+
+## Cells of the Goobs with `kind` that `side` owns now (a flip moves them).
+func _owned_cells(kind: GoobDefinition.EffectType, side: BoardState.CellOwner) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for c in BoardState.COLUMNS:
+		for r in BoardState.ROWS:
+			var cell := Vector2i(c, r)
+			if _effect_at(cell) == kind and board.get_owner(c, r) == side:
+				cells.append(cell)
+	return cells
+
+
+## Plentiful: `drawer` just drew `count` Goobs, so each Plentiful its opponent
+## owns draws that many for its owner (hand cap 5). These draws never set off
+## another Plentiful (Sean, 2026-11-23). One step per Plentiful that drew or
+## hit a full hand.
+func _echo_draws(drawer: BoardState.CellOwner, count: int) -> Array[Dictionary]:
+	var steps: Array[Dictionary] = []
+	if count <= 0:
+		return steps
+	var owner := enemy_of(drawer)
+	var deck := deck_of(owner)
+	for cell in _owned_cells(GoobDefinition.EffectType.DRAW_ECHO, owner):
+		var hand_full := deck.draw_blocked_by_hand(count)
+		var drawn := deck.draw(count)
+		if drawn.is_empty() and not hand_full:
+			break # its deck is empty
+		steps.append({"kind": GoobDefinition.EffectType.DRAW_ECHO, "cell": cell, "side": owner, "fizzled": false, "drawn": drawn, "hand_full": hand_full})
+	return steps
 
 
 static func _columns_text(columns: Array[String]) -> String:
@@ -1050,6 +1121,16 @@ func _discard_destroy_targets(kind: GoobDefinition.EffectType, cell: Vector2i, s
 	return targets
 
 
+## The Jinxed pill: `side`'s next turn draw is smaller.
+func _sync_jinx_status(side: BoardState.CellOwner) -> void:
+	var jinxes: int = _jinxes.get(side, 0)
+	if jinxes <= 0:
+		remove_status(&"jinxed", side)
+		return
+	var whose := "your" if side == BoardState.CellOwner.PLAYER else "his"
+	add_status(&"jinxed", side, "Jinxed", "Jinxed: %s next turn draws %d fewer Goob%s." % [whose, jinxes, "" if jinxes == 1 else "s"], -1)
+
+
 ## The Reckless pill: `side`'s next turn draw is bigger.
 func _sync_bonus_status(side: BoardState.CellOwner) -> void:
 	var extra: int = _bonus_draws.get(side, 0)
@@ -1220,6 +1301,7 @@ func sim_state(mirrored := false) -> Dictionary:
 	return {
 		"hands": {BoardState.CellOwner.OPPONENT: actor.hand.duplicate(), BoardState.CellOwner.PLAYER: unseen},
 		"discards": {BoardState.CellOwner.OPPONENT: actor.discard_pile.duplicate(), BoardState.CellOwner.PLAYER: other.discard_pile.duplicate()},
+		"their_deck": other.draw_pile.size(), # Jinxing fizzles on an empty deck
 	}
 
 
@@ -1246,6 +1328,9 @@ func scoring_cells(side: BoardState.CellOwner) -> Array[Vector2i]:
 func _begin_turn(next: Phase, chained := false) -> void:
 	last_draw = []
 	last_draw_hand_full = false
+	last_jinx_lost = 0
+	last_draw_count = 0
+	turn_draw_steps = []
 	if not chained:
 		last_skipped = []
 		turn_start_steps = []
@@ -1272,13 +1357,20 @@ func _begin_turn(next: Phase, chained := false) -> void:
 	last_effect = play_effect
 	var deck := current_deck()
 	var side := current_side()
+	var unjinxed := _turn_draw_count(side, false)
 	var count := _turn_draw_count(side)
 	_bonus_draws.erase(side) # Reckless: used up by this draw
 	_sync_bonus_status(side)
+	_jinxes.erase(side) # Jinxing: used up by this turn, also by a forced draw
+	_sync_jinx_status(side)
 	if _skipped_last.get(side, false):
 		count = maxi(count, TURN_DRAW) # never two skipped turns in a row
+	if not deck.draw_pile.is_empty():
+		last_jinx_lost = unjinxed - count
+	last_draw_count = count
 	last_draw_hand_full = deck.draw_blocked_by_hand(count)
 	last_draw = deck.draw(count)
+	turn_draw_steps = _echo_draws(side, last_draw.size())
 	# No playable Goob (empty hand) after the draw, e.g. a discard plus a
 	# prevented draw: this turn is skipped and turn order goes on as normal
 	# (Sean, 2026-11-23; skips are never a draw).
@@ -1292,10 +1384,14 @@ func _begin_turn(next: Phase, chained := false) -> void:
 		_begin_turn(other if phase == next else next, true)
 
 
-## How many Goobs `side` draws at its turn start. Draw effects (M6e draw
-## session) change this.
-func _turn_draw_count(side: BoardState.CellOwner) -> int:
-	return TURN_DRAW + _bonus_draws.get(side, 0)
+## How many Goobs `side` draws at its turn start: Reckless's bonus and +1
+## per Generous it owns now, minus 1 per Jinxing on it (never below 0;
+## `jinxed` = false leaves the Jinxings out).
+func _turn_draw_count(side: BoardState.CellOwner, jinxed := true) -> int:
+	var count: int = TURN_DRAW + _bonus_draws.get(side, 0) + _owned_cells(GoobDefinition.EffectType.GENEROUS, side).size()
+	if jinxed:
+		count -= _jinxes.get(side, 0)
+	return maxi(count, 0)
 
 
 ## Whether `side`'s latest turn was skipped (its next turn can't be).

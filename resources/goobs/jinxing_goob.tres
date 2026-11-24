@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GoobDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/goobs/goob_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "jinxing"
+display_name = "Jinxing Goob"
+multiplier = 2.0
+effect_description = "Your opponent skips their next draw."
+effect_type = 27
+category = 6
+art_id = "vanilla"
+flips_vertically = true

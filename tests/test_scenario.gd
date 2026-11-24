@@ -72,6 +72,7 @@ func _run() -> void:
 	await _test_move_animations()
 	await _test_destroy_animations()
 	await _test_discard_animations()
+	await _test_draw_animations()
 	await _test_scoring_sequence()
 	await _test_scoring_animated()
 	await _test_hud()
@@ -652,6 +653,7 @@ const CONVINCING := preload("res://resources/goobs/convincing_goob.tres")
 const FAT := preload("res://resources/goobs/fat_goob.tres")
 const POPULAR := preload("res://resources/goobs/popular_goob.tres")
 const PLENTIFUL := preload("res://resources/goobs/plentiful_goob.tres")
+const GREEDY := preload("res://resources/goobs/greedy_goob.tres")
 
 
 ## Puts `goob` in the player's hand at index 0 (model and fan).
@@ -720,21 +722,21 @@ func _test_effects_on_board() -> void:
 	_check(_count(board, P) == 2, "popular (scenario): extra Vanilla dropped")
 	_check(_view_matches(scenario), "popular: view matches the board")
 	await _free(scenario)
-	# Plentiful: two more Goobs in the fan.
+	# Greedy: two more Goobs in the fan.
 	scenario = await _make(5.0)
 	var hand: HandView = scenario.get_node("%PlayerHand")
-	_give(scenario, PLENTIFUL)
+	_give(scenario, GREEDY)
 	_play_col(scenario, 3)
 	await process_frame
-	_check(scenario._loop.player_deck.hand.size() == 4, "plentiful (scenario): 3 - 1 + 2 in hand")
-	_check(hand.count() == 4, "plentiful: fan shows 4 (got %d)" % hand.count())
+	_check(scenario._loop.player_deck.hand.size() == 4, "greedy (scenario): 3 - 1 + 2 in hand")
+	_check(hand.count() == 4, "greedy: fan shows 4 (got %d)" % hand.count())
 	await _free(scenario)
 
 
 ## With animation on, each effect plays its impact (sound) and the view ends
 ## matching the board before the opponent's turn starts.
 func _test_effect_animations() -> void:
-	for setup in [[CONVINCING, &"flip"], [FAT, &"crunch"], [POPULAR, &"popular"], [PLENTIFUL, &"draw_pop"]]:
+	for setup in [[CONVINCING, &"flip"], [FAT, &"crunch"], [POPULAR, &"popular"], [GREEDY, &"draw_pop"]]:
 		var goob: GoobDefinition = setup[0]
 		var sound: StringName = setup[1]
 		var scenario := await _make(5.0, true, 30.0, true)
@@ -772,7 +774,7 @@ func _test_scoring_sequence() -> void:
 	for c in 3:
 		board.drop(c, P)
 	_view(scenario).sync_from_board(board)
-	_give(scenario, PLENTIFUL) # ×2, no board change
+	_give(scenario, GREEDY) # ×2, no board change
 	_play_col(scenario, 3)
 	await process_frame
 	_check(scenario._loop.result == TurnLoop.Result.PLAYER_WIN, "scoring: player wins")
@@ -1261,7 +1263,7 @@ func _test_full_column_greyed() -> void:
 func _test_hand_full_toast() -> void:
 	var scenario := await _make(0.0, true, 30.0)
 	var loop: TurnLoop = scenario._loop
-	# As after Plentiful: the player's hand is full when their next turn starts.
+	# As after Greedy: the player's hand is full when their next turn starts.
 	while loop.player_deck.hand.size() < Deck.HAND_MAX + 1:
 		loop.player_deck.hand.append(loop.player_deck.hand[0])
 	_hand_view(scenario).rebuild(loop.player_deck.hand)
@@ -2220,4 +2222,38 @@ func _test_discard_animations() -> void:
 			_check(scenario._sfx.history.has(sound), "discard %s: sound %s" % [label, sound])
 		_check(_view_matches(scenario), "discard %s: animated view matches the board" % label)
 		_check(_fan_in_step(scenario), "discard %s: fan matches the hand" % label)
+		await _free(scenario)
+
+
+## M6e Draw: Jinxing's toast on his turn draw, Plentiful's draws revealed in
+## your fan during his turn, Generous's pill; each play finishes cleanly.
+func _test_draw_animations() -> void:
+	var g := func(id: String) -> GoobDefinition: return load("res://resources/goobs/%s_goob.tres" % id)
+	var V := TurnLoop.VANILLA
+	# label, your hand (index 0 is played), your hand after his turn draw, status id
+	var setups := [
+		["jinxing", [g.call("jinxing"), V, V], 2, &""],
+		["generous", [g.call("generous"), V, V], 2, &"generous"],
+		["plentiful", [g.call("plentiful"), V, V], 3, &"plentiful"],
+	]
+	for setup in setups:
+		var label: String = setup[0]
+		var scenario := await _make(5.0, true, 30.0, true)
+		await _wait_input(scenario)
+		var loop: TurnLoop = scenario._loop
+		var his := loop.opponent_deck.hand.size()
+		loop.player_deck.hand.assign(setup[1])
+		_hand_view(scenario).rebuild(loop.player_deck.hand)
+		_play_col(scenario, 3)
+		var deadline := Time.get_ticks_msec() + 25000
+		while scenario._opponent_timer.is_stopped() and Time.get_ticks_msec() < deadline:
+			await process_frame
+		_check(not scenario._opponent_timer.is_stopped(), "draw %s: play finishes, opponent's turn starts" % label)
+		_check(loop.player_deck.hand.size() == setup[2], "draw %s: your hand is %d (got %d)" % [label, setup[2], loop.player_deck.hand.size()])
+		_check(_fan_in_step(scenario), "draw %s: fan matches the hand" % label)
+		_check(_view_matches(scenario), "draw %s: animated view matches the board" % label)
+		if label == "jinxing":
+			_check(loop.opponent_deck.hand.size() == his and scenario._toast._label.text == scenario.MSG_OPPONENT_JINXED, "draw jinxing: no draw for him, toast says so")
+		if setup[3] != &"":
+			_check(loop.has_status(setup[3], BoardState.CellOwner.PLAYER), "draw %s: pill on your side" % label)
 		await _free(scenario)
