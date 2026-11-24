@@ -87,6 +87,17 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - Bounce arc (`81a55bb`): a bouncing Goob rises to the cell **above its landing cell**, then gravity-falls in (the `&"hop"` branch of `BoardView2D._queue_motion`).
     - Landing in the top row, or rolling along the top, uses the top of the board.
     - Claude's reading of Sean's "as high as the space above where it will land". If he meant always the top of the board, it is a one-line change.
+- **Code review fixes (`b4041c8`):**
+  - Chains run one Goob at a time with gravity between: `_settle(pending)` → `_chain_one`.
+  - Every landing on a Bouncy/Slippery counts (Sean), done through `_landing_step` / `_landing_move`:
+    - Popular's extra Goob, and falls after a destroy or push.
+    - Riding one down doesn't count.
+  - A chain that repeats a board position stops (`_position_key`), and gravity always ends it.
+  - The AI uses `TurnLoop.play_results` (`{board, goobs, weight}`, weighted by real odds). `OpponentAI.winning_drops(board, side, goobs)` simulates drops onto a Bouncy/Slippery.
+  - Effect steps carry `target_owner`, which the portrait reaction uses.
+  - `play_motions` waits for every tween in a batch.
+  - About 40 ms per AI move in the fuzz run; check in M7.
+  - Open: Slippery's card text could become "Goobs that land on this Goob roll." (waiting for Sean).
 - Then more playtest → merge on Sean's OK → the Destroy session (fresh session, rules first).
 
 #### Original plan (for reference)
