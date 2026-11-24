@@ -34,7 +34,7 @@ func _initialize() -> void:
 	_test_convincing_flips_enemy()
 	_test_fat_destroys_and_drops()
 	_test_popular_extra_vanilla()
-	_test_plentiful_draws_two()
+	_test_greedy_draws_two()
 	_test_effect_before_win_check()
 	_test_scoring_cells()
 	_test_m6e_multipliers_and_names()
@@ -99,6 +99,13 @@ func _initialize() -> void:
 	_test_thrifty()
 	_test_desperate()
 	_test_discard_simulated()
+	_test_draw_roster()
+	_test_jinxing()
+	_test_jinxing_adds_up_and_forced_draw()
+	_test_jinxing_skips_empty_hand()
+	_test_generous()
+	_test_plentiful()
+	_test_plentiful_no_loop()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -274,7 +281,7 @@ func _test_starter_deck() -> void:
 	var goobs := StarterDeck.build()
 	_check(goobs.size() == 21, "starter: 21 Goobs")
 	_check(_count_id(goobs, "vanilla") == 17, "starter: 17 Vanilla")
-	for id in ["convincing", "fat", "popular", "plentiful"]:
+	for id in ["convincing", "fat", "popular", "greedy"]:
 		_check(_count_id(goobs, id) == 1, "starter: 1 %s" % id)
 
 
@@ -397,7 +404,7 @@ func _test_restart_reshuffles() -> void:
 const CONVINCING := preload("res://resources/goobs/convincing_goob.tres")
 const FAT := preload("res://resources/goobs/fat_goob.tres")
 const POPULAR := preload("res://resources/goobs/popular_goob.tres")
-const PLENTIFUL := preload("res://resources/goobs/plentiful_goob.tres")
+const GREEDY := preload("res://resources/goobs/greedy_goob.tres")
 
 
 ## Player to move, all-Vanilla decks, `special` as hand Goob 0.
@@ -488,33 +495,33 @@ func _test_popular_extra_vanilla() -> void:
 	_check(t.result == TurnLoop.Result.DRAW, "popular: full board, no four = draw")
 
 
-func _test_plentiful_draws_two() -> void:
-	var t := _with_special(PLENTIFUL)
+func _test_greedy_draws_two() -> void:
+	var t := _with_special(GREEDY)
 	var hand := t.player_deck.hand.size() # 3 after the turn draw
 	var pile := t.player_deck.draw_pile.size()
 	t.play(0, 0)
 	var drawn: Array[GoobDefinition] = t.last_effect["drawn"]
-	_check(drawn.size() == 2, "plentiful: draws 2")
-	_check(t.player_deck.hand.size() == hand - 1 + 2, "plentiful: hand -1 played +2 drawn")
-	_check(t.player_deck.draw_pile.size() == pile - 2, "plentiful: pile -2")
-	_check(not t.last_effect["hand_full"] and not t.last_effect["fizzled"], "plentiful: not full, not fizzled")
+	_check(drawn.size() == 2, "greedy: draws 2")
+	_check(t.player_deck.hand.size() == hand - 1 + 2, "greedy: hand -1 played +2 drawn")
+	_check(t.player_deck.draw_pile.size() == pile - 2, "greedy: pile -2")
+	_check(not t.last_effect["hand_full"] and not t.last_effect["fizzled"], "greedy: not full, not fizzled")
 	# Hand cap: room for 1 → draws 1 and flags hand full.
-	t = _with_special(PLENTIFUL)
+	t = _with_special(GREEDY)
 	t.player_deck.hand.append(TurnLoop.VANILLA)
 	t.player_deck.hand.append(TurnLoop.VANILLA) # 5
 	t.play(0, 0) # 4 after playing
 	drawn = t.last_effect["drawn"]
-	_check(drawn.size() == 1 and t.last_effect["hand_full"], "plentiful: hand cap draws 1, flags full")
-	_check(t.player_deck.hand.size() == 5, "plentiful: hand capped at 5")
+	_check(drawn.size() == 1 and t.last_effect["hand_full"], "greedy: hand cap draws 1, flags full")
+	_check(t.player_deck.hand.size() == 5, "greedy: hand capped at 5")
 	# Deck short: draws what remains; an empty deck fizzles.
-	t = _with_special(PLENTIFUL)
+	t = _with_special(GREEDY)
 	t.player_deck.draw_pile.resize(1)
 	t.play(0, 0)
-	_check((t.last_effect["drawn"] as Array).size() == 1, "plentiful: short deck draws what remains")
-	t = _with_special(PLENTIFUL)
+	_check((t.last_effect["drawn"] as Array).size() == 1, "greedy: short deck draws what remains")
+	t = _with_special(GREEDY)
 	t.player_deck.draw_pile.clear()
 	t.play(0, 0)
-	_check(t.last_effect["fizzled"], "plentiful: empty deck fizzles")
+	_check(t.last_effect["fizzled"], "greedy: empty deck fizzles")
 
 
 func _test_effect_before_win_check() -> void:
@@ -574,7 +581,7 @@ func _test_scoring_cells() -> void:
 
 
 func _test_m6e_multipliers_and_names() -> void:
-	var specials := {CONVINCING: GoobDefinition.Category.UNIQUE, FAT: GoobDefinition.Category.DESTROY, POPULAR: GoobDefinition.Category.UNIQUE, PLENTIFUL: GoobDefinition.Category.DRAW}
+	var specials := {CONVINCING: GoobDefinition.Category.UNIQUE, FAT: GoobDefinition.Category.DESTROY, POPULAR: GoobDefinition.Category.UNIQUE, GREEDY: GoobDefinition.Category.DRAW}
 	for g: GoobDefinition in specials:
 		_check(g.multiplier == 2.0, "m6e: %s is x2" % g.id)
 		_check(g.category == specials[g], "m6e: %s category" % g.id)
@@ -833,7 +840,7 @@ func _test_roll_empty_cell() -> void:
 ## no Goob in hand after the draw, the turn is skipped.
 class NoDrawLoop extends TurnLoop:
 	var no_draw: Array = []
-	func _turn_draw_count(side: BoardState.CellOwner) -> int:
+	func _turn_draw_count(side: BoardState.CellOwner, _jinxed := true) -> int:
 		return 0 if no_draw.has(side) else TURN_DRAW
 
 
@@ -1684,3 +1691,119 @@ func _test_discard_simulated() -> void:
 	for g in seen["hands"][P]:
 		plain = plain and g == TurnLoop.VANILLA
 	_check(plain, "discard sim: your hand is hidden from the AI (plain Goobs)")
+
+
+# --- M6e Draw -------------------------------------------------------------------
+
+const JINXING := preload("res://resources/goobs/jinxing_goob.tres")
+const GENEROUS := preload("res://resources/goobs/generous_goob.tres")
+const PLENTIFUL := preload("res://resources/goobs/plentiful_goob.tres")
+
+
+func _test_draw_roster() -> void:
+	var expected := {
+		GREEDY: ["Greedy Goob", "Draw 2 Goobs.", "vanilla"],
+		JINXING: ["Jinxing Goob", "Your opponent skips their next draw.", "vanilla"],
+		GENEROUS: ["Generous Goob", "While on the board, draw an extra Goob each turn.", "vanilla"],
+		PLENTIFUL: ["Plentiful Goob", "While on the board, you draw a Goob whenever your opponent draws one.", "plentiful"],
+	}
+	var draws := GoobRoster.specials(GoobDefinition.Category.DRAW)
+	_check(draws.size() == 4, "draw: four draw Goobs in the roster (got %d)" % draws.size())
+	for goob: GoobDefinition in expected:
+		_check(goob in draws and goob.multiplier == 2.0, "draw: %s is x2 in the roster" % goob.id)
+		_check(goob.display_name == expected[goob][0] and goob.effect_description == expected[goob][1] and goob.art_id == expected[goob][2], "draw: %s name, card text, art" % goob.id)
+
+
+func _test_jinxing() -> void:
+	var t := _with_hand([JINXING, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	var hand := t.opponent_deck.hand.size()
+	var pile := t.opponent_deck.draw_pile.size()
+	t.play(3, 0)
+	_check(t.last_effect["kind"] == GoobDefinition.EffectType.JINX and t.last_effect.get("cue", false), "jinxing: winds up")
+	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN and t.last_draw.is_empty(), "jinxing: his turn draw is skipped")
+	_check(t.opponent_deck.hand.size() == hand and t.opponent_deck.draw_pile.size() == pile, "jinxing: the Goob stays on top of his deck")
+	_check(t.last_jinx_lost == 1 and t.last_draw_count == 0, "jinxing: the view gets the no-draw toast")
+	_check(t.has_status(&"jinxed", O), "jinxing: pill stays through his jinxed turn")
+	t.play(0, 0)
+	_check(not t.has_status(&"jinxed", O), "jinxing: pill gone after his turn")
+	t.play(4, 0)
+	_check(t.last_draw.size() == 1 and t.last_jinx_lost == 0, "jinxing: only his next draw")
+	var e := _with_hand([JINXING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	e.opponent_deck.draw_pile.clear()
+	e.play(3, 0)
+	_check(e.last_effect["fizzled"] and not e.has_status(&"jinxed", O), "jinxing: his empty deck fizzles")
+
+
+func _test_jinxing_adds_up_and_forced_draw() -> void:
+	var t := _with_hand([JINXING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t._jinxes[O] = 1 # a Jinxing already on him
+	t._bonus_draws[O] = 2 # Reckless: 3 without the jinxes
+	t.play(3, 0)
+	_check(t.last_draw.size() == 1 and t.last_jinx_lost == 2 and t.last_draw_count == 1, "jinxing: two add up on one turn (3 - 2)")
+	var f := _with_hand([JINXING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	f._skipped_last[O] = true
+	f.play(3, 0)
+	_check(f.last_draw.size() == 1 and f.last_jinx_lost == 0, "jinxing: a forced draw after a skip wins")
+	_check(not f._jinxes.has(O), "jinxing: the forced draw uses up the jinx")
+	var short := _with_hand([JINXING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	short._bonus_draws[O] = 1 # 2 without the jinx...
+	short.opponent_deck.draw_pile.resize(1) # ...but only 1 left in his deck
+	short.play(3, 0)
+	_check(short.last_draw.size() == 1 and short.last_jinx_lost == 0, "jinxing: no toast when the deck allowed no more anyway")
+
+
+func _test_jinxing_skips_empty_hand() -> void:
+	var t := _with_hand([JINXING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.opponent_deck.hand.clear()
+	t.play(3, 0)
+	_check(t.phase == TurnLoop.Phase.PLAYER_TURN and O in t.last_skipped, "jinxing: empty hand and no draw skips his turn")
+	t.play(4, 0)
+	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN and t.last_draw.size() == 1, "jinxing: his next turn draws (never skipped twice)")
+
+
+func _test_generous() -> void:
+	var t := _with_hand([GENEROUS, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.play(3, 0)
+	_check(t.last_effect.get("passive", false) and t.has_status(&"generous", P), "generous: passive, pill while on the board")
+	_check(t.last_draw.size() == 1, "generous: his draw is unchanged")
+	t.play(0, 0)
+	_check(t.last_draw.size() == 2, "generous: your turn draw is 2")
+	t.board.set_owner(3, 0, O) # flipped (Convincing)
+	t.play(4, 0)
+	_check(t.last_draw.size() == 2 and t.has_status(&"generous", O) and not t.has_status(&"generous", P), "generous: the bonus goes with the owner")
+	t.play(0, 0)
+	_check(t.last_draw.size() == 1, "generous: yours again 1")
+
+
+func _test_plentiful() -> void:
+	var t := _with_hand([PLENTIFUL, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.opponent_deck.hand[0] = GREEDY
+	t.play(3, 0)
+	_check(t.has_status(&"plentiful", P), "plentiful: pill while on the board")
+	_check(t.turn_draw_steps.size() == 1 and t.turn_draw_steps[0]["side"] == P and t.turn_draw_steps[0]["drawn"].size() == 1, "plentiful: his turn draw gives you one")
+	_check(t.player_deck.hand.size() == 3, "plentiful: your hand 2 + 1")
+	t.play(0, 0) # his Greedy draws 2
+	var echo: Array = t.effect_steps.filter(func(st: Dictionary) -> bool: return st["kind"] == GoobDefinition.EffectType.DRAW_ECHO)
+	_check(echo.size() == 1 and echo[0]["drawn"].size() == 2, "plentiful: his Greedy gives you two")
+	_check(t.effect_steps.find(echo[0]) > t.effect_steps.find(t.last_effect), "plentiful: right after his draw")
+	_check(t.player_deck.hand.size() == Deck.HAND_MAX and t.last_draw_hand_full and t.turn_draw_steps.is_empty(), "plentiful: hand cap 5; your own draws don't trigger it")
+	var full := _with_hand([TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(full, 6, PLENTIFUL, P)
+	full.opponent_deck.hand[0] = GREEDY
+	full.play(3, 0)
+	full.player_deck.hand.resize(Deck.HAND_MAX)
+	full.player_deck.hand.fill(TurnLoop.VANILLA)
+	full.play(0, 0) # his Greedy while your hand is full
+	var silent := full.effect_steps.all(func(st: Dictionary) -> bool: return st["kind"] != GoobDefinition.EffectType.DRAW_ECHO)
+	_check(silent and full.player_deck.hand.size() == Deck.HAND_MAX, "plentiful: a full hand draws nothing, silently (no step)")
+
+
+func _test_plentiful_no_loop() -> void:
+	var t := _with_hand([PLENTIFUL, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 6, PLENTIFUL, O)
+	var his := t.opponent_deck.hand.size()
+	t.play(3, 0) # his turn draw: yours echoes, his doesn't answer it
+	_check(t.turn_draw_steps.size() == 1 and t.turn_draw_steps[0]["side"] == P, "plentiful: no loop between two Plentifuls")
+	_check(t.opponent_deck.hand.size() == his + 1, "plentiful: he drew only his turn draw")
+	t.play(0, 0) # your turn draw: his echoes
+	_check(t.turn_draw_steps.size() == 1 and t.turn_draw_steps[0]["side"] == O, "plentiful: his Plentiful answers your draw")

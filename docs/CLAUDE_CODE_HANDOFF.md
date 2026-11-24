@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ← **next** → Tech → Uniquely powerful | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw (built, playtest pending) → Tech → Uniquely powerful | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -75,6 +75,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6e Move** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Destroy** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Discard** | ✅ Accepted and merged 2026-11-23 |
+| **M6e Draw** | Built on `m6e-draw`, playtest pending |
 
 ### M6e Discard category (accepted and merged 2026-11-23)
 
@@ -87,7 +88,18 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - Playtest OK (Sean: "playtest is good", 2026-11-23) → merged (`aaf18e3`); Claude's calls stand. Destroy fuzz re-run after the change: 300 games, 0 failures.
 - **Post-merge code review:** Sean started `/code-review` on 2026-11-23 after the merge; its findings weren't in when this handoff was written. If they're still open next session, triage them (fix on `main` or a small branch, push) before starting Draw.
 
-### M6e Draw category ← **next** (fresh session; branch `m6e-draw` from `main`)
+### M6e Draw category ← **built, playtest pending** (branch `m6e-draw`)
+
+- **Rules approved by Sean (2026-11-23/24):** vault spec `Design/Special Goobs.md` → "M6e Draw rules", Decision-Log "M6e Draw rules". **Renames:** draw-2 = **Greedy** (`greedy_goob.tres`, Vanilla art); **Plentiful** (`plentiful_goob.tres`, keeps the Plentiful art + flavour) = "While on the board, you draw a Goob whenever your opponent draws one." **Jinxing** "Your opponent skips their next draw." (−1 on his next turn draw per copy, all on that one turn; never below 0; a forced draw after a skip wins and uses it up; fizzle: his deck empty). **Generous** "While on the board, draw an extra Goob each turn." (+1 per copy owned at the turn start).
+- **Engine (`TurnLoop`):** `_turn_draw_count(side, jinxed)` = 1 + Reckless + Generous − Jinxings; `_jinxes` + "Jinxed" pill; `last_jinx_lost` / `last_draw_count` for the toast; `_echo_draws(drawer, n)` after every draw (turn draw → `turn_draw_steps`; Greedy / Fickle → `effect_steps`); echo draws never echo. Generous / Plentiful are passive with board pills (`_sync_board_statuses`, `_owned_cells`).
+- **View:** `_play_turn_draw_extras(side)` after the turn draw (yours in `_show_turn_draw`, his in `_run_opponent_turn`): "Jinxed: no draw" / "Opponent jinxed: no draw" toast, then the Plentiful steps (draw cue from the Plentiful, your Goobs revealed into the fan, also during his turn). Jinxing winds up (`cue`).
+- **AI:** `_draw_effect_value`: Jinxing = one draw, Generous / Plentiful = `DRAW_EFFECT_TURNS` (2) draws.
+- **Tests:** 7 unit tests (`tests/test_turn_loop.gd`), `_test_draw_animations` (`tests/test_scenario.gd`), fuzz `godot --headless -s res://tests/fuzz_m6e_draw.gd` (100 games: 505 Plentiful draws, 149 jinxed draws, 0 failures).
+- **Claude's calls to confirm in the playtest:** "Jinxed: N fewer" toast when Reckless / Generous still leave a draw; a Plentiful's echo shows as its own draw cue from the Plentiful's cell; each Plentiful copy is its own step.
+- **Test in F5:** F4 → give yourself Jinxing / Generous / Plentiful / Greedy; » auto-play to watch the AI.
+
+#### Original plan (for reference)
+
 
 - **Step 1, before any code:** propose rules, names and card text per draw Goob (edge cases, fizzles); Sean approves; log to the Decision-Log and a new spec section "M6e Draw rules". **Build nothing before that.**
 - **Roster** (vault `Design/Special Goobs.md` "2026-11-23 update" + `resources/goobs/special goobs.txt`): **Plentiful** (exists: draw 2; category DRAW already), **Jinxing** ("your opponent does not draw their next Goob"; old spec §5: their next turn draw is skipped, the Goob stays on top, Plentiful/Generous draws still happen), **Generous** (+1 turn draw per copy while on the board, Sean 2026-11-23; old spec §17: flipped → the opponent gets it, ends when destroyed), and "whenever your opponent draws a Goob, you draw a Goob" (needs a name).

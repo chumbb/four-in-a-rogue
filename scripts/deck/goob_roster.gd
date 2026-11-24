@@ -8,7 +8,7 @@ const PATHS: Array[String] = [
 	"res://resources/goobs/convincing_goob.tres",
 	"res://resources/goobs/fat_goob.tres",
 	"res://resources/goobs/popular_goob.tres",
-	"res://resources/goobs/plentiful_goob.tres",
+	"res://resources/goobs/greedy_goob.tres",
 	"res://resources/goobs/sinister_goob.tres",
 	"res://resources/goobs/dexterous_goob.tres",
 	"res://resources/goobs/lopsided_goob.tres",
@@ -31,6 +31,9 @@ const PATHS: Array[String] = [
 	"res://resources/goobs/reckless_goob.tres",
 	"res://resources/goobs/thrifty_goob.tres",
 	"res://resources/goobs/desperate_goob.tres",
+	"res://resources/goobs/jinxing_goob.tres",
+	"res://resources/goobs/generous_goob.tres",
+	"res://resources/goobs/plentiful_goob.tres",
 ]
 
 

@@ -6,7 +6,7 @@ enum EffectType {
 	FLIP_ADJACENT,
 	DESTROY_ADJACENT,
 	EXTRA_VANILLA_DROP,
-	DRAW_TWO,
+	DRAW_TWO, ## Greedy (was Plentiful until M6e Draw)
 	# M6e Move (Sean, 2026-11-23; vault Special Goobs "M6e Move rules")
 	PUSH_LEFT, ## Sinister
 	PUSH_RIGHT, ## Dexterous
@@ -32,6 +32,10 @@ enum EffectType {
 	DISCARD_HAND, ## Reckless: discard your hand, +2 draws on your next turn
 	RETURN_DISCARD, ## Thrifty: one of your discarded Goobs drops for you
 	DISCARD_DESTROY, ## Desperate: discard 1, then destroy a random Goob (never itself)
+	# M6e Draw (Sean, 2026-11-23; vault Special Goobs "M6e Draw rules")
+	JINX, ## Jinxing: the opponent's next turn draw gives one Goob fewer
+	GENEROUS, ## Generous, passive: +1 on its owner's turn draw while on the board
+	DRAW_ECHO, ## Plentiful, passive: its owner draws 1 for each Goob the opponent draws
 }
 
 ## Deck-building pool (M6e framework).
@@ -54,7 +58,7 @@ enum Category { NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW }
 @export var flips_vertically: bool = false
 
 ## Effects that do nothing when played; they act while on the board.
-const PASSIVE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.DESTROY_LANDER, EffectType.DESTROY_LATER, EffectType.DEFIANT]
+const PASSIVE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.DESTROY_LANDER, EffectType.DESTROY_LATER, EffectType.DEFIANT, EffectType.GENEROUS, EffectType.DRAW_ECHO]
 
 const ART_DIR := "res://assets/goobs/%s/%s_%s"
 

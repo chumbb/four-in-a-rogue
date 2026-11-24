@@ -11,7 +11,7 @@ extends RefCounted
 ##      (this is the block, and "never play under the player's winning cell"),
 ##   3. its own threes/twos with room score up, the player's score down,
 ##   4. a small centre bias.
-## Plentiful earns a little for the Goobs it would draw. Among plays within
+## Greedy earns a little for the Goobs it would draw. Among plays within
 ## TIE_EPSILON of the best it prefers a Vanilla (specials are saved when they
 ## gain nothing), then picks at random. It sees only the board, its own hand
 ## and its own deck count — never the player's hand or any deck order.
@@ -27,6 +27,8 @@ const PLAYER_THREE := -60.0
 const PLAYER_TWO := -5.0
 const CENTRE := 3.0
 const DRAW_VALUE := 4.0
+## Turns of extra Goobs a Generous / Plentiful is expected to give (M6e Draw).
+const DRAW_EFFECT_TURNS := 2
 const TIE_EPSILON := 0.5
 ## "Close" choice: the runner-up is within this much of the best (think delay).
 const CLOSE_MARGIN := 10.0
@@ -102,10 +104,22 @@ static func _play_value(board: BoardState, goob: GoobDefinition, column: int, ha
 	var value := total / weights
 	if goob.effect_type == GoobDefinition.EffectType.DRAW_TWO:
 		var room := Deck.HAND_MAX - (hand_size - 1)
-		value += DRAW_VALUE * mini(mini(TurnLoop.PLENTIFUL_DRAW, deck_count), room)
+		value += DRAW_VALUE * mini(mini(TurnLoop.GREEDY_DRAW, deck_count), room)
+	value += _draw_effect_value(goob, deck_count, state)
 	if state.has("hands"):
 		value += _hand_value(board, goob, hand_size - 1, deck_count, state)
 	return value
+
+
+## Draw Goobs (M6e Draw), flat values: Jinxing costs the player one Goob;
+## Generous and Plentiful stay on the board for a few turns' worth of Goobs.
+static func _draw_effect_value(goob: GoobDefinition, deck_count: int, state: Dictionary) -> float:
+	match goob.effect_type:
+		GoobDefinition.EffectType.JINX:
+			return DRAW_VALUE if state.get("their_deck", 1) > 0 else 0.0
+		GoobDefinition.EffectType.GENEROUS, GoobDefinition.EffectType.DRAW_ECHO:
+			return DRAW_VALUE * mini(DRAW_EFFECT_TURNS, deck_count)
+	return 0.0
 
 
 ## Discard Goobs (M6e): each Goob a hand gains or loses is worth DRAW_VALUE

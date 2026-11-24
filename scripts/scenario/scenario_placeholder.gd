@@ -41,6 +41,10 @@ const MSG_HAND_FULL := "Hand full"
 const MSG_NOT_NOW := "Not now" # debug give / discard while your hand is moving
 const MSG_TURN_SKIPPED := "Turn skipped" # your hand is empty (Sean, 2026-11-23)
 const MSG_OPPONENT_SKIPPED := "Opponent's turn skipped"
+const MSG_JINXED := "Jinxed: no draw" # Jinxing (M6e Draw)
+const MSG_JINXED_FEWER := "Jinxed: %d fewer"
+const MSG_OPPONENT_JINXED := "Opponent jinxed: no draw"
+const MSG_OPPONENT_JINXED_FEWER := "Opponent jinxed: %d fewer"
 ## Forest hand prop (assets/hand/forest_stump.png), in its game px: the row the
 ## hand Goobs' bottoms rest on, and the usable width of its top.
 const STUMP_SEAT_Y := 34.0
@@ -1241,6 +1245,27 @@ func _show_turn_draw() -> void:
 		_show_hand_full()
 	for goob in _loop.last_draw:
 		await _reveal_drawn(goob)
+	await _play_turn_draw_extras(BoardState.CellOwner.PLAYER)
+
+
+## After `side`'s turn draw (M6e Draw): the Jinxing toast, then the Plentiful
+## draws it set off (TurnLoop.turn_draw_steps), each shown once.
+func _play_turn_draw_extras(side: BoardState.CellOwner) -> void:
+	if _loop.last_jinx_lost > 0:
+		var none := _loop.last_draw_count == 0
+		if side == BoardState.CellOwner.PLAYER:
+			_toast.show_message(MSG_JINXED if none else MSG_JINXED_FEWER % _loop.last_jinx_lost)
+		else:
+			_toast.show_message(MSG_OPPONENT_JINXED if none else MSG_OPPONENT_JINXED_FEWER % _loop.last_jinx_lost)
+		_place_toast()
+	var steps := _loop.turn_draw_steps.duplicate()
+	_loop.turn_draw_steps = [] # shown: never again
+	for step in steps:
+		await _play_effect(step)
+		if not is_inside_tree():
+			return
+	if not steps.is_empty():
+		_refresh_hud()
 
 
 ## A drawn Goob pops into the hand while its name shows in the gap above the
@@ -1307,6 +1332,9 @@ func _run_opponent_turn() -> void:
 		if not is_inside_tree() or _loop.phase != TurnLoop.Phase.OPPONENT_TURN:
 			return
 	await _play_turn_start()
+	if not is_inside_tree() or _loop.phase != TurnLoop.Phase.OPPONENT_TURN:
+		return
+	await _play_turn_draw_extras(BoardState.CellOwner.OPPONENT)
 	if not is_inside_tree() or _loop.phase != TurnLoop.Phase.OPPONENT_TURN:
 		return
 	_hud.set_base_face(&"thinking")
