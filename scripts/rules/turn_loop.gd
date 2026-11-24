@@ -68,6 +68,9 @@ var _jinxes: Dictionary = {}
 var last_jinx_lost := 0
 ## Side -> Stiflings on it: its next played Goobs have no effect (M6e Tech).
 var _stifles: Dictionary = {}
+## Side -> the Goob type its latest played Goob was (a Nostalgic / Mocking:
+## what it became), for Nostalgic and Mocking to copy (M6e Uniquely powerful).
+var _last_played: Dictionary = {}
 var last_draw_count := 0
 ## Plentiful's draws set off by the current turn draw (effect steps with
 ## "drawn"), for the view to show after that draw. Reset by each turn start.
@@ -146,6 +149,7 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	_bonus_draws.clear()
 	_jinxes.clear()
 	_stifles.clear()
+	_last_played.clear()
 	turn_draw_steps = []
 	result = Result.NONE
 	if deck.is_empty():
@@ -224,7 +228,9 @@ func play(column: int, hand_index: int = 0, rolled_dir: int = 0) -> int:
 	last_effect = {}
 	var goob := deck.take(hand_index)
 	var side := current_side()
+	var played_as := _played_as(goob, side)
 	var row := _play_goob(goob, column, side, rolled_dir, _use_stifle(side))
+	_last_played[side] = played_as
 	_on_turn_end(side)
 	board_after_play = board.copy()
 	if not _check_end():
@@ -486,6 +492,34 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			step["stolen_from"] = target
 			step["stolen_name"] = _cell_goobs[target].display_name
 			_steal(target, cell, side)
+		GoobDefinition.EffectType.SHIFT, GoobDefinition.EffectType.SINK, GoobDefinition.EffectType.BOUNCE_TOPS:
+			# Uniquely powerful (M6e): the only effects that take Goobs off the
+			# board; those count as destroyed (Sean, 2026-11-24).
+			step["motions"] = []
+			_motions = step["motions"]
+			step["fallen"] = []
+			match goob.effect_type:
+				GoobDefinition.EffectType.SHIFT:
+					var dir: int = [-1, 1][_pick(2)]
+					step["dir"] = dir
+					_shift(dir, step)
+				GoobDefinition.EffectType.SINK:
+					_sink(step)
+				_:
+					_bounce_tops()
+			step["fizzled"] = _motions.is_empty()
+			_settle()
+		GoobDefinition.EffectType.COPY_OWN, GoobDefinition.EffectType.COPY_ENEMY:
+			# Nostalgic / Mocking become the last Goob that side played: its
+			# landing effect fires and its passives stay (Sean, 2026-11-24).
+			var source := copy_source(goob.effect_type, side, _last_played)
+			_become(cell, source)
+			if source.effect_type == GoobDefinition.EffectType.NONE:
+				step["fizzled"] = true # nothing to copy, or a plain Goob
+				return
+			step["cue"] = true
+			step["copied"] = source.display_name
+			_resolve_effect(_cell_goobs[cell], cell, side)
 		GoobDefinition.EffectType.PUSH_LEFT, GoobDefinition.EffectType.PUSH_RIGHT:
 			step["motions"] = []
 			_motions = step["motions"]
@@ -1328,6 +1362,120 @@ func _steal(target: Vector2i, thief: Vector2i, side: BoardState.CellOwner) -> vo
 		gained.set_meta(&"armed_by", side)
 
 
+# --- Uniquely powerful effects (M6e; Sean, 2026-11-24: vault Special Goobs
+# "M6e Uniquely powerful rules"). A Goob that leaves the board is destroyed
+# (destroyed pile; Loyal / Stalwart keep it on). Its motion has "gone": true
+# and ends on an &"off" point outside the board.
+
+## Seismic: each row slides one column `dir`, edge-nearest first; the edge Goob
+## falls off. An unmovable Goob stays, and so does a protected one at the edge;
+## the Goobs pushing toward it stop beside it. One group (they move together);
+## gravity follows in _settle.
+func _shift(dir: int, step: Dictionary) -> void:
+	_group += 1
+	var group := _group
+	var edge := 0 if dir < 0 else BoardState.COLUMNS - 1
+	var columns: Array = range(BoardState.COLUMNS) if dir < 0 else range(BoardState.COLUMNS - 1, -1, -1)
+	for r in BoardState.ROWS:
+		for c: int in columns:
+			var at := Vector2i(c, r)
+			if board.is_empty(c, r) or not _can_move(at):
+				continue
+			if c == edge:
+				if _can_destroy(at):
+					_fall_off(at, at + Vector2i(dir, 0), group, step)
+				continue
+			var to := at + Vector2i(dir, 0)
+			if board.is_empty(to.x, to.y):
+				_put(to, _lift(at))
+				_record(at, to, [{"at": to, "how": &"slide"}], group)
+
+
+## Sinking: every bottom-row Goob that can be destroyed falls out (itself
+## included); gravity follows in _settle.
+func _sink(step: Dictionary) -> void:
+	_group += 1
+	var group := _group
+	for c in BoardState.COLUMNS:
+		var at := Vector2i(c, 0)
+		if not board.is_empty(c, 0) and _can_destroy(at):
+			_fall_off(at, Vector2i(c, -1), group, step)
+
+
+## Takes the Goob at `at` off the board through `off` (a cell outside it):
+## destroyed pile of its owner, recorded in step["fallen"] ({cell, owner}).
+func _fall_off(at: Vector2i, off: Vector2i, group: int, step: Dictionary) -> void:
+	var carried := _lift(at)
+	var goob: GoobDefinition = carried["goob"]
+	if goob != null:
+		deck_of(carried["owner"]).destroyed_pile.append(base_of(goob))
+	step["fallen"].append({"cell": at, "owner": carried["owner"]})
+	_motions.append({"from": at, "to": off, "points": [{"at": off, "how": &"off"}], "group": group, "gone": true})
+
+
+## Rowdy: column by column, left to right, the top Goob at that moment bounces
+## like Bouncy's bounce (random side; edge columns inward; a full column rolls
+## it from the top), then gravity and chains settle. A Goob already moved by
+## this effect, or one that can't move, is skipped.
+func _bounce_tops() -> void:
+	for c in BoardState.COLUMNS:
+		var height := _column_height(c)
+		if height == 0:
+			continue
+		var at := Vector2i(c, height - 1)
+		var goob: GoobDefinition = _cell_goobs.get(at)
+		if (goob != null and goob.has_meta(&"rowdy")) or not _can_move(at):
+			continue
+		var sides := _open_sides(at)
+		var dir := sides[_pick(sides.size())]
+		_mark(at, &"rowdy", true)
+		var carried := _lift(at)
+		var points: Array = []
+		var to := _bounce(at, dir, points)
+		_put(to, carried)
+		_record(at, to, points)
+		_check_landing(to)
+		if _on_mover(to):
+			_landing_move(to, _last_dir)
+		_settle()
+	for c in BoardState.COLUMNS:
+		for r in BoardState.ROWS:
+			var cell := Vector2i(c, r)
+			var goob: GoobDefinition = _cell_goobs.get(cell)
+			if goob != null and goob.has_meta(&"rowdy"):
+				_mark(cell, &"rowdy", null)
+
+
+## What Nostalgic (`kind` COPY_OWN: `side`'s) or Mocking (the enemy's) copies
+## from `last_played`; a plain Goob when there is no earlier play.
+static func copy_source(kind: GoobDefinition.EffectType, side: BoardState.CellOwner, last_played: Dictionary) -> GoobDefinition:
+	var whose := side if kind == GoobDefinition.EffectType.COPY_OWN else enemy_of(side)
+	var source: GoobDefinition = last_played.get(whose)
+	return source if source != null else VANILLA
+
+
+## The type `goob`, played by `side`, counts as for later copies: what a
+## Nostalgic / Mocking becomes, else itself.
+func _played_as(goob: GoobDefinition, side: BoardState.CellOwner) -> GoobDefinition:
+	var base := base_of(goob)
+	if base.effect_type == GoobDefinition.EffectType.COPY_OWN or base.effect_type == GoobDefinition.EffectType.COPY_ENEMY:
+		return copy_source(base.effect_type, side, _last_played)
+	return base
+
+
+## The Goob in `cell` becomes `source`'s type for good (effect and passives;
+## its own name, owner and x2 stay).
+func _become(cell: Vector2i, source: GoobDefinition) -> void:
+	var copy := _own_copy(cell)
+	if copy == null:
+		return
+	copy.effect_type = source.effect_type
+	if source.effect_type == GoobDefinition.EffectType.NONE:
+		copy.effect_description = "Copied a plain Goob: no effect."
+	else:
+		copy.effect_description = "Copied %s: %s" % [source.display_name, source.effect_description]
+
+
 ## Ruthless: any enemy Goob; Desperate: any Goob but itself (`cell`).
 func _discard_destroy_targets(kind: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> Array[Vector2i]:
 	var targets: Array[Vector2i] = []
@@ -1487,6 +1635,7 @@ static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition
 		for st: Dictionary in state.get("statuses", []):
 			sim.statuses.append(st.duplicate())
 		sim._stifles = state.get("stifles", {}).duplicate()
+		sim._last_played = state.get("last_played", {}).duplicate()
 		sim._scripted = true
 		sim._script = script
 		sim._play_goob(goob, column, side, 0, sim._stifles.get(side, 0) > 0)
@@ -1532,7 +1681,11 @@ func sim_state(mirrored := false) -> Dictionary:
 	var seen_stifles := {}
 	for s: BoardState.CellOwner in _stifles:
 		seen_stifles[_seen_side(s, mirrored)] = _stifles[s]
+	var seen_played := {}
+	for s: BoardState.CellOwner in _last_played:
+		seen_played[_seen_side(s, mirrored)] = _last_played[s]
 	return {
+		"last_played": seen_played, # Nostalgic / Mocking copy these
 		"statuses": seen_statuses,
 		"stifles": seen_stifles,
 		"locked": locked_columns(BoardState.CellOwner.PLAYER if mirrored else BoardState.CellOwner.OPPONENT),

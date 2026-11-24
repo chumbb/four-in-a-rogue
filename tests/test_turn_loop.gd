@@ -116,6 +116,13 @@ func _initialize() -> void:
 	_test_thieving()
 	_test_hoarding()
 	_test_tech_simulated()
+	_test_unique_roster()
+	_test_seismic()
+	_test_sinking()
+	_test_rowdy()
+	_test_nostalgic()
+	_test_mocking()
+	_test_unique_simulated()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -2015,3 +2022,159 @@ func _test_tech_simulated() -> void:
 	var gen := OpponentAI._play_value(b, GENEROUS, 0, 2, 5, goobs, {}, stifled)
 	var van := OpponentAI._play_value(b, TurnLoop.VANILLA, 0, 2, 5, goobs, {}, stifled)
 	_check(gen > van, "tech AI: a stifled Generous still counts its ongoing bonus")
+
+
+# --- M6e Uniquely powerful (Sean, 2026-11-24) ---
+
+const SEISMIC := preload("res://resources/goobs/seismic_goob.tres")
+const SINKING := preload("res://resources/goobs/sinking_goob.tres")
+const ROWDY := preload("res://resources/goobs/rowdy_goob.tres")
+const NOSTALGIC := preload("res://resources/goobs/nostalgic_goob.tres")
+const MOCKING := preload("res://resources/goobs/mocking_goob.tres")
+
+
+func _test_unique_roster() -> void:
+	var expected := {
+		SEISMIC: ["Seismic Goob", "Shift every Goob one column left or right."],
+		SINKING: ["Sinking Goob", "The bottom row falls out."],
+		ROWDY: ["Rowdy Goob", "The top Goob of every column bounces."],
+		NOSTALGIC: ["Nostalgic Goob", "Copy the last Goob you played."],
+		MOCKING: ["Mocking Goob", "Copy the last Goob your opponent played."],
+	}
+	var uniques := GoobRoster.specials(GoobDefinition.Category.UNIQUE)
+	_check(uniques.size() == 7 and CONVINCING in uniques and POPULAR in uniques, "unique: seven Goobs incl. Convincing and Popular (got %d)" % uniques.size())
+	for goob: GoobDefinition in expected:
+		_check(goob in uniques and goob.multiplier == 2.0 and goob.art_id == "vanilla", "unique: %s is x2, Vanilla art, in the roster" % goob.id)
+		_check(goob.display_name == expected[goob][0] and goob.effect_description == expected[goob][1], "unique: %s name and card text" % goob.id)
+
+
+func _test_seismic() -> void:
+	var t := _with_hand([SEISMIC, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 0, TurnLoop.VANILLA, P)
+	_place(t, 1, FAT, O)
+	_place(t, 2, TurnLoop.VANILLA, O)
+	t._scripted = true
+	t._script = [0] # left
+	t.play(4, 0) # Seismic at (4,0)
+	var step := t.last_effect
+	_check(step["kind"] == GoobDefinition.EffectType.SHIFT and step["dir"] == -1 and not step["fizzled"], "seismic: shifts left")
+	_check(t.board.get_owner(0, 0) == O and TurnLoop.base_of(t.goob_at(0, 0)) == FAT and t.board.get_owner(1, 0) == O and t.board.get_owner(3, 0) == P and t.board.is_empty(4, 0), "seismic: every Goob moves one column, itself included")
+	_check(step["fallen"].size() == 1 and step["fallen"][0]["owner"] == P and t.player_deck.destroyed_pile.size() == 1, "seismic: the edge Goob falls off and is destroyed")
+	var gone: Array = step["motions"].filter(func(m: Dictionary) -> bool: return m.get("gone", false))
+	_check(gone.size() == 1 and gone[0]["to"] == Vector2i(-1, 0), "seismic: its motion leaves the board")
+	# Walls: a Stalwart stays and stops the Goob behind it; gravity after.
+	var w := _with_hand([SEISMIC, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(w, 1, STALWART, O)
+	_place(w, 1, TurnLoop.VANILLA, P) # (1,1) on the Stalwart
+	_place(w, 2, TurnLoop.VANILLA, O)
+	w._scripted = true
+	w._script = [0]
+	w.play(5, 0) # Seismic at (5,0)
+	_check(TurnLoop.base_of(w.goob_at(1, 0)) == STALWART and w.board.get_owner(2, 0) == O, "seismic: a Stalwart stays and walls the Goob behind it")
+	_check(w.board.get_owner(0, 0) == P and w.board.is_empty(1, 1) and w.board.get_owner(4, 0) == P, "seismic: the Goob above slides off the Stalwart and falls")
+	# Loyal at the edge: it doesn't fall off.
+	var l := _with_hand([SEISMIC, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(l, 6, TurnLoop.VANILLA, O)
+	l._protect(O, GoobDefinition.EffectType.LOYAL)
+	l._scripted = true
+	l._script = [1] # right
+	l.play(5, 0) # Seismic at (5,0)
+	_check(l.board.get_owner(6, 0) == O and l.board.get_owner(5, 0) == P and l.last_effect["fizzled"], "seismic: a Loyal Goob at the edge stays and blocks its row")
+
+
+func _test_sinking() -> void:
+	var t := _with_hand([SINKING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 0, TurnLoop.VANILLA, O)
+	_place(t, 0, TurnLoop.VANILLA, P) # (0,1)
+	_place(t, 2, TurnLoop.VANILLA, O)
+	t.play(4, 0) # Sinking at (4,0)
+	_check(t.board.get_owner(0, 0) == P and t.board.is_empty(0, 1), "sinking: the Goobs above fall one row")
+	_check(t.board.is_empty(2, 0) and t.board.is_empty(4, 0), "sinking: the bottom row is gone, itself included")
+	_check(t.opponent_deck.destroyed_pile.size() == 2 and TurnLoop.base_of(t.player_deck.destroyed_pile[0]) == SINKING, "sinking: they are destroyed (piles)")
+	var l := _with_hand([SINKING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(l, 1, STALWART, O)
+	_place(l, 1, TurnLoop.VANILLA, O) # (1,1) on the Stalwart
+	_place(l, 3, TurnLoop.VANILLA, P)
+	l._protect(P, GoobDefinition.EffectType.LOYAL)
+	l.play(5, 0)
+	_check(l.board.get_owner(1, 1) == O and l.board.get_owner(3, 0) == P and l.board.get_owner(5, 0) == P and l.last_effect["fizzled"], "sinking: protected Goobs stay with what stands on them; all protected = fizzle")
+
+
+func _test_rowdy() -> void:
+	var t := _with_hand([ROWDY, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 0, TurnLoop.VANILLA, O)
+	t._scripted = true
+	t._script = [0, 0] # column 0: inward (only choice); Rowdy: left
+	t.play(3, 0) # Rowdy at (3,0)
+	_check(t.board.get_owner(1, 0) == O and t.board.get_owner(2, 0) == P and t.board.is_empty(0, 0) and t.board.is_empty(3, 0), "rowdy: each top Goob bounces one column, left to right")
+	_check(not t.goob_at(1, 0).has_meta(&"rowdy") and not t.goob_at(2, 0).has_meta(&"rowdy"), "rowdy: no marks left behind")
+	var s := _with_hand([ROWDY, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(s, 0, TurnLoop.VANILLA, O)
+	_place(s, 2, TurnLoop.VANILLA, O)
+	s._scripted = true
+	s._script = [0, 1, 1] # (0,0) right onto column 1; (2,0) right; Rowdy right
+	s.play(4, 0)
+	_check(s.board.get_owner(1, 0) == O and s.board.get_owner(3, 0) == O and s.board.get_owner(5, 0) == P, "rowdy: a Goob moved by it isn't bounced again")
+	var f := _with_hand([ROWDY, TurnLoop.VANILLA] as Array[GoobDefinition])
+	f._protect(P, GoobDefinition.EffectType.STEADFAST)
+	f.play(3, 0)
+	_check(f.last_effect["fizzled"] and f.board.get_owner(3, 0) == P, "rowdy: nothing can move = fizzle")
+
+
+func _test_nostalgic() -> void:
+	var t := _with_hand([NOSTALGIC, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.play(3, 0)
+	_check(t.last_effect["fizzled"] and t.goob_at(3, 0).effect_type == GoobDefinition.EffectType.NONE, "nostalgic: no earlier play = a plain Goob")
+	var f := _with_hand([FAT, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	f.play(3, 0) # Fat at (3,0), no neighbour
+	f.play(0, 0) # his
+	f.player_deck.hand[0] = NOSTALGIC
+	f.play(4, 0) # Nostalgic at (4,0): becomes Fat, destroys (3,0)
+	var copy := _steps_of(f.effect_steps, GoobDefinition.EffectType.COPY_OWN)
+	_check(copy.size() == 1 and copy[0]["copied"] == "Fat Goob", "nostalgic: copies your last played Goob")
+	_check(f.board.is_empty(3, 0) and f.goob_at(3, 0) == null or f.board.get_owner(3, 0) == E, "nostalgic: the copied Fat destroys")
+	_check(f.goob_at(4, 0).effect_type == GoobDefinition.EffectType.DESTROY_ADJACENT and TurnLoop.base_of(f.goob_at(4, 0)) == NOSTALGIC, "nostalgic: becomes it, keeps its own type")
+	_check(f._last_played[P] == FAT, "nostalgic: counts as what it became")
+	f.play(1, 0) # his
+	f.player_deck.hand[0] = NOSTALGIC
+	f.play(6, 0)
+	var again := _steps_of(f.effect_steps, GoobDefinition.EffectType.COPY_OWN)
+	_check(again.size() == 1 and again[0]["copied"] == "Fat Goob", "nostalgic: copying a Nostalgic copies what it became")
+
+
+func _test_mocking() -> void:
+	var t := _with_hand([TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.play(0, 0)
+	t.opponent_deck.hand[0] = BOUNCY
+	t.play(6, 0) # his Bouncy
+	t.player_deck.hand[0] = MOCKING
+	t.play(3, 0) # Mocking at (3,0): becomes a Bouncy
+	_check(t.goob_at(3, 0).effect_type == GoobDefinition.EffectType.BOUNCY and t.board.get_owner(3, 0) == P, "mocking: becomes his last Goob, on your side")
+	_check(t.goob_at(3, 0).effect_description.begins_with("Copied Bouncy Goob"), "mocking: inspect says what it copied")
+	t._scripted = true
+	t._script = [1]
+	t.play(3, 0) # his Goob lands on it and bounces right
+	_check(t.board.get_owner(4, 0) == O and t.board.is_empty(3, 1), "mocking: keeps the passive for good")
+	var d := _with_hand([TurnLoop.VANILLA, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	d.play(0, 0)
+	d.opponent_deck.hand[0] = DISTRACTING
+	d.play(6, 0) # his Distracting: you discard one
+	d.player_deck.hand[0] = MOCKING
+	d.play(3, 0)
+	var discards: Array = d.effect_steps.filter(func(st: Dictionary) -> bool: return st.has("discarded") and st["side"] == O)
+	_check(discards.size() == 1 and d.opponent_deck.discard_pile.size() == 1, "mocking: a copied Distracting makes him discard")
+
+
+func _test_unique_simulated() -> void:
+	var b := BoardState.new()
+	var goobs := {}
+	b.drop(0, P)
+	goobs[Vector2i(0, 0)] = TurnLoop.VANILLA
+	var results := TurnLoop.play_results(b, goobs, SEISMIC, 3, O)
+	_check(results.size() == 2, "unique AI: Seismic's two directions are simulated (got %d)" % results.size())
+	var copied := TurnLoop.play_results(b, goobs, NOSTALGIC, 1, O, 48, {}, {"last_played": {O: FAT}})
+	_check(copied.size() == 1 and copied[0]["board"].is_empty(0, 0), "unique AI: Nostalgic simulates the Goob it becomes")
+	var state := {"last_played": {O: GENEROUS}}
+	var nos := OpponentAI._play_value(b, NOSTALGIC, 4, 2, 5, goobs, {}, state)
+	var van := OpponentAI._play_value(b, TurnLoop.VANILLA, 4, 2, 5, goobs, {}, state)
+	_check(nos > van, "unique AI: a Nostalgic copying Generous gets Generous's value")

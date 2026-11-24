@@ -48,6 +48,7 @@ const MSG_OPPONENT_JINXED_FEWER := "Opponent jinxed: %d fewer"
 const MSG_STIFLED := "Stifled: no effect" # Stifling (M6e Tech)
 const MSG_OPPONENT_STIFLED := "Opponent stifled: no effect"
 const MSG_STOLE := "Stole %s's effect" # Thieving
+const MSG_COPIED := "Copied %s" # Nostalgic / Mocking (M6e Uniquely powerful)
 ## Forest hand prop (assets/hand/forest_stump.png), in its game px: the row the
 ## hand Goobs' bottoms rest on, and the usable width of its top.
 const STUMP_SEAT_Y := 34.0
@@ -1012,6 +1013,9 @@ func _reaction_for(_column: int, side: BoardState.CellOwner, roll_path: Array[in
 		# can move the Goob first, so the board before the play won't do).
 		hit_other = effect.get("target_owner", BoardState.CellOwner.EMPTY) == TurnLoop.enemy_of(side)
 		chain = _chained(effect)
+	for fallen: Dictionary in effect.get("fallen", []):
+		# Seismic / Sinking knocked his (your) Goobs off the board (M6e).
+		hit_other = hit_other or fallen["owner"] == TurnLoop.enemy_of(side)
 	var face := &""
 	if chain or roll_path.size() > 1:
 		face = &"surprised"
@@ -1083,6 +1087,10 @@ func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, ce
 	if effect["fizzled"]:
 		await _board_view.play_fizzle(cell)
 		return
+	if effect.has("copied"):
+		# Nostalgic / Mocking: what it became; that Goob's effect is the next step.
+		_toast.show_message(MSG_COPIED % effect["copied"])
+		_place_toast()
 	if effect.get("cue", false):
 		# A discard Goob winds up; its discards are the steps after this one.
 		await _board_view.play_cue(cell)

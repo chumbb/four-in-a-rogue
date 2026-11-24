@@ -74,6 +74,7 @@ func _run() -> void:
 	await _test_discard_animations()
 	await _test_draw_animations()
 	await _test_tech_animations()
+	await _test_unique_animations()
 	await _test_scoring_sequence()
 	await _test_scoring_animated()
 	await _test_hud()
@@ -2308,4 +2309,50 @@ func _test_tech_animations() -> void:
 				_check(loop.last_effect.get("inspired", Vector2i(-1, -1)) == Vector2i(4, 0), "tech inspiring: the Fat fired again")
 			"thieving":
 				_check(loop.goob_at(3, 0).effect_type == GoobDefinition.EffectType.BOUNCY and scenario._toast._label.text == scenario.MSG_STOLE % "Bouncy Goob", "tech thieving: stole the Bouncy, toast says so")
+		await _free(scenario)
+
+
+## M6e Uniquely powerful: each one plays out, the animated view matches the
+## board (Goobs that fell off are gone), the next turn starts.
+func _test_unique_animations() -> void:
+	var g := func(id: String) -> GoobDefinition: return load("res://resources/goobs/%s_goob.tres" % id)
+	var V := TurnLoop.VANILLA
+	var P := BoardState.CellOwner.PLAYER
+	var O := BoardState.CellOwner.OPPONENT
+	# label, played Goob, Goobs placed first [column, goob, owner], last played {side: goob}
+	var setups := [
+		["seismic", g.call("seismic"), [[0, V, O], [6, V, O], [1, V, P]], {}],
+		["sinking", g.call("sinking"), [[0, V, O], [0, V, P], [5, V, O]], {}],
+		["rowdy", g.call("rowdy"), [[0, V, O], [5, V, O], [5, V, P]], {}],
+		["nostalgic", g.call("nostalgic"), [[4, V, O]], {P: g.call("fat")}],
+		["mocking", g.call("mocking"), [], {O: g.call("bouncy")}],
+	]
+	for setup in setups:
+		var label: String = setup[0]
+		var scenario := await _make(5.0, true, 30.0, true)
+		await _wait_input(scenario)
+		var loop: TurnLoop = scenario._loop
+		for placed: Array in setup[2]:
+			var row := loop.board.drop(placed[0], placed[2])
+			loop._cell_goobs[Vector2i(placed[0], row)] = placed[1]
+		loop._last_played = setup[3].duplicate()
+		_view(scenario).sync_from_board(loop.board)
+		loop.player_deck.hand.assign([setup[1], V, V])
+		_hand_view(scenario).rebuild(loop.player_deck.hand)
+		_play_col(scenario, 3)
+		var deadline := Time.get_ticks_msec() + 25000
+		while scenario._opponent_timer.is_stopped() and Time.get_ticks_msec() < deadline:
+			await process_frame
+		_check(not scenario._opponent_timer.is_stopped(), "unique %s: play finishes, opponent's turn starts" % label)
+		_check(_fan_in_step(scenario), "unique %s: fan matches the hand" % label)
+		_check(_view_matches(scenario), "unique %s: animated view matches the board" % label)
+		match label:
+			"seismic":
+				_check(loop.player_deck.destroyed_pile.size() + loop.opponent_deck.destroyed_pile.size() == 1, "unique seismic: the edge Goob fell off")
+			"sinking":
+				_check(loop.board.get_owner(0, 0) == P and loop.opponent_deck.destroyed_pile.size() == 2, "unique sinking: bottom row gone, the rest fell")
+			"nostalgic":
+				_check(loop.board.is_empty(4, 0) and scenario._toast._label.text == scenario.MSG_COPIED % "Fat Goob", "unique nostalgic: became Fat, toast says so")
+			"mocking":
+				_check(loop.goob_at(3, 0).effect_type == GoobDefinition.EffectType.BOUNCY, "unique mocking: became his Bouncy")
 		await _free(scenario)
