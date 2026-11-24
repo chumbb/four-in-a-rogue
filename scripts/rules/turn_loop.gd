@@ -61,14 +61,17 @@ var _skipped_last: Dictionary = {}
 ##   kind: GoobDefinition.EffectType of the played Goob
 ##   cell: Vector2i where it landed; side: BoardState.CellOwner
 ##   fizzled: true when it had nothing to act on (Sean, 2026-11-19)
-##   target: Vector2i flipped (Convincing) or destroyed (Fat) cell
+##   target: Vector2i flipped (Convincing) or destroyed (Fat) cell, and
+##   target_owner: who owned it before
 ##   extra: Vector2i where Popular's Vanilla landed
 ##   drawn: Array[GoobDefinition] and hand_full: bool (Plentiful)
 var last_effect: Dictionary = {}
 
 ## Every effect step of the current play(), in order (reset by play()): the
 ## same keys as last_effect, plus {"discarded": GoobDefinition, "index": int}
-## (its hand index) for a discard from discard_from(). last_effect is effect_steps[0], or {} when empty.
+## (its hand index) for a discard from discard_from(). last_effect is the
+## played Goob's own step (a Bouncy / Slippery landing step can come before
+## it); a discard sets it only when it is still {}.
 var effect_steps: Array[Dictionary] = []
 
 ## Active statuses: {id: StringName, side: BoardState.CellOwner, label: String,
@@ -79,6 +82,20 @@ var statuses: Array[Dictionary] = []
 ## Vector2i(column, row) -> GoobDefinition of the Goob sitting there.
 var _cell_goobs: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
+
+## Move effects (M6e): the motion list of the step being resolved, the id of
+## the latest gravity pass (its falls play together), and the direction the
+## latest hop left a Goob going.
+var _motions: Array = []
+var _group := 0
+var _last_dir := 0
+## The effect type behind the latest chain move (names a destroy's chain step).
+var _chain_kind := GoobDefinition.EffectType.NONE
+## Outcome enumeration (play_outcomes, for the AI): random picks follow
+## _script, then take 0; every pick is logged as [value, choices].
+var _scripted := false
+var _script: Array[int] = []
+var _picks: Array = []
 
 
 func _init() -> void:
@@ -143,8 +160,10 @@ func goob_at(column: int, row: int) -> GoobDefinition:
 
 ## Plays the current side's hand Goob at `hand_index` into `column`. Returns
 ## the landed row, or -1 with no state change if the move is not allowed.
-## Order (slice §4): land → effect → win check last.
-func play(column: int, hand_index: int = 0) -> int:
+## Order (slice §4): land → effect → win check last. `rolled_dir`: the
+## direction (-1 / +1) of the timeout roll that brought it here (0 = none),
+## so a Bouncy under it sends it on that way.
+func play(column: int, hand_index: int = 0, rolled_dir: int = 0) -> int:
 	if not can_play(column):
 		return -1
 	var deck := current_deck()
@@ -154,9 +173,7 @@ func play(column: int, hand_index: int = 0) -> int:
 	last_effect = {}
 	var goob := deck.take(hand_index)
 	var side := current_side()
-	var row := board.drop(column, side)
-	_cell_goobs[Vector2i(column, row)] = goob
-	_resolve_effect(goob, Vector2i(column, row), side)
+	var row := _land_and_resolve(goob, column, side, rolled_dir)
 	_on_turn_end(side)
 	match board.get_outcome():
 		BoardState.Outcome.PLAYER_WIN:
@@ -173,19 +190,77 @@ func play(column: int, hand_index: int = 0) -> int:
 	return row
 
 
+## Drops `goob` for `side` into `column`; a Bouncy or Slippery Goob under it
+## moves it first (M6e), then its effect resolves where it ended up. Returns
+## the row it first landed in.
+func _land_and_resolve(goob: GoobDefinition, column: int, side: BoardState.CellOwner, rolled_dir: int = 0) -> int:
+	var row := board.drop(column, side)
+	var cell := Vector2i(column, row)
+	_cell_goobs[cell] = goob
+	cell = _landing_step(cell, rolled_dir)
+	_resolve_effect(goob, cell, side)
+	return row
+
+
+## A Goob that just landed in `cell` on a Bouncy or Slippery is moved by it
+## straight away, as its own "instant" step (no wind-up), then gravity and
+## chains settle. Returns where it ended up.
+func _landing_step(cell: Vector2i, rolled_dir: int = 0) -> Vector2i:
+	if not _on_mover(cell):
+		return cell
+	var under := cell + Vector2i(0, -1)
+	var step := _move_step(_effect_at(under), under, board.get_owner(under.x, under.y))
+	step["instant"] = true
+	cell = _landing_move(cell, rolled_dir)
+	_settle()
+	if step["motions"].is_empty():
+		effect_steps.erase(step)
+	return cell
+
+
+## Whether the Goob in `cell` sits on a Bouncy or Slippery.
+func _on_mover(cell: Vector2i) -> bool:
+	var below := _effect_at(cell + Vector2i(0, -1))
+	return below == GoobDefinition.EffectType.BOUNCY or below == GoobDefinition.EffectType.SLIPPERY
+
+
+## A Goob landing on a Bouncy bounces to the next column (`dir` when it was
+## rolling, else a random side); on a Slippery it rolls a random way it can
+## (boxed in = stays). Sean, 2026-11-23. Records into the current motions;
+## returns where it ended up.
+func _landing_move(cell: Vector2i, dir: int = 0) -> Vector2i:
+	if _effect_at(cell + Vector2i(0, -1)) == GoobDefinition.EffectType.BOUNCY:
+		if dir == 0:
+			var sides := _open_sides(cell)
+			dir = sides[_pick(sides.size())]
+		var carried := _lift(cell)
+		var points: Array = []
+		var to := _bounce(cell, dir, points)
+		_put(to, carried)
+		_record(cell, to, points)
+		return to
+	var dirs := _roll_dirs(cell)
+	if dirs.is_empty():
+		return cell
+	return _roll(cell, dirs[_pick(dirs.size())])
+
+
 ## The played Goob's special effect (slice §4 roster). Random targets come
 ## from the scenario rng; with nothing to act on the effect fizzles.
 func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.CellOwner) -> void:
 	var step := {"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false}
 	effect_steps.append(step)
-	last_effect = effect_steps[0]
+	last_effect = step
+	if goob.effect_type in GoobDefinition.PASSIVE_EFFECTS:
+		step["passive"] = true # acts later, while on the board
 	match goob.effect_type:
 		GoobDefinition.EffectType.FLIP_ADJACENT:
 			var targets := neighbours(board, cell, enemy_of(side))
 			if targets.is_empty():
 				step["fizzled"] = true
 				return
-			var target := targets[_rng.randi_range(0, targets.size() - 1)]
+			var target := targets[_pick(targets.size())]
+			step["target_owner"] = board.get_owner(target.x, target.y)
 			board.set_owner(target.x, target.y, side)
 			step["target"] = target
 		GoobDefinition.EffectType.DESTROY_ADJACENT:
@@ -193,18 +268,28 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			if targets.is_empty():
 				step["fizzled"] = true
 				return
-			var target := targets[_rng.randi_range(0, targets.size() - 1)]
+			var target := targets[_pick(targets.size())]
+			var height := _column_height(target.x)
+			step["target_owner"] = board.get_owner(target.x, target.y)
 			destroy_at(target)
 			step["target"] = target
+			# The Goobs above it fell: chains (Lopsided / Tipsy, landing on a
+			# Bouncy / Slippery) follow as their own step.
+			var fell: Array[Vector2i] = []
+			for r in range(target.y, height - 1):
+				fell.append(Vector2i(target.x, r))
+			_roll_fallen(fell)
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
 			var open := open_columns(board)
 			if open.is_empty():
 				step["fizzled"] = true
 				return
-			var column := open[_rng.randi_range(0, open.size() - 1)]
+			var column := open[_pick(open.size())]
 			var row := board.drop(column, side)
 			_cell_goobs[Vector2i(column, row)] = VANILLA
 			step["extra"] = Vector2i(column, row)
+			# Landing on a Bouncy / Slippery moves it too (Sean, 2026-11-23).
+			_landing_step(Vector2i(column, row))
 		GoobDefinition.EffectType.DRAW_TWO:
 			var deck := deck_of(side)
 			var hand_full := deck.draw_blocked_by_hand(PLENTIFUL_DRAW)
@@ -213,6 +298,49 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			step["hand_full"] = hand_full
 			# Nothing drawn and not a full hand = an empty deck: fizzle.
 			step["fizzled"] = drawn.is_empty() and not hand_full
+		GoobDefinition.EffectType.PUSH_LEFT, GoobDefinition.EffectType.PUSH_RIGHT:
+			step["motions"] = []
+			_motions = step["motions"]
+			var dir := -1 if goob.effect_type == GoobDefinition.EffectType.PUSH_LEFT else 1
+			# Only its side of the row, edge-nearest first so the row packs
+			# toward the edge; the row moves, then the Goobs above fall.
+			var columns: Array = range(0, cell.x) if dir < 0 else range(BoardState.COLUMNS - 1, cell.x, -1)
+			for c: int in columns:
+				var at := Vector2i(c, cell.y)
+				if not board.is_empty(at.x, at.y) and _can_roll(at, dir):
+					_roll(at, dir)
+			step["fizzled"] = _motions.is_empty()
+			_settle()
+		GoobDefinition.EffectType.ROLL_LEFT, GoobDefinition.EffectType.ROLL_RIGHT:
+			step["motions"] = []
+			_motions = step["motions"]
+			var dir := -1 if goob.effect_type == GoobDefinition.EffectType.ROLL_LEFT else 1
+			if not _can_roll(cell, dir):
+				step["fizzled"] = true
+				return
+			_roll(cell, dir)
+			_settle()
+		GoobDefinition.EffectType.ROLL_HIGHEST, GoobDefinition.EffectType.ROLL_IN_ROW:
+			step["motions"] = []
+			_motions = step["motions"]
+			var targets: Array[Vector2i] = []
+			if goob.effect_type == GoobDefinition.EffectType.ROLL_HIGHEST:
+				# The top Goob of the highest row, Blustery included; random
+				# among the ones there that can roll (Sean, 2026-11-23).
+				var top := 0
+				for c in BoardState.COLUMNS:
+					top = maxi(top, _column_height(c))
+				targets = _rollable_in_row(top - 1, Vector2i(-1, -1))
+			else:
+				targets = _rollable_in_row(cell.y, cell) # never Fidgety itself
+			if targets.is_empty():
+				step["fizzled"] = true
+				return
+			var target := targets[_pick(targets.size())]
+			var dirs := _roll_dirs(target)
+			step["rolled"] = target
+			_roll(target, dirs[_pick(dirs.size())])
+			_settle()
 
 
 ## Destroys the Goob at `cell`: it goes to the destroyed pile of the side that
@@ -241,29 +369,316 @@ func _collapse_goobs(column: int, from_row: int) -> void:
 ## level with it or higher, or the edge, stops it. Returns the cells it passed
 ## through after leaving `cell` (empty = didn't move). Keeps owner and
 ## definition; the Goobs above its old cell fall. An empty `cell` doesn't move.
+## Bouncy and Springy Goobs act on it (M6e).
 func roll_goob(cell: Vector2i, dir: int) -> Array[Vector2i]:
 	var path: Array[Vector2i] = []
-	var owner := board.get_owner(cell.x, cell.y)
-	if owner == BoardState.CellOwner.EMPTY:
+	if board.is_empty(cell.x, cell.y):
 		return path # nothing to roll
+	_motions = []
+	_roll(cell, dir)
+	# The cell it ended up in for each column it passed through.
+	if not _motions.is_empty():
+		for point: Dictionary in _motions[0]["points"]:
+			var at: Vector2i = point["at"]
+			if at.y >= BoardState.ROWS or not board.is_valid_column(at.x):
+				continue
+			if not path.is_empty() and path[-1].x == at.x:
+				path[-1] = at
+			else:
+				path.append(at)
+	_apply_gravity()
+	return path
+
+
+# --- Move effects (M6e; Sean, 2026-11-23: vault Special Goobs "M6e Move rules")
+# A motion is {"from": Vector2i, "to": Vector2i, "points": Array, "group": int};
+# each point is {"at": Vector2i, "how": &"slide" | &"fall" | &"hop" | &"edge"}.
+# Row BoardState.ROWS is the top of the board; an "edge" point is off the
+# board (the Goob bumps the edge and comes back). Motions play in order; ones
+# sharing a group > 0 (one gravity pass) play together.
+
+const _MAX_BOUNCES := 16
+const _MAX_CHAIN := 32
+
+
+## A new move step (kind, cell, side) whose motions are recorded from now on.
+func _move_step(kind: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> Dictionary:
+	var step := {"kind": kind, "cell": cell, "side": side, "fizzled": false, "motions": []}
+	effect_steps.append(step)
+	_motions = step["motions"]
+	return step
+
+
+func _record(from: Vector2i, to: Vector2i, points: Array, group: int = 0) -> void:
+	if from != to or not points.is_empty():
+		_motions.append({"from": from, "to": to, "points": points, "group": group})
+
+
+## A random index below `count` (scripted while enumerating outcomes).
+func _pick(count: int) -> int:
+	if not _scripted:
+		return _rng.randi_range(0, count - 1)
+	var value := _script[_picks.size()] if _picks.size() < _script.size() else 0
+	_picks.append([value, count])
+	return value
+
+
+func _effect_at(cell: Vector2i) -> GoobDefinition.EffectType:
 	var goob: GoobDefinition = _cell_goobs.get(cell)
+	if goob == null or board.is_empty(cell.x, cell.y):
+		return GoobDefinition.EffectType.NONE
+	return goob.effect_type
+
+
+## Height of `column` up to its highest Goob (holes included).
+func _column_height(column: int) -> int:
+	for r in range(BoardState.ROWS - 1, -1, -1):
+		if not board.is_empty(column, r):
+			return r + 1
+	return 0
+
+
+## Takes the Goob off `cell` without gravity: {owner, goob}.
+func _lift(cell: Vector2i) -> Dictionary:
+	var carried := {"owner": board.get_owner(cell.x, cell.y), "goob": _cell_goobs.get(cell)}
+	board.set_owner(cell.x, cell.y, BoardState.CellOwner.EMPTY)
+	_cell_goobs.erase(cell)
+	return carried
+
+
+func _put(cell: Vector2i, carried: Dictionary) -> void:
+	board.set_owner(cell.x, cell.y, carried["owner"])
+	if carried["goob"] != null:
+		_cell_goobs[cell] = carried["goob"]
+
+
+## Whether the Goob in `cell` can roll `dir`: the cell beside it is free, or
+## holds a Springy it would bounce off.
+func _can_roll(cell: Vector2i, dir: int) -> bool:
+	var next := cell + Vector2i(dir, 0)
+	if not board.in_bounds(next.x, next.y):
+		return false
+	return board.is_empty(next.x, next.y) or _effect_at(next) == GoobDefinition.EffectType.SPRINGY
+
+
+## Directions the Goob in `cell` can roll (random rolls pick one of these).
+func _roll_dirs(cell: Vector2i) -> Array[int]:
+	var dirs: Array[int] = []
+	for dir: int in [-1, 1]:
+		if _can_roll(cell, dir):
+			dirs.append(dir)
+	return dirs
+
+
+## Sides of `cell` that have a column (a played Goob's Bouncy bounce).
+func _open_sides(cell: Vector2i) -> Array[int]:
+	var sides: Array[int] = []
+	for dir: int in [-1, 1]:
+		if board.is_valid_column(cell.x + dir):
+			sides.append(dir)
+	return sides
+
+
+## Goobs in `row` (except `skip`) that can roll somewhere.
+func _rollable_in_row(row: int, skip: Vector2i) -> Array[Vector2i]:
+	var found: Array[Vector2i] = []
+	if row < 0:
+		return found
+	for c in BoardState.COLUMNS:
+		var at := Vector2i(c, row)
+		if at != skip and not board.is_empty(c, row) and not _roll_dirs(at).is_empty():
+			found.append(at)
+	return found
+
+
+## Rolls the Goob at `cell` `dir` by the roll rule and records the motion. A
+## Springy beside it bounces it onto the top of the Springy's column; landing
+## on a Bouncy bounces it on; a bounce ends the roll (Sean, 2026-11-23). The
+## Goobs above its old cell wait for the next gravity pass. Returns where it
+## ended up.
+func _roll(cell: Vector2i, dir: int) -> Vector2i:
+	var carried := _lift(cell)
+	var points: Array = []
+	var at := cell
 	while true:
-		var next := cell.x + dir
+		var next := at.x + dir
 		if not board.is_valid_column(next):
 			break
-		# It moves while the cell beside it is free (a column level with or
-		# higher than it stops it), so on the floor or a flat top it rolls on
-		# to the next Goob or the edge (Sean, 2026-11-23).
-		var height := board.lowest_empty_row(next)
-		if height < 0 or height > cell.y:
+		if board.is_empty(next, at.y):
+			points.append({"at": Vector2i(next, at.y), "how": &"slide"})
+			var y := at.y
+			while y > 0 and board.is_empty(next, y - 1):
+				y -= 1
+			if y != at.y:
+				points.append({"at": Vector2i(next, y), "how": &"fall"})
+			at = Vector2i(next, y)
+			if _effect_at(at + Vector2i(0, -1)) == GoobDefinition.EffectType.BOUNCY:
+				at = _bounce(at, dir, points, cell)
+				break
+			continue
+		if _effect_at(Vector2i(next, at.y)) == GoobDefinition.EffectType.SPRINGY:
+			at = _hop(at, next, dir, points, cell)
+			if _effect_at(at + Vector2i(0, -1)) == GoobDefinition.EffectType.BOUNCY:
+				at = _bounce(at, _last_dir, points, cell)
+		break
+	_put(at, carried)
+	_record(cell, at, points)
+	return at
+
+
+## On top of a Bouncy at `at`: jumps onto the next column `dir` whatever its
+## height (no column there → the other way), again while it lands on a
+## Bouncy. `origin`: where it goes back to if nothing is open.
+func _bounce(at: Vector2i, dir: int, points: Array, origin: Vector2i = Vector2i(-1, -1)) -> Vector2i:
+	if origin.x < 0:
+		origin = at
+	for i in _MAX_BOUNCES:
+		var column := at.x + dir
+		if not board.is_valid_column(column):
+			dir = -dir
+			column = at.x + dir
+		at = _hop(at, column, dir, points, origin)
+		dir = _last_dir
+		if _effect_at(at + Vector2i(0, -1)) != GoobDefinition.EffectType.BOUNCY:
 			break
-		board.destroy_cell(cell.x, cell.y)
-		_collapse_goobs(cell.x, cell.y)
-		var row := board.drop(next, owner)
-		cell = Vector2i(next, row)
-		_cell_goobs[cell] = goob
-		path.append(cell)
-	return path
+	return at
+
+
+## Jumps from `at` onto the top of `column`; a full column → it rolls from the
+## top (over full columns, off the edges, into the first open column). Sets
+## _last_dir to the direction it ends up going.
+func _hop(at: Vector2i, column: int, dir: int, points: Array, origin: Vector2i) -> Vector2i:
+	_last_dir = dir
+	var top := _column_height(column)
+	if top < BoardState.ROWS:
+		points.append({"at": Vector2i(column, top), "how": &"hop"})
+		return Vector2i(column, top)
+	points.append({"at": Vector2i(column, BoardState.ROWS), "how": &"hop"})
+	var c := column
+	for i in BoardState.COLUMNS * 2 + 2:
+		if _column_height(c) < BoardState.ROWS:
+			break
+		if not board.is_valid_column(c + dir):
+			points.append({"at": Vector2i(c + dir, BoardState.ROWS), "how": &"edge"})
+			dir = -dir
+		c += dir
+		points.append({"at": Vector2i(c, BoardState.ROWS), "how": &"slide"})
+	_last_dir = dir
+	top = _column_height(c)
+	if top >= BoardState.ROWS:
+		points.append({"at": origin, "how": &"hop"}) # nowhere open: back
+		return origin
+	points.append({"at": Vector2i(c, top), "how": &"fall"})
+	return Vector2i(c, top)
+
+
+## Gravity: every Goob over a gap falls (one group, played together).
+## Returns {from: to} for the ones that fell.
+func _apply_gravity() -> Dictionary:
+	var moved := {}
+	_group += 1
+	for c in BoardState.COLUMNS:
+		var write := 0
+		for r in BoardState.ROWS:
+			if board.is_empty(c, r):
+				continue
+			if r != write:
+				var from := Vector2i(c, r)
+				var to := Vector2i(c, write)
+				_put(to, _lift(from))
+				_record(from, to, [{"at": to, "how": &"fall"}], _group)
+				moved[from] = to
+			write += 1
+	return moved
+
+
+## Gravity, then the chains, one Goob at a time with gravity after each, until
+## still: a fallen Lopsided / Tipsy rolls its way, and a Goob that fell onto a
+## Bouncy / Slippery (one that didn't fall with it) is moved by it (Sean,
+## 2026-11-23). `pending`: {cell: landed} for Goobs that already fell
+## (landed = the Goob under it didn't fall with it). A chain that brings the
+## board back to a position it already had is looping (e.g. Slippery →
+## Springy → over the top back onto the same Slippery) and stops there.
+func _settle(pending: Dictionary = {}) -> void:
+	var seen := {}
+	for i in _MAX_CHAIN:
+		var moved := _apply_gravity()
+		var key := _position_key()
+		if seen.has(key):
+			return
+		seen[key] = true
+		var next := {}
+		for at: Vector2i in pending:
+			if not moved.has(at):
+				next[at] = pending[at]
+		var landed_on := {}
+		for to: Vector2i in moved.values():
+			landed_on[to] = true
+		for to: Vector2i in moved.values():
+			next[to] = not landed_on.has(to + Vector2i(0, -1))
+		pending = next
+		if not _chain_one(pending):
+			return
+	_apply_gravity() # never leave a Goob floating
+
+
+## The board position: every cell's owner and Goob type.
+func _position_key() -> String:
+	var key := ""
+	for c in BoardState.COLUMNS:
+		for r in BoardState.ROWS:
+			var goob: GoobDefinition = _cell_goobs.get(Vector2i(c, r))
+			key += "%d%s," % [board.get_owner(c, r), goob.id if goob != null else ""]
+	return key
+
+
+## Moves the first pending Goob that acts (bottom to top, left to right) and
+## drops the ones checked before it. Returns whether one moved.
+func _chain_one(pending: Dictionary) -> bool:
+	var cells: Array = pending.keys()
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
+	for at: Vector2i in cells:
+		var landed: bool = pending[at]
+		pending.erase(at)
+		if board.is_empty(at.x, at.y):
+			continue
+		var kind := _effect_at(at)
+		var rolls := kind == GoobDefinition.EffectType.ROLL_LEFT or kind == GoobDefinition.EffectType.ROLL_RIGHT
+		if landed and _on_mover(at):
+			var below := _effect_at(at + Vector2i(0, -1))
+			var to := _landing_move(at)
+			if to == at:
+				if not rolls:
+					continue
+			else:
+				_chain_kind = below
+				if rolls:
+					pending[to] = false # it landed again: it rolls next
+				return true
+		if rolls:
+			var dir := -1 if kind == GoobDefinition.EffectType.ROLL_LEFT else 1
+			if _can_roll(at, dir):
+				_chain_kind = kind
+				_roll(at, dir)
+				return true
+	return false
+
+
+## A destroy made the Goobs now at `fell` (bottom up) drop: their chains play
+## as their own step.
+func _roll_fallen(fell: Array[Vector2i]) -> void:
+	if fell.is_empty():
+		return
+	var pending := {}
+	for k in fell.size():
+		pending[fell[k]] = k == 0 # only the lowest landed on something new
+	var step := _move_step(GoobDefinition.EffectType.NONE, fell[0], board.get_owner(fell[0].x, fell[0].y))
+	step["chain"] = true
+	_settle(pending)
+	if step["motions"].is_empty():
+		effect_steps.erase(step)
+	else:
+		step["kind"] = _chain_kind
 
 
 ## Discards `side`'s hand Goob at `index`; returns it (null if out of range).
@@ -271,7 +686,8 @@ func discard_from(side: BoardState.CellOwner, index: int) -> GoobDefinition:
 	var goob := deck_of(side).discard(index)
 	if goob != null:
 		effect_steps.append({"kind": GoobDefinition.EffectType.NONE, "discarded": goob, "index": index, "side": side, "cell": Vector2i(-1, -1), "fizzled": false})
-		last_effect = effect_steps[0]
+		if last_effect.is_empty():
+			last_effect = effect_steps[0]
 	return goob
 
 
@@ -356,6 +772,53 @@ static func effect_outcomes(after_land: BoardState, effect: GoobDefinition.Effec
 	if outcomes.is_empty():
 		outcomes.append(after_land)
 	return outcomes
+
+
+## Every board after `side` plays `goob` into `column` on `on` (see
+## play_results). Never mutates `on`.
+static func play_outcomes(on: BoardState, goobs: Dictionary, goob: GoobDefinition, column: int, side: BoardState.CellOwner, limit: int = 48) -> Array[BoardState]:
+	var boards: Array[BoardState] = []
+	for result in play_results(on, goobs, goob, column, side, limit):
+		boards.append(result["board"])
+	return boards
+
+
+## Every outcome of `side` playing `goob` into `column` on `on` (`goobs`:
+## cell -> GoobDefinition, as from cell_goobs()): landing moves, the effect
+## and its chains, every random pick enumerated (for the AI; M6e). Each is
+## {board, goobs, weight}; weight = its chance (the picks along the way can
+## differ in count, so outcomes are not equally likely). At most `limit`
+## outcomes (then the weights sum to less than 1). Never mutates `on`.
+static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition, column: int, side: BoardState.CellOwner, limit: int = 48) -> Array[Dictionary]:
+	var results: Array[Dictionary] = []
+	var script: Array[int] = []
+	for run in limit:
+		var sim := TurnLoop.new()
+		sim.board = on.copy()
+		sim._cell_goobs = goobs.duplicate()
+		sim._scripted = true
+		sim._script = script
+		sim._land_and_resolve(goob, column, side)
+		var weight := 1.0
+		for pick: Array in sim._picks:
+			weight /= pick[1]
+		results.append({"board": sim.board, "goobs": sim._cell_goobs, "weight": weight})
+		# Next pick sequence: bump the last pick that has choices left.
+		var i := sim._picks.size() - 1
+		while i >= 0 and sim._picks[i][0] + 1 >= sim._picks[i][1]:
+			i -= 1
+		if i < 0:
+			break
+		script = []
+		for j in i:
+			script.append(sim._picks[j][0])
+		script.append(sim._picks[i][0] + 1)
+	return results
+
+
+## A copy of the cell -> GoobDefinition map (for play_outcomes).
+func cell_goobs() -> Dictionary:
+	return _cell_goobs.duplicate()
 
 
 ## Every Goob in any of `side`'s winning lines, each once, in scoring reveal

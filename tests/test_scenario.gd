@@ -69,6 +69,7 @@ func _run() -> void:
 	await _test_sounds()
 	await _test_effects_on_board()
 	await _test_effect_animations()
+	await _test_move_animations()
 	await _test_scoring_sequence()
 	await _test_scoring_animated()
 	await _test_hud()
@@ -2095,3 +2096,40 @@ func _test_autoplay_flips_up_from_behind() -> void:
 	_check(seen and theirs == 0, "auto-play: it is your Goob (he hasn't played yet)")
 	_flow().autoplay = false
 	await _free(scenario)
+
+
+# --- M6e Move ----------------------------------------------------------------
+
+## Each move setup: [played Goob, column, [[column, owner, GoobDefinition]...], sounds].
+func _test_move_animations() -> void:
+	var sinister: GoobDefinition = load("res://resources/goobs/sinister_goob.tres")
+	var lopsided: GoobDefinition = load("res://resources/goobs/lopsided_goob.tres")
+	var tipsy: GoobDefinition = load("res://resources/goobs/tipsy_goob.tres")
+	var bouncy: GoobDefinition = load("res://resources/goobs/bouncy_goob.tres")
+	var springy: GoobDefinition = load("res://resources/goobs/springy_goob.tres")
+	var setups := [
+		["push", sinister, 3, [[1, O, TurnLoop.VANILLA]], [&"roll"]],
+		["push chain", sinister, 4, [[2, O, TurnLoop.VANILLA], [2, O, tipsy]], [&"roll"]],
+		["bouncy", TurnLoop.VANILLA, 3, [[3, O, bouncy]], [&"bounce"]],
+		["springy", lopsided, 3, [[1, O, springy]], [&"roll", &"bounce"]],
+		["fat chain", FAT, 6, [[5, O, TurnLoop.VANILLA], [5, O, lopsided]], [&"crunch"]],
+	]
+	for setup in setups:
+		var label: String = setup[0]
+		var scenario := await _make(5.0, true, 30.0, true)
+		await _wait_input(scenario)
+		var board := _board(scenario)
+		for put: Array in setup[3]:
+			var row := board.drop(put[0], put[1])
+			scenario._loop._cell_goobs[Vector2i(put[0], row)] = put[2]
+		_view(scenario).sync_from_board(board)
+		_give(scenario, setup[1])
+		_play_col(scenario, setup[2])
+		var deadline := Time.get_ticks_msec() + 10000
+		while scenario._opponent_timer.is_stopped() and Time.get_ticks_msec() < deadline:
+			await process_frame
+		_check(not scenario._opponent_timer.is_stopped(), "move %s: play finishes, opponent's turn starts" % label)
+		for sound: StringName in setup[4]:
+			_check(scenario._sfx.history.has(sound), "move %s: sound %s" % [label, sound])
+		_check(_view_matches(scenario), "move %s: animated view matches the board" % label)
+		await _free(scenario)

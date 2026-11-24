@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GoobDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/goobs/goob_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "tipsy"
+display_name = "Tipsy Goob"
+multiplier = 2.0
+effect_description = "This Goob rolls right when it lands or falls."
+effect_type = 8
+category = 3
+art_id = "vanilla"
+flips_vertically = true

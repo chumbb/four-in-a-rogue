@@ -26,7 +26,7 @@ claude
 - Canonical v0.1 rules: `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md`
 - Full GDD: `Projects/Four-in-a-Rogue/Design/GDD.md`
 - Decision log: `Projects/Four-in-a-Rogue/Decisions/Decision-Log.md`
-- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-23 Claude - M6e special Goobs grill.md`
+- Latest session log: `Projects/Four-in-a-Rogue/Session-Logs/2026-11-23 Claude - M6e Move category.md`
 - Special Goobs spec (M6e roster, categories, deck rule): `Projects/Four-in-a-Rogue/Design/Special Goobs.md` → "2026-11-23 update"
 - Vault agent rules: `GameDev/CLAUDE.md`
 
@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). Next: M6e Move category, then destroy → discard → draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move accepted and merged (2026-11-23). Next: M6e Destroy category, then discard → draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ← **next** → Destroy → Discard → Draw → Tech → Uniquely powerful | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ← **next** → Discard → Draw → Tech → Uniquely powerful | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -72,8 +72,68 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
 | **M6d** Sound + smoke | ✅ Accepted and merged 2026-11-23 (sound grill done) |
 | **M6e framework** | ✅ Accepted and merged 2026-11-23 |
+| **M6e Move** | ✅ Accepted and merged 2026-11-23 |
 
-### M6e Move category ← **next session** (start a fresh conversation)
+### M6e Destroy category ← **next** (fresh session; Sean 2026-11-23)
+
+- **Branch:** **`m6e-destroy`** from `main` (Move is merged).
+- **Step 1, before any code:** propose rules, names ("<Adjective> Goob") and one-line card text for each destroy Goob, with edge cases and fizzles. Get Sean's approval, then log it to the Decision-Log and the spec (a new "M6e Destroy rules" section like "M6e Move rules"). **Build nothing before that.** Don't invent mechanics; ask.
+- **Roster** (vault `Design/Special Goobs.md` "2026-11-23 update" + Sean's list `resources/goobs/special goobs.txt`):
+  - **Fat** (built in M5): "Destroy a random adjacent Goob." It already rolls fallen Lopsided/Tipsy and moves Goobs that fall onto a Bouncy/Slippery.
+  - **Volatile:** destroy a random Goob, any side, itself included (older per-Goob rules in the spec, §10).
+  - **Spiteful:** "destroy the next Goob played here (on top)". This **differs from the spec's older §3** ("the opponent's next played Goob" anywhere), so ask which one wins.
+  - **Occult:** bring back one of your destroyed Goobs to your side, into a random column; it triggers its on-land effect (spec §18, framework rule "only the played Goob triggers on land, except Occult's").
+  - **Destroy below** (unnamed).
+  - **Destroy left or right** (unnamed; random side? both? what if one side is empty?).
+  - **At the start of your next turn, destroy an adjacent Goob** (unnamed, delayed; adjacent to where it is then? fizzle if it is gone?).
+- **Questions to put to Sean** (examples):
+  - Names for the unnamed ones.
+  - Spiteful's scope.
+  - "Adjacent" = 8-way like Fat?
+  - Which side Occult's Goob drops for, and whether its Bouncy/Slippery landing applies.
+  - Whether a delayed destroy follows the Goob if it moved or flipped.
+  - Do destroy Goobs ever target themselves (only Volatile)?
+  - How Spiteful's pending curse shows (status pill vs the spec's portrait mark).
+- **What exists to build on:**
+  - `TurnLoop.destroy_at(cell)` (destroyed pile per owner) and `_roll_fallen(fell)` (a chain step: gravity, then Lopsided/Tipsy rolls and Bouncy/Slippery landings, one at a time).
+  - `_pick(n)` for every random choice, so `play_results` gives the AI weighted outcomes for free. `effect_outcomes` is the older M5 helper.
+  - `_land_and_resolve(goob, column, side)` is the play path (landing moves, then the effect), probably the one to reuse for Occult's drop.
+  - Delayed effects: `statuses` + `_on_turn_start` / `_on_turn_end` hooks + `StatusPills` (see "M6e framework" below for the ticking semantics).
+  - Destroyed piles: `Deck.destroyed_pile`.
+  - View: `BoardView2D.play_destroy(source, target)`, `play_fizzle`, `play_move` for chain steps; scenario `_play_effect_impact`.
+  - Debug: F4 give / category deck; » auto-play.
+- **Not yet:** Stalwart / Loyal "can't be destroyed" are tech, so leave a single place where a destroy could be blocked, but no blocking.
+- **Tests:** unit tests per Goob in `tests/test_turn_loop.gd`, scenario animation checks like `_test_move_animations`, and a fuzz like `tests/fuzz_m6e_move.gd` with a Destroy (+ Move) deck.
+- **Vault:** session log `Session-Logs/2026-11-2x Claude - M6e Destroy category.md`, Decision-Log, spec. Push every commit. When done: F5 steps for Sean, then stop.
+
+### M6e Move category (accepted and merged 2026-11-23)
+
+- **Rules approved by Sean** (2 rounds): vault spec `Design/Special Goobs.md` → "M6e Move rules", Decision-Log 2026-11-23.
+- **Engine** (`TurnLoop`): `_roll` (roll rule + Springy hop + Bouncy bounce; a bounce ends a roll), `_hop` (onto a column top, or the timeout-style roll from the top of a full one), `_apply_gravity` (one group), `_settle` (gravity, then fallen Lopsided/Tipsy roll, repeat). Motions go into the step's `"motions"` (format in the code comment above `_move_step`). `_land_and_resolve` = land → Bouncy/Slippery (an `"instant"` step) → the Goob's own effect. `_pick` replaces direct rng calls so `play_outcomes` can enumerate every random pick for the AI. `roll_goob` now runs on the same engine.
+- **View:** `BoardView2D.play_move(source, motions, marked, wind_up)` / `play_motions`; scenario `_play_effect` skips `"passive"` steps (Bouncy/Slippery/Springy played) and plays `"instant"` ones without the lead wait; `roll_dir(path)` passes the timeout roll direction to `TurnLoop.play`.
+- **Claude's calls to confirm in the playtest:** Bouncy → Bouncy keeps its direction; Bouncy with no column that way bounces back; sliding across a Bouncy's top counts as landing; Slippery boxed in just stays; Blustery fizzles if nothing in the highest row can move.
+- **Test in F5:** F4 → category deck main = Move + another → "New game with these", or give yourself each Goob; » auto-play to watch the AI. Fuzz: `godot --headless -s res://tests/fuzz_m6e_move.gd` (~3 min).
+- **Playtest 1 (Sean, 2026-11-23):**
+  - "Give doesn't work, no move Goobs drawn" was not a bug. The move Goobs were in the deck but look exactly like plain Goobs (Vanilla art).
+  - Testing aid (`0ce50a2`): every special still on Vanilla art shows its name (minus " Goob") in Monogram under it in the hand. This is `HandView._make_card` / `_place_name`, and Art F removes it.
+    - The label needs an explicit font override, because the root theme doesn't reach Controls under the Node2D card.
+  - Bounce arc (`81a55bb`): a bouncing Goob rises to the cell **above its landing cell**, then gravity-falls in (the `&"hop"` branch of `BoardView2D._queue_motion`).
+    - Landing in the top row, or rolling along the top, uses the top of the board.
+    - Claude's reading of Sean's "as high as the space above where it will land". If he meant always the top of the board, it is a one-line change.
+- **Code review fixes (`b4041c8`):**
+  - Chains run one Goob at a time with gravity between: `_settle(pending)` → `_chain_one`.
+  - Every landing on a Bouncy/Slippery counts (Sean), done through `_landing_step` / `_landing_move`:
+    - Popular's extra Goob, and falls after a destroy or push.
+    - Riding one down doesn't count.
+  - A chain that repeats a board position stops (`_position_key`), and gravity always ends it.
+  - The AI uses `TurnLoop.play_results` (`{board, goobs, weight}`, weighted by real odds). `OpponentAI.winning_drops(board, side, goobs)` simulates drops onto a Bouncy/Slippery.
+  - Effect steps carry `target_owner`, which the portrait reaction uses.
+  - `play_motions` waits for every tween in a batch.
+  - About 40 ms per AI move in the fuzz run; check in M7.
+  - Open: Slippery's card text could become "Goobs that land on this Goob roll." (waiting for Sean).
+- Then more playtest → merge on Sean's OK → the Destroy session (fresh session, rules first).
+
+#### Original plan (for reference)
 
 - **Branch:** `m6e-move` from `main`.
 - **Step 1, before any code:** propose rules for each move Goob to Sean and get his approval: name ("<Adjective> Goob"), one-line card text, edge cases, AI value. Use the vault spec `Design/Special Goobs.md` ("2026-11-23 update" wins over the older per-Goob rules below it). Don't invent mechanics; ask. Log his answers in the Decision-Log and the spec.
