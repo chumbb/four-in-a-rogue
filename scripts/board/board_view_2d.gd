@@ -485,18 +485,18 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 
 ## Popular: winds up, cheers (two hops), and a Vanilla arcs out of it to rest
 ## on top of the board over `column` (`goob` = its art; null = Vanilla; Occult
-## brings back other types). The caller then drops it with play_drop(), which
-## starts from that same spot.
-func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner, goob: GoobDefinition = null) -> void:
+## brings back other types; `sound` = resurrect for it). The caller then drops
+## it with play_drop(), which starts from that same spot.
+func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner, goob: GoobDefinition = null, sound: StringName = &"popular") -> void:
 	var token: Sprite2D = _tokens.get(source)
 	if token == null:
 		return
 	if not animate:
-		drop_sound.emit(&"popular", side)
+		drop_sound.emit(sound, side)
 		return
 	await _charge(source)
 	var base := cell_position(source.x, source.y)
-	drop_sound.emit(&"popular", side)
+	drop_sound.emit(sound, side)
 	var cheer := _tween()
 	for i in 2:
 		cheer.tween_method(_set_y.bind(token), base.y, base.y - CHEER_PX, CHEER_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

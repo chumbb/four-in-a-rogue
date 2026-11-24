@@ -34,7 +34,7 @@ func _initialize() -> void:
 			var side := t.current_side()
 			var board := t.board if side == BoardState.CellOwner.OPPONENT else t.board.mirrored()
 			var hand := t.current_deck().hand
-			var move := OpponentAI.choose_move(board, hand, t.current_deck().draw_pile.size(), rng, t.cell_goobs())
+			var move := OpponentAI.choose_move(board, hand, t.current_deck().draw_pile.size(), rng, t.cell_goobs(), t.destroyed_piles(side == BoardState.CellOwner.PLAYER))
 			if move["column"] < 0:
 				break
 			if t.play(move["column"], move["hand_index"]) < 0:

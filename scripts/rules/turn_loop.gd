@@ -83,6 +83,9 @@ var statuses: Array[Dictionary] = []
 ## as effect_steps; Smouldering, M6e Destroy), for the view to show after the
 ## turn banner. Reset by each new turn (a skipped turn's steps are kept).
 var turn_start_steps: Array[Dictionary] = []
+## The board right after the latest play, before the next turn's start
+## effects changed it (the view's reactions compare against this).
+var board_after_play: BoardState
 
 ## Vector2i(column, row) -> GoobDefinition of the Goob sitting there.
 var _cell_goobs: Dictionary = {}
@@ -120,6 +123,7 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	last_effect = {}
 	effect_steps = []
 	statuses = []
+	board_after_play = null
 	board.reset()
 	_cell_goobs.clear()
 	_skipped_last.clear()
@@ -180,6 +184,15 @@ func play(column: int, hand_index: int = 0, rolled_dir: int = 0) -> int:
 	var side := current_side()
 	var row := _play_goob(goob, column, side, rolled_dir)
 	_on_turn_end(side)
+	board_after_play = board.copy()
+	if not _check_end():
+		_begin_turn(Phase.OPPONENT_TURN if phase == Phase.PLAYER_TURN else Phase.PLAYER_TURN)
+	return row
+
+
+## The end-of-turn win check (slice §4): a four, both fours or a full board
+## ends the scenario. Returns whether it ended.
+func _check_end() -> bool:
 	match board.get_outcome():
 		BoardState.Outcome.PLAYER_WIN:
 			_finish(Result.PLAYER_WIN)
@@ -188,11 +201,10 @@ func play(column: int, hand_index: int = 0, rolled_dir: int = 0) -> int:
 		BoardState.Outcome.DRAW:
 			_finish(Result.DRAW)
 		_:
-			if board.is_board_full():
-				_finish(Result.DRAW)
-			else:
-				_begin_turn(Phase.OPPONENT_TURN if phase == Phase.PLAYER_TURN else Phase.PLAYER_TURN)
-	return row
+			if not board.is_board_full():
+				return false
+			_finish(Result.DRAW)
+	return true
 
 
 ## The whole play of `goob`: it lands and resolves, then the Goobs a Spiteful
@@ -805,21 +817,22 @@ func _apply_gravity() -> Dictionary:
 	_group += 1
 	for c in BoardState.COLUMNS:
 		var write := 0
-		var below_fell := false
+		var below_drop := 0 # how far the Goob under it fell this pass
 		for r in BoardState.ROWS:
 			if board.is_empty(c, r):
 				continue
-			if r != write:
+			var drop := r - write
+			if drop > 0:
 				var from := Vector2i(c, r)
 				var to := Vector2i(c, write)
 				_put(to, _lift(from))
 				_record(from, to, [{"at": to, "how": &"fall"}], _group)
 				moved[from] = to
-				if not below_fell:
-					_check_landing(to) # riding a falling Goob down isn't landing
-				below_fell = true
-			else:
-				below_fell = false
+				# Falling exactly as far as the Goob under it = riding it
+				# down, not landing on it.
+				if drop != below_drop:
+					_check_landing(to)
+			below_drop = drop
 			write += 1
 	return moved
 
@@ -1023,13 +1036,15 @@ static func play_outcomes(on: BoardState, goobs: Dictionary, goob: GoobDefinitio
 ## {board, goobs, weight}; weight = its chance (the picks along the way can
 ## differ in count, so outcomes are not equally likely). At most `limit`
 ## outcomes (then the weights sum to less than 1). Never mutates `on`.
-static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition, column: int, side: BoardState.CellOwner, limit: int = 48) -> Array[Dictionary]:
+static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition, column: int, side: BoardState.CellOwner, limit: int = 48, piles: Dictionary = {}) -> Array[Dictionary]:
 	var results: Array[Dictionary] = []
 	var script: Array[int] = []
 	for run in limit:
 		var sim := TurnLoop.new()
 		sim.board = on.copy()
 		sim._cell_goobs = goobs.duplicate()
+		for pile_side: BoardState.CellOwner in piles:
+			sim.deck_of(pile_side).destroyed_pile = piles[pile_side].duplicate()
 		sim._scripted = true
 		sim._script = script
 		sim._play_goob(goob, column, side)
@@ -1048,6 +1063,13 @@ static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition
 			script.append(sim._picks[j][0])
 		script.append(sim._picks[i][0] + 1)
 	return results
+
+
+## Both destroyed piles by side, for play_results (Occult); `mirrored` swaps
+## the sides like BoardState.mirrored() (the AI playing your turn).
+func destroyed_piles(mirrored := false) -> Dictionary:
+	var mine := BoardState.CellOwner.OPPONENT if mirrored else BoardState.CellOwner.PLAYER
+	return {mine: player_deck.destroyed_pile, enemy_of(mine): opponent_deck.destroyed_pile}
 
 
 ## A copy of the cell -> GoobDefinition map (for play_outcomes).
@@ -1110,6 +1132,10 @@ func _begin_turn(next: Phase, chained := false) -> void:
 	_skipped_last[side] = deck.hand.is_empty()
 	if deck.hand.is_empty():
 		last_skipped.append(side)
+		# The skipped turn ends now: its start effects (Smouldering) get
+		# their end-of-turn win check before the turn moves on.
+		if not turn_start_steps.is_empty() and _check_end():
+			return
 		_begin_turn(other if phase == next else next, true)
 
 

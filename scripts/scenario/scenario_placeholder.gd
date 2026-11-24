@@ -467,7 +467,7 @@ func set_autoplay(on: bool) -> void:
 ## OPPONENT), then thinks like him before playing it.
 func _run_autoplay_turn() -> void:
 	var deck := _loop.player_deck
-	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs())
+	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs(), _loop.destroyed_piles(true))
 	if move["column"] == -1:
 		set_autoplay(false) # nothing it can play: auto-play off, your turn as usual
 		_set_input_enabled(true)
@@ -962,7 +962,7 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 	# catches up when it plays (_play_turn_start).
 	if _loop.turn_start_steps.is_empty():
 		_board_view.sync_from_board(_loop.board)
-	_refresh_hud() # statuses the effects added or ticked
+		_refresh_hud() # statuses the effects added or ticked
 	_after_play()
 
 
@@ -977,6 +977,8 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 func _reaction_for(_column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> StringName:
 	if _loop.phase == TurnLoop.Phase.OVER:
 		return &""
+	# Before the next turn's start effects (Smouldering) changed it.
+	var after: BoardState = _loop.board_after_play if _loop.board_after_play != null else _loop.board
 	var hit_other := false
 	var chain := false
 	if effect.has("target"):
@@ -989,17 +991,17 @@ func _reaction_for(_column: int, side: BoardState.CellOwner, roll_path: Array[in
 		face = &"surprised"
 	elif side == BoardState.CellOwner.OPPONENT:
 		var threes_before := OpponentAI.open_threes(_board_before, side)
-		if hit_other or OpponentAI.open_threes(_loop.board, side) > threes_before:
+		if hit_other or OpponentAI.open_threes(after, side) > threes_before:
 			face = &"happy"
 	else:
 		var his := BoardState.CellOwner.OPPONENT
 		if hit_other:
 			face = &"angry"
-		elif OpponentAI.open_threes(_loop.board, his) < OpponentAI.open_threes(_board_before, his):
+		elif OpponentAI.open_threes(after, his) < OpponentAI.open_threes(_board_before, his):
 			face = &"sad" # disappointed, not angry (Sean, M6c playtest)
 	if face == &"":
 		var other := TurnLoop.enemy_of(side)
-		if OpponentAI.open_lines(_loop.board, other, 2, true) < OpponentAI.open_lines(_board_before, other, 2, true):
+		if OpponentAI.open_lines(after, other, 2, true) < OpponentAI.open_lines(_board_before, other, 2, true):
 			face = &"well_played" if side == BoardState.CellOwner.PLAYER else &"giggle"
 	return face
 
@@ -1011,8 +1013,13 @@ func _chained(effect: Dictionary) -> bool:
 	for step in _loop.effect_steps:
 		if step.get("chain", false):
 			return true
-	var own_fall := 1 if effect.get("kind") == GoobDefinition.EffectType.DESTROY_BELOW else 0
-	return effect.get("fell", 0) > own_fall
+	# Any destroy this play, also one nested in Occult's returned Goob.
+	for step in _loop.effect_steps:
+		var own_fall := 1 if step.get("kind") == GoobDefinition.EffectType.DESTROY_BELOW else 0
+		if step.get("fell", 0) > own_fall:
+			return true
+	var own := 1 if effect.get("kind") == GoobDefinition.EffectType.DESTROY_BELOW else 0
+	return effect.get("fell", 0) > own
 
 
 ## Shows one TurnLoop effect step: the type's impact on its target (the
@@ -1061,7 +1068,7 @@ func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, ce
 			# own landing and effect are the steps after this one.
 			var back: GoobDefinition = effect["returned"]
 			var at: Vector2i = effect["extra"]
-			await _board_view.play_summon(cell, at.x, side, back)
+			await _board_view.play_summon(cell, at.x, side, back, &"resurrect")
 			await _board_view.play_drop(at.x, at.y, side, [], back)
 			_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
@@ -1252,7 +1259,7 @@ func _shake_screen() -> void:
 func _run_opponent_turn() -> void:
 	_set_input_enabled(false)
 	var deck := _loop.opponent_deck
-	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs())
+	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs(), _loop.destroyed_piles())
 	_opponent_column = move["column"]
 	_opponent_hand_index = move["hand_index"]
 	var wait := _think_sec(move["blocking"] or move["close"])

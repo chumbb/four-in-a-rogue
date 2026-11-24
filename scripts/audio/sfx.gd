@@ -30,6 +30,8 @@ const STREAMS := {
 	&"crunch": preload("res://assets/audio/sfx/effect_crunch.ogg"),
 	&"popular": preload("res://assets/audio/sfx/effect_popular.ogg"),
 	&"fizzle": preload("res://assets/audio/sfx/effect_fizzle.ogg"),
+	# Occult / any "bring back" effect (M6e; Sean picked A, 2026-11-23).
+	&"resurrect": preload("res://assets/audio/sfx/effect_resurrect.ogg"),
 	&"score_0": preload("res://assets/audio/sfx/score_0.ogg"),
 	&"score_1": preload("res://assets/audio/sfx/score_1.ogg"),
 	&"score_2": preload("res://assets/audio/sfx/score_2.ogg"),

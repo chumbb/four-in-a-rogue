@@ -2147,7 +2147,7 @@ func _test_destroy_animations() -> void:
 		["crushing", g.call("crushing"), 2, [[2, O, V, E], [2, O, V, E]], [&"crunch"], []],
 		["brawling", g.call("brawling"), 3, [[2, O, V, E]], [&"crunch"], []],
 		["spiteful", V, 3, [[3, O, g.call("spiteful"), O]], [&"crunch"], []],
-		["occult", g.call("occult"), 6, [[0, O, V, E]], [&"popular"], [FAT]],
+		["occult", g.call("occult"), 6, [[0, O, V, E]], [&"resurrect"], [FAT]],
 		# His Smouldering fires at his turn start, after the red banner.
 		["smouldering", V, 6, [[3, O, g.call("smouldering"), O], [2, P, V, E]], [&"crunch"], []],
 	]

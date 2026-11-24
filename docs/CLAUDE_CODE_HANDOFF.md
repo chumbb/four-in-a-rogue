@@ -85,7 +85,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
   - `turn_start_steps`: `_on_turn_start` runs `_smoulder`; the scenario's `_play_turn_start` shows them after the banner (before your draw / his think delay); `_land_then_continue` skips its sync while they're pending.
 - **AI:** `_drop_moves` also simulates drops onto an armed Spiteful. **View:** `play_destroy` handles source == target; `play_summon(…, goob)` for Occult's art.
 - **Tests:** `tests/test_turn_loop.gd` (10 destroy tests), `tests/test_scenario.gd` `_test_destroy_animations`, fuzz `godot --headless -s res://tests/fuzz_m6e_destroy.gd`.
-- **Claude's calls to confirm in the playtest:** a Spiteful lander that its own effect removed just spends the curse; Smouldering fires before the turn draw and its destroy is win-checked at the end of that turn; Occult reuses Popular's summon animation and sound.
+- **Claude's calls to confirm in the playtest:** a Spiteful lander that its own effect removed just spends the curse; Smouldering fires before the turn draw and its destroy is win-checked at the end of that turn; Occult reuses Popular's summon animation, with its own resurrect sound (Sean picked A, 2026-11-23).
 - **Next:** playtest → merge on Sean's OK → **M6e Discard** (fresh session, rules first).
 
 #### Original plan for this session (kept for reference)

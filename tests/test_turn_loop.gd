@@ -87,6 +87,8 @@ func _initialize() -> void:
 	_test_spiteful_threat()
 	_test_occult()
 	_test_smouldering()
+	_test_spiteful_two_gaps()
+	_test_occult_simulated()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -1425,3 +1427,35 @@ func _test_smouldering() -> void:
 	t.play(6, 0)
 	steps = _steps_of(t.turn_start_steps, GoobDefinition.EffectType.DESTROY_LATER)
 	_check(steps.size() == 1 and steps[0]["fizzled"], "smouldering: still yours when flipped; no neighbour fizzles")
+
+
+## Code review: a Goob falling farther than the Goob under it landed on it.
+func _test_spiteful_two_gaps() -> void:
+	var t := TurnLoop.new()
+	_place(t, 3) # (3,0): lifted below
+	_place(t, 3) # (3,1): A
+	var spite := _place(t, 3, SPITEFUL) # (3,2)
+	t._mark(spite, &"armed_by", O)
+	_place(t, 3) # (3,3): lifted
+	_place(t, 3, FAT) # (3,4): B
+	t._lift(Vector2i(3, 0))
+	t._lift(Vector2i(3, 3))
+	t._apply_gravity() # A and the Spiteful fall 1, B falls 2 onto the Spiteful
+	_check(TurnLoop.base_of(t.goob_at(3, 2)) == FAT and t.goob_at(3, 2).has_meta(&"doomed"), "two gaps: B landed on the Spiteful and is doomed")
+	_check(t.armed_side(Vector2i(3, 1)) == E, "two gaps: the Spiteful is spent")
+
+
+## Code review: the AI's simulation sees the destroyed piles (Occult).
+func _test_occult_simulated() -> void:
+	var b := BoardState.new()
+	var piles := {O: [FAT] as Array[GoobDefinition]}
+	var results := TurnLoop.play_results(b, {}, OCCULT, 3, O, 48, piles)
+	var back := false
+	for result in results:
+		var count := 0
+		for c in BoardState.COLUMNS:
+			if not result["board"].is_empty(c, 0):
+				count += 1
+		back = back or count == 2
+	_check(back, "occult sim: the returned Goob drops in the simulation")
+	_check(piles[O].size() == 1, "occult sim: the real pile is untouched")
