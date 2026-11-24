@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move and M6e Destroy accepted and merged (2026-11-23). Next: M6e Discard category, then draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23). Next: M6e Draw category, then tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -84,12 +84,16 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Tests:** 10 unit tests in `tests/test_turn_loop.gd`, `_test_discard_animations` in `tests/test_scenario.gd`, fuzz `godot --headless -s res://tests/fuzz_m6e_discard.gd` (100 games, ~2.5 min; 300 games passed with 2043 discards / 332 Defiant plays).
 - **Claude's calls to confirm in the playtest:** each discard Goob winds up before its reveals; Reckless discards from the right end of the hand; Defiant's drop counts as a landing but not as the turn's play.
 - **Test in F5:** F4 → category deck main = Discard + another → "New game with these", or give yourself each Goob (F4 picker); » auto-play to watch the AI.
+- Playtest OK (Sean: "playtest is good", 2026-11-23) → merged (`aaf18e3`); Claude's calls stand. Destroy fuzz re-run after the change: 300 games, 0 failures.
+- **Post-merge code review:** Sean started `/code-review` on 2026-11-23 after the merge; its findings weren't in when this handoff was written. If they're still open next session, triage them (fix on `main` or a small branch, push) before starting Draw.
 
 ### M6e Draw category ← **next** (fresh session; branch `m6e-draw` from `main`)
 
 - **Step 1, before any code:** propose rules, names and card text per draw Goob (edge cases, fizzles); Sean approves; log to the Decision-Log and a new spec section "M6e Draw rules". **Build nothing before that.**
-
-- Roster: Plentiful · Jinxing · Generous · "whenever your opponent draws a Goob, you draw a Goob" (vault spec "2026-11-23 update"). `_turn_draw_count` + `_bonus_draws` already exist.
+- **Roster** (vault `Design/Special Goobs.md` "2026-11-23 update" + `resources/goobs/special goobs.txt`): **Plentiful** (exists: draw 2; category DRAW already), **Jinxing** ("your opponent does not draw their next Goob"; old spec §5: their next turn draw is skipped, the Goob stays on top, Plentiful/Generous draws still happen), **Generous** (+1 turn draw per copy while on the board, Sean 2026-11-23; old spec §17: flipped → the opponent gets it, ends when destroyed), and "whenever your opponent draws a Goob, you draw a Goob" (needs a name).
+- **Questions for Sean** (examples): does Jinxing stack on consecutive turns or add up on one; does Jinxing count as a skipped draw for the "never skipped twice in a row" rule (the forced draw after a skip wins today, `_begin_turn`); does Generous count for whoever owns it now (flips by Convincing) and does a destroyed/moved one stop at once; the copycat draw: board-persistent or one-shot, which draws trigger it (turn, Plentiful, Fickle, Reckless extras), capped by the hand of 5, can two copycats chain (they shouldn't loop).
+- **What exists:** `TurnLoop._turn_draw_count(side)` (Reckless `_bonus_draws` adds to it) and the draw in `_begin_turn` (with the skip rules: `_skipped_last`, `last_skipped`); `Deck.draw` / `draw_blocked_by_hand` (hand cap 5, "Hand full"); draw steps with `drawn` + `hand_full` shown by the scenario's `_play_draw_step` (Plentiful, Fickle); status pills (`add_status` / `remove_status`, `_sync_board_statuses` for board-persistent Goobs like Spiteful); per-Goob state via `_mark` / `base_of`; the AI's `sim_state` + `_hand_value` (flat `DRAW_VALUE` per Goob gained/lost).
+- **Tests:** unit tests in `tests/test_turn_loop.gd`, a scenario check like `_test_discard_animations`, and a fuzz like `tests/fuzz_m6e_discard.gd` (hand cap, Goob count conservation).
 
 ### M6e Destroy category (accepted and merged 2026-11-23)
 
@@ -449,4 +453,4 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 
 ---
 
-*Last updated: 2026-11-23 (M6e Destroy accepted and merged with code review fixes and the resurrect sound; next = M6e Discard. Earlier: M6e Move and framework accepted and merged; M6d accepted and merged after the sound grill)*
+*Last updated: 2026-11-23 (M6e Discard accepted and merged; post-merge /code-review running; next = M6e Draw. Earlier: M6e Destroy accepted and merged with code review fixes and the resurrect sound. Earlier: M6e Move and framework accepted and merged; M6d accepted and merged after the sound grill)*
