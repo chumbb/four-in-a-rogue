@@ -656,7 +656,7 @@ func _sync_board_statuses() -> void:
 		var generous := _owned_columns(GoobDefinition.EffectType.GENEROUS, side)
 		var plentiful := _owned_columns(GoobDefinition.EffectType.DRAW_ECHO, side)
 		if not generous.is_empty():
-			add_status(&"generous", side, "Generous +%d" % generous.size(), "Generous (%s): %s turn draw is %d extra Goob%s." % [_columns_text(generous), whose, generous.size(), "" if generous.size() == 1 else "s"], -1)
+			add_status(&"generous", side, "Generous +%d" % generous.size(), "Generous (%s): %s turn draw gets %d extra Goob%s." % [_columns_text(generous), whose, generous.size(), "" if generous.size() == 1 else "s"], -1)
 		if not plentiful.is_empty():
 			var who := "you draw a Goob whenever he draws one" if side == BoardState.CellOwner.PLAYER else "he draws a Goob whenever you draw one"
 			add_status(&"plentiful", side, "Plentiful", "Plentiful (%s): %s." % [_columns_text(plentiful), who], -1)
@@ -688,8 +688,9 @@ func _owned_cells(kind: GoobDefinition.EffectType, side: BoardState.CellOwner) -
 
 ## Plentiful: `drawer` just drew `count` Goobs, so each Plentiful its opponent
 ## owns draws that many for its owner (hand cap 5). These draws never set off
-## another Plentiful (Sean, 2026-11-23). One step per Plentiful that drew or
-## hit a full hand.
+## another Plentiful (Sean, 2026-11-23). One step per Plentiful that drew; a
+## full hand or empty deck draws nothing, silently (no "Hand full" shake on
+## every opponent draw).
 func _echo_draws(drawer: BoardState.CellOwner, count: int) -> Array[Dictionary]:
 	var steps: Array[Dictionary] = []
 	if count <= 0:
@@ -699,8 +700,8 @@ func _echo_draws(drawer: BoardState.CellOwner, count: int) -> Array[Dictionary]:
 	for cell in _owned_cells(GoobDefinition.EffectType.DRAW_ECHO, owner):
 		var hand_full := deck.draw_blocked_by_hand(count)
 		var drawn := deck.draw(count)
-		if drawn.is_empty() and not hand_full:
-			break # its deck is empty
+		if drawn.is_empty():
+			break # full hand or empty deck
 		steps.append({"kind": GoobDefinition.EffectType.DRAW_ECHO, "cell": cell, "side": owner, "fizzled": false, "drawn": drawn, "hand_full": hand_full})
 	return steps
 
@@ -1128,7 +1129,8 @@ func _sync_jinx_status(side: BoardState.CellOwner) -> void:
 		remove_status(&"jinxed", side)
 		return
 	var whose := "your" if side == BoardState.CellOwner.PLAYER else "his"
-	add_status(&"jinxed", side, "Jinxed", "Jinxed: %s next turn draws %d fewer Goob%s." % [whose, jinxes, "" if jinxes == 1 else "s"], -1)
+	# Two ticks: it stays through the jinxed turn, so the pill is seen.
+	add_status(&"jinxed", side, "Jinxed", "Jinxed: %s turn draw is %d Goob%s fewer." % [whose, jinxes, "" if jinxes == 1 else "s"], 2)
 
 
 ## The Reckless pill: `side`'s next turn draw is bigger.
@@ -1362,11 +1364,10 @@ func _begin_turn(next: Phase, chained := false) -> void:
 	_bonus_draws.erase(side) # Reckless: used up by this draw
 	_sync_bonus_status(side)
 	_jinxes.erase(side) # Jinxing: used up by this turn, also by a forced draw
-	_sync_jinx_status(side)
 	if _skipped_last.get(side, false):
 		count = maxi(count, TURN_DRAW) # never two skipped turns in a row
-	if not deck.draw_pile.is_empty():
-		last_jinx_lost = unjinxed - count
+	# Goobs really lost: what the deck and the hand cap allow either way.
+	last_jinx_lost = _drawable(deck, unjinxed) - _drawable(deck, count)
 	last_draw_count = count
 	last_draw_hand_full = deck.draw_blocked_by_hand(count)
 	last_draw = deck.draw(count)
@@ -1392,6 +1393,11 @@ func _turn_draw_count(side: BoardState.CellOwner, jinxed := true) -> int:
 	if jinxed:
 		count -= _jinxes.get(side, 0)
 	return maxi(count, 0)
+
+
+## How many of `count` Goobs `deck` can draw now (deck size, hand cap).
+static func _drawable(deck: Deck, count: int) -> int:
+	return clampi(mini(count, deck.draw_pile.size()), 0, maxi(Deck.HAND_MAX - deck.hand.size(), 0))
 
 
 ## Whether `side`'s latest turn was skipped (its next turn can't be).

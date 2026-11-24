@@ -11,7 +11,7 @@ extends RefCounted
 ##      (this is the block, and "never play under the player's winning cell"),
 ##   3. its own threes/twos with room score up, the player's score down,
 ##   4. a small centre bias.
-## Plentiful earns a little for the Goobs it would draw. Among plays within
+## Greedy earns a little for the Goobs it would draw. Among plays within
 ## TIE_EPSILON of the best it prefers a Vanilla (specials are saved when they
 ## gain nothing), then picks at random. It sees only the board, its own hand
 ## and its own deck count — never the player's hand or any deck order.

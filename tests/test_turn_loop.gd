@@ -1723,8 +1723,9 @@ func _test_jinxing() -> void:
 	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN and t.last_draw.is_empty(), "jinxing: his turn draw is skipped")
 	_check(t.opponent_deck.hand.size() == hand and t.opponent_deck.draw_pile.size() == pile, "jinxing: the Goob stays on top of his deck")
 	_check(t.last_jinx_lost == 1 and t.last_draw_count == 0, "jinxing: the view gets the no-draw toast")
-	_check(not t.has_status(&"jinxed", O), "jinxing: pill used up at his turn start")
+	_check(t.has_status(&"jinxed", O), "jinxing: pill stays through his jinxed turn")
 	t.play(0, 0)
+	_check(not t.has_status(&"jinxed", O), "jinxing: pill gone after his turn")
 	t.play(4, 0)
 	_check(t.last_draw.size() == 1 and t.last_jinx_lost == 0, "jinxing: only his next draw")
 	var e := _with_hand([JINXING, TurnLoop.VANILLA] as Array[GoobDefinition])
@@ -1744,6 +1745,11 @@ func _test_jinxing_adds_up_and_forced_draw() -> void:
 	f.play(3, 0)
 	_check(f.last_draw.size() == 1 and f.last_jinx_lost == 0, "jinxing: a forced draw after a skip wins")
 	_check(not f._jinxes.has(O), "jinxing: the forced draw uses up the jinx")
+	var short := _with_hand([JINXING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	short._bonus_draws[O] = 1 # 2 without the jinx...
+	short.opponent_deck.draw_pile.resize(1) # ...but only 1 left in his deck
+	short.play(3, 0)
+	_check(short.last_draw.size() == 1 and short.last_jinx_lost == 0, "jinxing: no toast when the deck allowed no more anyway")
 
 
 func _test_jinxing_skips_empty_hand() -> void:
@@ -1781,6 +1787,15 @@ func _test_plentiful() -> void:
 	_check(echo.size() == 1 and echo[0]["drawn"].size() == 2, "plentiful: his Greedy gives you two")
 	_check(t.effect_steps.find(echo[0]) > t.effect_steps.find(t.last_effect), "plentiful: right after his draw")
 	_check(t.player_deck.hand.size() == Deck.HAND_MAX and t.last_draw_hand_full and t.turn_draw_steps.is_empty(), "plentiful: hand cap 5; your own draws don't trigger it")
+	var full := _with_hand([TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(full, 6, PLENTIFUL, P)
+	full.opponent_deck.hand[0] = GREEDY
+	full.play(3, 0)
+	full.player_deck.hand.resize(Deck.HAND_MAX)
+	full.player_deck.hand.fill(TurnLoop.VANILLA)
+	full.play(0, 0) # his Greedy while your hand is full
+	var silent := full.effect_steps.all(func(st: Dictionary) -> bool: return st["kind"] != GoobDefinition.EffectType.DRAW_ECHO)
+	_check(silent and full.player_deck.hand.size() == Deck.HAND_MAX, "plentiful: a full hand draws nothing, silently (no step)")
 
 
 func _test_plentiful_no_loop() -> void:
