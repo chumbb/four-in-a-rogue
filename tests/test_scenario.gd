@@ -73,6 +73,7 @@ func _run() -> void:
 	await _test_destroy_animations()
 	await _test_discard_animations()
 	await _test_draw_animations()
+	await _test_tech_animations()
 	await _test_scoring_sequence()
 	await _test_scoring_animated()
 	await _test_hud()
@@ -2256,4 +2257,55 @@ func _test_draw_animations() -> void:
 			_check(loop.opponent_deck.hand.size() == his and scenario._toast._label.text == scenario.MSG_OPPONENT_JINXED, "draw jinxing: no draw for him, toast says so")
 		if setup[3] != &"":
 			_check(loop.has_status(setup[3], BoardState.CellOwner.PLAYER), "draw %s: pill on your side" % label)
+		await _free(scenario)
+
+
+## M6e Tech: each tech Goob plays through the real scenario (animations,
+## pills, the AI keeping out of a locked column) and leaves the view in step.
+func _test_tech_animations() -> void:
+	var g := func(id: String) -> GoobDefinition: return load("res://resources/goobs/%s_goob.tres" % id)
+	var V := TurnLoop.VANILLA
+	var P := BoardState.CellOwner.PLAYER
+	var O := BoardState.CellOwner.OPPONENT
+	# label, played Goob, Goobs placed first [column, goob, owner], pill [id, side]
+	var setups := [
+		["steadfast", g.call("steadfast"), [], [&"steadfast", P]],
+		["loyal", g.call("loyal"), [], [&"loyal", P]],
+		["stalwart", g.call("stalwart"), [], []],
+		["territorial", g.call("territorial"), [], [&"territorial", O]],
+		["stifling", g.call("stifling"), [], []],
+		["inspiring", g.call("inspiring"), [[4, g.call("fat"), P], [5, V, O]], []],
+		["thieving", g.call("thieving"), [[5, g.call("bouncy"), O]], []],
+		["hoarding", g.call("hoarding"), [], [&"hoarding", P]],
+	]
+	for setup in setups:
+		var label: String = setup[0]
+		var scenario := await _make(5.0, true, 30.0, true)
+		await _wait_input(scenario)
+		var loop: TurnLoop = scenario._loop
+		for placed: Array in setup[2]:
+			var row := loop.board.drop(placed[0], placed[2])
+			loop._cell_goobs[Vector2i(placed[0], row)] = placed[1]
+		_view(scenario).sync_from_board(loop.board)
+		loop.player_deck.hand.assign([setup[1], V, V])
+		_hand_view(scenario).rebuild(loop.player_deck.hand)
+		_play_col(scenario, 3)
+		var deadline := Time.get_ticks_msec() + 25000
+		while scenario._opponent_timer.is_stopped() and Time.get_ticks_msec() < deadline:
+			await process_frame
+		_check(not scenario._opponent_timer.is_stopped(), "tech %s: play finishes, opponent's turn starts" % label)
+		_check(_fan_in_step(scenario), "tech %s: fan matches the hand" % label)
+		_check(_view_matches(scenario), "tech %s: animated view matches the board" % label)
+		var pill: Array = setup[3]
+		if not pill.is_empty():
+			_check(loop.has_status(pill[0], pill[1]), "tech %s: pill shows" % label)
+		match label:
+			"territorial":
+				_check(scenario._opponent_column != 3, "tech territorial: he keeps out of the locked column")
+			"stifling":
+				_check(loop.has_status(&"stifled", O), "tech stifling: his next Goob is stifled")
+			"inspiring":
+				_check(loop.last_effect.get("inspired", Vector2i(-1, -1)) == Vector2i(4, 0), "tech inspiring: the Fat fired again")
+			"thieving":
+				_check(loop.goob_at(3, 0).effect_type == GoobDefinition.EffectType.BOUNCY and scenario._toast._label.text == scenario.MSG_STOLE % "Bouncy Goob", "tech thieving: stole the Bouncy, toast says so")
 		await _free(scenario)
