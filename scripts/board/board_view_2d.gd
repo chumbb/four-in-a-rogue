@@ -516,6 +516,13 @@ func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner, goob
 	ghost.queue_free()
 
 
+## A discard Goob (M6e Discard) winds up before its discards are shown.
+func play_cue(cell: Vector2i) -> void:
+	if animate and _tokens.has(cell):
+		await _charge(cell)
+		_settle(cell)
+
+
 ## Move Goobs (M6e): `source` winds up (unless `wind_up` is off), a rolled
 ## `marked` Goob blinks, then the motions play (TurnLoop move step format).
 func play_move(source: Vector2i, motions: Array, marked: Vector2i = Vector2i(-1, -1), wind_up := true) -> void:

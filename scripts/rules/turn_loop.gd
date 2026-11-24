@@ -28,6 +28,8 @@ enum Result {
 
 const TURN_DRAW := 1
 const PLENTIFUL_DRAW := 2
+## Reckless: extra Goobs on its owner's next turn draw (M6e Discard).
+const RECKLESS_DRAW := 2
 const VANILLA := preload("res://resources/goobs/vanilla_goob.tres")
 ## 8-way adjacency from the landed cell (slice §4 roster).
 const _NEIGHBOURS: Array[Vector2i] = [
@@ -56,6 +58,8 @@ var last_skipped: Array[BoardState.CellOwner] = []
 ## Side -> whether its latest turn was skipped; that side's next turn draw
 ## always happens, so no side is skipped twice in a row.
 var _skipped_last: Dictionary = {}
+## Side -> extra Goobs on its next turn draw (Reckless), used up by that draw.
+var _bonus_draws: Dictionary = {}
 
 ## What the last play's special effect did (M5), for the view:
 ##   kind: GoobDefinition.EffectType of the played Goob
@@ -127,6 +131,7 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	board.reset()
 	_cell_goobs.clear()
 	_skipped_last.clear()
+	_bonus_draws.clear()
 	result = Result.NONE
 	if deck.is_empty():
 		player_goobs = DeckBuilder.roll(rng, forced)
@@ -302,10 +307,11 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			# Spiteful / Smouldering arm for the side that played them; they
 			# act later (a landing, or that side's next turn start).
 			_mark(cell, &"armed_by", side)
-		GoobDefinition.EffectType.RESURRECT:
+		GoobDefinition.EffectType.RESURRECT, GoobDefinition.EffectType.RETURN_DISCARD:
 			# Occult: one of your destroyed Goobs drops for you into a random
 			# open column, and its own on-land effect fires (Sean, 2026-11-23).
-			var pile := deck_of(side).destroyed_pile
+			# Thrifty: the same from your discard pile (M6e Discard).
+			var pile := deck_of(side).destroyed_pile if goob.effect_type == GoobDefinition.EffectType.RESURRECT else deck_of(side).discard_pile
 			var open := open_columns(board)
 			if pile.is_empty() or open.is_empty():
 				step["fizzled"] = true
@@ -316,6 +322,54 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			var row := _land_and_resolve(back, column, side)
 			step["extra"] = Vector2i(column, row)
 			last_effect = step
+		GoobDefinition.EffectType.DISCARD_ENEMY:
+			# Distracting: a random Goob from the opponent's hand.
+			var enemy := enemy_of(side)
+			if deck_of(enemy).hand.is_empty():
+				step["fizzled"] = true
+				return
+			step["cue"] = true
+			_discard_random(enemy)
+		GoobDefinition.EffectType.DISCARD_DRAW:
+			# Fickle: an empty hand fizzles, the draw too (Sean, 2026-11-23).
+			var deck := deck_of(side)
+			if deck.hand.is_empty():
+				step["fizzled"] = true
+				return
+			step["cue"] = true
+			_discard_random(side)
+			var hand_full := deck.draw_blocked_by_hand(1)
+			var drawn := deck.draw(1)
+			if not drawn.is_empty() or hand_full:
+				effect_steps.append({"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false, "drawn": drawn, "hand_full": hand_full})
+		GoobDefinition.EffectType.DISCARD_DESTROY_ENEMY, GoobDefinition.EffectType.DISCARD_DESTROY:
+			# Ruthless (cost 2) / Desperate (cost 1): the cost is paid in full or
+			# the whole effect fizzles, nothing discarded (Sean, 2026-11-23).
+			var cost := 2 if goob.effect_type == GoobDefinition.EffectType.DISCARD_DESTROY_ENEMY else 1
+			if deck_of(side).hand.size() < cost or _discard_destroy_targets(goob.effect_type, cell, side).is_empty():
+				step["fizzled"] = true
+				return
+			step["cue"] = true
+			for i in cost:
+				_discard_random(side)
+			# Picked after the discards (a Defiant may have dropped meanwhile).
+			var hit := {"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false}
+			effect_steps.append(hit)
+			last_effect = hit
+			var targets := _discard_destroy_targets(goob.effect_type, cell, side)
+			if targets.is_empty():
+				hit["fizzled"] = true
+				return
+			_destroy_target(hit, targets[_pick(targets.size())])
+		GoobDefinition.EffectType.DISCARD_HAND:
+			# Reckless: every hand Goob, then +2 on your next turn draw (also
+			# with an empty hand).
+			step["cue"] = true
+			var deck := deck_of(side)
+			for i in range(deck.hand.size() - 1, -1, -1):
+				_discard(side, i)
+			_bonus_draws[side] = _bonus_draws.get(side, 0) + RECKLESS_DRAW
+			_sync_bonus_status(side)
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
 			var open := open_columns(board)
 			if open.is_empty():
@@ -926,14 +980,84 @@ func _roll_fallen(fell: Array[Vector2i]) -> void:
 		step["kind"] = _chain_kind
 
 
-## Discards `side`'s hand Goob at `index`; returns it (null if out of range).
+## Discards `side`'s hand Goob at `index` (debug panel, tests); returns it
+## (null if out of range). A Defiant drops instead (_discard).
 func discard_from(side: BoardState.CellOwner, index: int) -> GoobDefinition:
-	var goob := deck_of(side).discard(index)
+	var keep := last_effect
+	var goob := _discard(side, index)
 	if goob != null:
-		effect_steps.append({"kind": GoobDefinition.EffectType.NONE, "discarded": goob, "index": index, "side": side, "cell": Vector2i(-1, -1), "fizzled": false})
-		if last_effect.is_empty():
-			last_effect = effect_steps[0]
+		last_effect = keep if not keep.is_empty() else effect_steps[0]
+		_destroy_doomed() # a Defiant that landed on an armed Spiteful
+		_sync_board_statuses()
 	return goob
+
+
+# --- Discard effects (M6e; Sean, 2026-11-23: vault Special Goobs "M6e Discard
+# rules"). Every discard is random and goes through _discard, so a Defiant is
+# always played instead.
+
+## Discards `side`'s hand Goob at `index` as a discard step ({discarded, index,
+## side}; `played` = Vector2i where a Defiant dropped instead). A Defiant drops
+## for its owner into a random open column (no turn used; landings apply);
+## with the board full it goes to the pile. Returns it (null = nothing).
+func _discard(side: BoardState.CellOwner, index: int) -> GoobDefinition:
+	var deck := deck_of(side)
+	if index < 0 or index >= deck.hand.size() or not _can_discard(side, index):
+		return null
+	var goob := deck.take(index)
+	var step := {"kind": GoobDefinition.EffectType.NONE, "discarded": goob, "index": index, "side": side, "cell": Vector2i(-1, -1), "fizzled": false}
+	effect_steps.append(step)
+	if goob.effect_type == GoobDefinition.EffectType.DEFIANT:
+		var open := open_columns(board)
+		if not open.is_empty():
+			var column := open[_pick(open.size())]
+			var keep := last_effect
+			var row := _land_and_resolve(goob, column, side)
+			last_effect = keep
+			step["played"] = Vector2i(column, row)
+			return goob
+	deck.discard_pile.append(goob)
+	return goob
+
+
+## Discards a random Goob from `side`'s hand (none if empty). While the AI
+## enumerates outcomes, a hand without a Defiant always takes index 0 (which
+## Goob goes doesn't change the board).
+func _discard_random(side: BoardState.CellOwner) -> void:
+	var hand := deck_of(side).hand
+	if hand.is_empty():
+		return
+	var defiant := hand.any(func(g: GoobDefinition) -> bool: return g.effect_type == GoobDefinition.EffectType.DEFIANT)
+	_discard(side, 0 if _scripted and not defiant else _pick(hand.size()))
+
+
+## Whether `side`'s hand Goob at `index` can be discarded. The tech Goob "your
+## Goobs can't be discarded" blocks here; nothing does yet.
+func _can_discard(_side: BoardState.CellOwner, _index: int) -> bool:
+	return true
+
+
+## Ruthless: any enemy Goob; Desperate: any Goob but itself (`cell`).
+func _discard_destroy_targets(kind: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> Array[Vector2i]:
+	var targets: Array[Vector2i] = []
+	for c in BoardState.COLUMNS:
+		for r in BoardState.ROWS:
+			var owner := board.get_owner(c, r)
+			if owner == BoardState.CellOwner.EMPTY or Vector2i(c, r) == cell:
+				continue
+			if kind == GoobDefinition.EffectType.DISCARD_DESTROY or owner == enemy_of(side):
+				targets.append(Vector2i(c, r))
+	return targets
+
+
+## The Reckless pill: `side`'s next turn draw is bigger.
+func _sync_bonus_status(side: BoardState.CellOwner) -> void:
+	var extra: int = _bonus_draws.get(side, 0)
+	if extra <= 0:
+		remove_status(&"reckless", side)
+		return
+	var whose := "your" if side == BoardState.CellOwner.PLAYER else "his"
+	add_status(&"reckless", side, "Reckless", "Reckless: %s next turn draws %d extra Goobs." % [whose, extra], -1)
 
 
 ## Adds a status (replacing one with the same id and side).
@@ -1036,7 +1160,7 @@ static func play_outcomes(on: BoardState, goobs: Dictionary, goob: GoobDefinitio
 ## {board, goobs, weight}; weight = its chance (the picks along the way can
 ## differ in count, so outcomes are not equally likely). At most `limit`
 ## outcomes (then the weights sum to less than 1). Never mutates `on`.
-static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition, column: int, side: BoardState.CellOwner, limit: int = 48, piles: Dictionary = {}) -> Array[Dictionary]:
+static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition, column: int, side: BoardState.CellOwner, limit: int = 48, piles: Dictionary = {}, state: Dictionary = {}) -> Array[Dictionary]:
 	var results: Array[Dictionary] = []
 	var script: Array[int] = []
 	for run in limit:
@@ -1045,6 +1169,18 @@ static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition
 		sim._cell_goobs = goobs.duplicate()
 		for pile_side: BoardState.CellOwner in piles:
 			sim.deck_of(pile_side).destroyed_pile = piles[pile_side].duplicate()
+		# Discard effects (M6e): the hands (the played Goob has left `side`'s)
+		# and the discard piles, from sim_state().
+		var hands: Dictionary = state.get("hands", {})
+		for hand_side: BoardState.CellOwner in hands:
+			var hand: Array[GoobDefinition] = []
+			hand.assign(hands[hand_side])
+			if hand_side == side and hand.has(goob):
+				hand.erase(goob)
+			sim.deck_of(hand_side).hand = hand
+		var discards: Dictionary = state.get("discards", {})
+		for pile_side: BoardState.CellOwner in discards:
+			sim.deck_of(pile_side).discard_pile.assign(discards[pile_side])
 		sim._scripted = true
 		sim._script = script
 		sim._play_goob(goob, column, side)
@@ -1070,6 +1206,21 @@ static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition
 func destroyed_piles(mirrored := false) -> Dictionary:
 	var mine := BoardState.CellOwner.OPPONENT if mirrored else BoardState.CellOwner.PLAYER
 	return {mine: player_deck.destroyed_pile, enemy_of(mine): opponent_deck.destroyed_pile}
+
+
+## Hands and discard piles for play_results, seen by the AI playing as
+## OPPONENT (`mirrored`: for you, on auto-play): its own hand, the other
+## side's hand only as that many plain Goobs (no cheating), both discard piles.
+func sim_state(mirrored := false) -> Dictionary:
+	var actor := player_deck if mirrored else opponent_deck
+	var other := opponent_deck if mirrored else player_deck
+	var unseen: Array[GoobDefinition] = []
+	for i in other.hand.size():
+		unseen.append(VANILLA)
+	return {
+		"hands": {BoardState.CellOwner.OPPONENT: actor.hand.duplicate(), BoardState.CellOwner.PLAYER: unseen},
+		"discards": {BoardState.CellOwner.OPPONENT: actor.discard_pile.duplicate(), BoardState.CellOwner.PLAYER: other.discard_pile.duplicate()},
+	}
 
 
 ## A copy of the cell -> GoobDefinition map (for play_outcomes).
@@ -1122,6 +1273,8 @@ func _begin_turn(next: Phase, chained := false) -> void:
 	var deck := current_deck()
 	var side := current_side()
 	var count := _turn_draw_count(side)
+	_bonus_draws.erase(side) # Reckless: used up by this draw
+	_sync_bonus_status(side)
 	if _skipped_last.get(side, false):
 		count = maxi(count, TURN_DRAW) # never two skipped turns in a row
 	last_draw_hand_full = deck.draw_blocked_by_hand(count)
@@ -1141,8 +1294,8 @@ func _begin_turn(next: Phase, chained := false) -> void:
 
 ## How many Goobs `side` draws at its turn start. Draw effects (M6e draw
 ## session) change this.
-func _turn_draw_count(_side: BoardState.CellOwner) -> int:
-	return TURN_DRAW
+func _turn_draw_count(side: BoardState.CellOwner) -> int:
+	return TURN_DRAW + _bonus_draws.get(side, 0)
 
 
 ## Whether `side`'s latest turn was skipped (its next turn can't be).

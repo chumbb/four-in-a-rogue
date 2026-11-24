@@ -89,6 +89,16 @@ func _initialize() -> void:
 	_test_smouldering()
 	_test_spiteful_two_gaps()
 	_test_occult_simulated()
+	_test_discard_roster()
+	_test_distracting()
+	_test_defiant()
+	_test_fickle()
+	_test_ruthless()
+	_test_ruthless_defiant()
+	_test_reckless()
+	_test_thrifty()
+	_test_desperate()
+	_test_discard_simulated()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -612,13 +622,15 @@ func _test_deck_builder_main_pools() -> void:
 		var top := _count_category(goobs, GoobDefinition.Category.UNIQUE)
 		var draws := _count_category(goobs, GoobDefinition.Category.DRAW)
 		var fat := _count_category(goobs, D)
+		var discards := _count_category(goobs, X)
 		var plain := _count_category(goobs, GoobDefinition.Category.NONE)
 		saw_draw = saw_draw or draws > 0
-		# 10 specials: top + DESTROY pool + DISCARD pool (plain, no Goobs yet) + DRAW.
-		var discard_slots := 10 - top - fat - draws
-		ok = ok and draws <= 3 and discard_slots >= 0 and plain == 11 + discard_slots
-		ok = ok and top + fat + draws + discard_slots == 10
-	_check(ok, "deck builder: main pools + top = 10 slots, DRAW <= 3, empty DISCARD slots plain (seeds 1..200)")
+		# 10 specials: top (plain while UNIQUE has no Goobs) + DESTROY pool +
+		# DISCARD pool (filled in M6e Discard) + DRAW.
+		var top_slots := top + plain - 11
+		ok = ok and draws <= 3 and top_slots >= 1 and top_slots <= 2 and fat >= 2 and discards >= 2
+		ok = ok and top_slots + fat + draws + discards == 10
+	_check(ok, "deck builder: main pools + top = 10 slots, DRAW <= 3, DESTROY and DISCARD filled (seeds 1..200)")
 	_check(saw_draw, "deck builder: DRAW Goobs do appear in pools")
 
 
@@ -1459,3 +1471,216 @@ func _test_occult_simulated() -> void:
 		back = back or count == 2
 	_check(back, "occult sim: the returned Goob drops in the simulation")
 	_check(piles[O].size() == 1, "occult sim: the real pile is untouched")
+
+
+# --- M6e Discard (Sean, 2026-11-23: vault Special Goobs "M6e Discard rules")
+
+const DISTRACTING := preload("res://resources/goobs/distracting_goob.tres")
+const DEFIANT := preload("res://resources/goobs/defiant_goob.tres")
+const FICKLE := preload("res://resources/goobs/fickle_goob.tres")
+const RUTHLESS := preload("res://resources/goobs/ruthless_goob.tres")
+const RECKLESS := preload("res://resources/goobs/reckless_goob.tres")
+const THRIFTY := preload("res://resources/goobs/thrifty_goob.tres")
+const DESPERATE := preload("res://resources/goobs/desperate_goob.tres")
+
+
+## Player to move with exactly `hand` (all-Vanilla decks).
+func _with_hand(hand: Array[GoobDefinition]) -> TurnLoop:
+	var t := TurnLoop.new()
+	t.start(true, _seeded(40), _vanilla())
+	t.player_deck.hand = hand
+	return t
+
+
+func _goob_count(t: TurnLoop, owner: BoardState.CellOwner) -> int:
+	var n := 0
+	for c in BoardState.COLUMNS:
+		for r in BoardState.ROWS:
+			if t.board.get_owner(c, r) == owner:
+				n += 1
+	return n
+
+
+func _discard_steps(t: TurnLoop) -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
+	for step in t.effect_steps:
+		if step.has("discarded"):
+			found.append(step)
+	return found
+
+
+func _test_discard_roster() -> void:
+	var expected := {
+		DISTRACTING: ["Distracting Goob", "Your opponent discards a random Goob."],
+		DEFIANT: ["Defiant Goob", "If this Goob is discarded, play it instead."],
+		FICKLE: ["Fickle Goob", "Discard a random Goob, then draw a Goob."],
+		RUTHLESS: ["Ruthless Goob", "Discard 2 random Goobs, then destroy a random enemy Goob."],
+		RECKLESS: ["Reckless Goob", "Discard your hand. Draw 2 extra Goobs on your next turn."],
+		THRIFTY: ["Thrifty Goob", "Bring back one of your discarded Goobs."],
+		DESPERATE: ["Desperate Goob", "Discard a random Goob, then destroy a random Goob."],
+	}
+	var ok := true
+	for goob: GoobDefinition in expected:
+		ok = ok and goob.display_name == expected[goob][0] and goob.effect_description == expected[goob][1]
+		ok = ok and goob.multiplier == 2.0 and goob.category == GoobDefinition.Category.DISCARD
+	_check(ok, "discard roster: names, card text, x2, DISCARD")
+	var E_ := GoobDefinition.EffectType
+	_check(DISTRACTING.effect_type == E_.DISCARD_ENEMY and DEFIANT.effect_type == E_.DEFIANT and FICKLE.effect_type == E_.DISCARD_DRAW
+		and RUTHLESS.effect_type == E_.DISCARD_DESTROY_ENEMY and RECKLESS.effect_type == E_.DISCARD_HAND
+		and THRIFTY.effect_type == E_.RETURN_DISCARD and DESPERATE.effect_type == E_.DISCARD_DESTROY, "discard roster: effect types")
+	_check(GoobRoster.specials(GoobDefinition.Category.DISCARD).size() == 7, "discard roster: 7 in the roster")
+
+
+func _test_distracting() -> void:
+	var t := _with_hand([DISTRACTING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	var theirs := t.opponent_deck.hand.size()
+	t.play(3, 0)
+	_check(t.opponent_deck.discard_pile.size() == 1, "distracting: one opponent Goob discarded")
+	_check(t.opponent_deck.hand.size() == theirs - 1 + 1, "distracting: their hand lost one (then their turn draw)")
+	var steps := _discard_steps(t)
+	_check(steps.size() == 1 and steps[0]["side"] == O and t.effect_steps[0].get("cue", false), "distracting: cue step, then the discard step")
+	var e := _with_hand([DISTRACTING] as Array[GoobDefinition])
+	e.opponent_deck.hand.clear()
+	e.play(3, 0)
+	_check(e.last_effect["fizzled"] and e.opponent_deck.discard_pile.is_empty(), "distracting: an empty enemy hand fizzles")
+
+
+func _test_defiant() -> void:
+	var t := _with_hand([DISTRACTING] as Array[GoobDefinition])
+	t.opponent_deck.hand = [DEFIANT] as Array[GoobDefinition]
+	t.play(3, 0)
+	var steps := _discard_steps(t)
+	_check(steps.size() == 1 and steps[0].has("played"), "defiant: discarded, it is played instead")
+	var at: Vector2i = steps[0]["played"]
+	_check(t.board.get_owner(at.x, at.y) == O and TurnLoop.base_of(t.goob_at(at.x, at.y)) == DEFIANT, "defiant: drops for its owner")
+	_check(t.opponent_deck.discard_pile.is_empty(), "defiant: not in the discard pile")
+	_check(t.last_effect["kind"] == GoobDefinition.EffectType.DISCARD_ENEMY, "defiant: last_effect stays the Distracting step")
+	# Board full but for the cell Distracting takes: it goes to the pile.
+	var f := _with_hand([DISTRACTING] as Array[GoobDefinition])
+	f.opponent_deck.hand = [DEFIANT] as Array[GoobDefinition]
+	for c in BoardState.COLUMNS:
+		for r in BoardState.ROWS:
+			if c != 3 or r < BoardState.ROWS - 1:
+				_place(f, c, TurnLoop.VANILLA, P if (c + r) % 3 == 0 else O)
+	f.play(3, 0)
+	_check(f.opponent_deck.discard_pile == [DEFIANT], "defiant: board full, it goes to the pile")
+	# Played normally it does nothing.
+	var n := _with_hand([DEFIANT, TurnLoop.VANILLA] as Array[GoobDefinition])
+	n.play(3, 0)
+	_check(n.last_effect.get("passive", false) and _discard_steps(n).is_empty(), "defiant: played, no effect")
+
+
+func _test_fickle() -> void:
+	var t := _with_hand([FICKLE, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	var pile := t.player_deck.draw_pile.size()
+	t.play(3, 0)
+	_check(t.player_deck.discard_pile.size() == 1 and t.player_deck.hand.size() == 2, "fickle: discard 1, draw 1")
+	_check(t.player_deck.draw_pile.size() == pile - 1, "fickle: drew from the deck")
+	var last: Dictionary = t.effect_steps[-1]
+	var discards := _discard_steps(t)
+	_check(last.has("drawn") and last["drawn"].size() == 1 and discards.size() == 1 and t.effect_steps.find(discards[0]) < t.effect_steps.size() - 1, "fickle: the draw step comes after the discard")
+	var e := _with_hand([FICKLE] as Array[GoobDefinition])
+	var before := e.player_deck.draw_pile.size()
+	e.play(3, 0)
+	_check(e.last_effect["fizzled"] and e.player_deck.hand.is_empty() and e.player_deck.draw_pile.size() == before, "fickle: empty hand fizzles, no draw")
+
+
+func _test_ruthless() -> void:
+	var t := _with_hand([RUTHLESS, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 0, TurnLoop.VANILLA, O)
+	_place(t, 1, TurnLoop.VANILLA, P)
+	t.play(6, 0)
+	_check(t.player_deck.discard_pile.size() == 2 and t.player_deck.hand.is_empty(), "ruthless: discards 2")
+	_check(t.board.is_empty(0, 0) and t.board.get_owner(1, 0) == P, "ruthless: destroys the enemy Goob, not yours")
+	_check(t.last_effect.get("target") == Vector2i(0, 0) and t.opponent_deck.destroyed_pile.size() == 1, "ruthless: last_effect is the destroy")
+	var one := _with_hand([RUTHLESS, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(one, 0, TurnLoop.VANILLA, O)
+	one.play(6, 0)
+	_check(one.last_effect["fizzled"] and one.player_deck.discard_pile.is_empty() and one.board.get_owner(0, 0) == O, "ruthless: only one Goob in hand fizzles, nothing discarded")
+	var none := _with_hand([RUTHLESS, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	none.play(6, 0)
+	_check(none.last_effect["fizzled"] and none.player_deck.discard_pile.is_empty(), "ruthless: no enemy Goob fizzles, nothing discarded")
+
+
+func _test_ruthless_defiant() -> void:
+	var t := _with_hand([RUTHLESS, DEFIANT, DEFIANT] as Array[GoobDefinition])
+	_place(t, 0, TurnLoop.VANILLA, O)
+	t.play(6, 0)
+	_check(t.player_deck.discard_pile.is_empty(), "ruthless + defiant: both Defiants played instead")
+	_check(_goob_count(t, P) == 3 and _goob_count(t, O) == 0, "ruthless + defiant: two Defiants on the board, the enemy destroyed")
+	var steps := _discard_steps(t)
+	var hit := _steps_of(t.effect_steps, GoobDefinition.EffectType.DISCARD_DESTROY_ENEMY)
+	_check(steps.size() == 2 and t.effect_steps.find(steps[1]) < t.effect_steps.find(hit[-1]), "ruthless + defiant: the drops come before the destroy")
+
+
+func _test_reckless() -> void:
+	var t := _with_hand([RECKLESS, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.play(3, 0)
+	_check(t.player_deck.hand.is_empty() and t.player_deck.discard_pile.size() == 2, "reckless: discards the hand")
+	_check(t.has_status(&"reckless", P), "reckless: pill while pending")
+	var idx := _discard_steps(t)
+	_check(idx.size() == 2 and idx[0]["index"] == 1 and idx[1]["index"] == 0, "reckless: discards from the end (fan indices stay valid)")
+	t.play(0, 0) # opponent
+	_check(t.player_deck.hand.size() == 3 and t.last_draw.size() == 3, "reckless: draws 3 on your next turn")
+	_check(not t.has_status(&"reckless", P), "reckless: pill gone after the draw")
+	t.play(1, 0)
+	t.play(2, 0)
+	_check(t.last_draw.size() == 1, "reckless: only once")
+	var e := _with_hand([RECKLESS] as Array[GoobDefinition])
+	e.play(3, 0)
+	_check(not e.last_effect["fizzled"] and e.has_status(&"reckless", P), "reckless: empty hand still gets the +2")
+	e.play(0, 0)
+	_check(e.player_deck.hand.size() == 3 and e.phase == TurnLoop.Phase.PLAYER_TURN, "reckless: no skip, 3 drawn")
+	var cap := _with_hand([RECKLESS] as Array[GoobDefinition])
+	cap.play(3, 0)
+	cap.player_deck.hand = [TurnLoop.VANILLA, TurnLoop.VANILLA, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition]
+	cap.play(0, 0)
+	_check(cap.player_deck.hand.size() == Deck.HAND_MAX and cap.last_draw_hand_full, "reckless: the hand cap still applies")
+
+
+func _test_thrifty() -> void:
+	var t := _with_hand([THRIFTY, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.player_deck.discard_pile = [TurnLoop.VANILLA] as Array[GoobDefinition]
+	t.play(3, 0)
+	_check(t.player_deck.discard_pile.is_empty() and _goob_count(t, P) == 2, "thrifty: the discarded Goob drops for you")
+	_check(t.last_effect["kind"] == GoobDefinition.EffectType.RETURN_DISCARD and t.last_effect.has("returned") and t.last_effect.has("extra"), "thrifty: step names the Goob and where it went")
+	var e := _with_hand([THRIFTY] as Array[GoobDefinition])
+	e.player_deck.destroyed_pile = [TurnLoop.VANILLA] as Array[GoobDefinition]
+	e.play(3, 0)
+	_check(e.last_effect["fizzled"] and _goob_count(e, P) == 1, "thrifty: empty discard pile fizzles (destroyed pile doesn't count)")
+
+
+func _test_desperate() -> void:
+	var t := _with_hand([DESPERATE, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 0, TurnLoop.VANILLA, P)
+	t.play(6, 0)
+	_check(t.board.is_empty(0, 0) and t.board.get_owner(6, 0) == P, "desperate: destroys another Goob (yours too), never itself")
+	_check(t.player_deck.discard_pile.size() == 1 and t.player_deck.hand.size() == 1, "desperate: discards 1")
+	var e := _with_hand([DESPERATE, TurnLoop.VANILLA] as Array[GoobDefinition])
+	e.play(6, 0)
+	_check(e.last_effect["fizzled"] and e.player_deck.discard_pile.is_empty() and e.board.get_owner(6, 0) == P, "desperate: alone on the board fizzles, nothing discarded")
+	var h := _with_hand([DESPERATE] as Array[GoobDefinition])
+	_place(h, 0, TurnLoop.VANILLA, O)
+	h.play(6, 0)
+	_check(h.last_effect["fizzled"] and h.board.get_owner(0, 0) == O, "desperate: empty hand fizzles")
+
+
+## The AI's simulation uses its hand (sim_state): Ruthless destroys there.
+func _test_discard_simulated() -> void:
+	var b := BoardState.new()
+	b.drop(0, P)
+	var hand := [RUTHLESS, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition]
+	var state := {"hands": {O: hand, P: [] as Array[GoobDefinition]}}
+	var hit := true
+	for result in TurnLoop.play_results(b, {Vector2i(0, 0): TurnLoop.VANILLA}, RUTHLESS, 6, O, 48, {}, state):
+		hit = hit and result["board"].is_empty(0, 0)
+	_check(hit, "discard sim: Ruthless destroys in the simulation")
+	_check(hand.size() == 3, "discard sim: the real hand is untouched")
+	var t := TurnLoop.new()
+	t.start(false, _seeded(41), _vanilla())
+	var seen := t.sim_state()
+	_check(seen["hands"][O].size() == t.opponent_deck.hand.size() and seen["hands"][P].size() == t.player_deck.hand.size(), "discard sim: hand sizes")
+	var plain := true
+	for g in seen["hands"][P]:
+		plain = plain and g == TurnLoop.VANILLA
+	_check(plain, "discard sim: your hand is hidden from the AI (plain Goobs)")

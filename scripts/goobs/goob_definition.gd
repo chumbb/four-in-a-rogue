@@ -24,6 +24,14 @@ enum EffectType {
 	DESTROY_BELOW, ## Crushing
 	DESTROY_BESIDE, ## Brawling: one random side
 	DESTROY_LATER, ## Smouldering: a random adjacent Goob at your next turn start
+	# M6e Discard (Sean, 2026-11-23; vault Special Goobs "M6e Discard rules")
+	DISCARD_ENEMY, ## Distracting: your opponent discards a random Goob
+	DEFIANT, ## Defiant, passive: played instead when discarded
+	DISCARD_DRAW, ## Fickle: discard 1, then draw 1
+	DISCARD_DESTROY_ENEMY, ## Ruthless: discard 2, then destroy a random enemy Goob
+	DISCARD_HAND, ## Reckless: discard your hand, +2 draws on your next turn
+	RETURN_DISCARD, ## Thrifty: one of your discarded Goobs drops for you
+	DISCARD_DESTROY, ## Desperate: discard 1, then destroy a random Goob (never itself)
 }
 
 ## Deck-building pool (M6e framework).
@@ -46,7 +54,7 @@ enum Category { NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW }
 @export var flips_vertically: bool = false
 
 ## Effects that do nothing when played; they act while on the board.
-const PASSIVE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.DESTROY_LANDER, EffectType.DESTROY_LATER]
+const PASSIVE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.DESTROY_LANDER, EffectType.DESTROY_LATER, EffectType.DEFIANT]
 
 const ART_DIR := "res://assets/goobs/%s/%s_%s"
 

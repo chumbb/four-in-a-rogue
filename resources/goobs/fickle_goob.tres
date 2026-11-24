@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GoobDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/goobs/goob_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "fickle"
+display_name = "Fickle Goob"
+multiplier = 2.0
+effect_description = "Discard a random Goob, then draw a Goob."
+effect_type = 22
+category = 5
+art_id = "vanilla"
+flips_vertically = true

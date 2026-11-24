@@ -71,6 +71,7 @@ func _run() -> void:
 	await _test_effect_animations()
 	await _test_move_animations()
 	await _test_destroy_animations()
+	await _test_discard_animations()
 	await _test_scoring_sequence()
 	await _test_scoring_animated()
 	await _test_hud()
@@ -2174,4 +2175,49 @@ func _test_destroy_animations() -> void:
 		for sound: StringName in setup[4]:
 			_check(scenario._sfx.history.has(sound), "destroy %s: sound %s" % [label, sound])
 		_check(_view_matches(scenario), "destroy %s: animated view matches the board" % label)
+		await _free(scenario)
+
+
+## M6e Discard: each discard Goob plays out (cue, reveals, a Defiant's drop,
+## Fickle's draw, the destroys, Thrifty's return), then the opponent's turn
+## starts with the view on the board and the fan on the hand.
+func _test_discard_animations() -> void:
+	var g := func(id: String) -> GoobDefinition: return load("res://resources/goobs/%s_goob.tres" % id)
+	var V := TurnLoop.VANILLA
+	var defiant: GoobDefinition = g.call("defiant")
+	# label, your hand (index 0 is played), column, board Goobs [column, owner],
+	# his hand ([] = as dealt), your discard pile, sounds
+	var setups := [
+		["distracting", [g.call("distracting"), V, V], 3, [], [], [], []],
+		["distracting defiant", [g.call("distracting"), V], 3, [], [defiant], [], []],
+		["fickle", [g.call("fickle"), V, V], 3, [], [], [], [&"draw_pop"]],
+		["ruthless", [g.call("ruthless"), V, defiant], 3, [[0, O]], [], [], [&"crunch"]],
+		["reckless", [g.call("reckless"), defiant, V, V], 3, [], [], [], []],
+		["thrifty", [g.call("thrifty"), V], 3, [], [], [FAT], [&"resurrect"]],
+		["desperate", [g.call("desperate"), V, V], 3, [[0, O]], [], [], [&"crunch"]],
+	]
+	for setup in setups:
+		var label: String = setup[0]
+		var scenario := await _make(5.0, true, 30.0, true)
+		await _wait_input(scenario)
+		var board := _board(scenario)
+		var loop: TurnLoop = scenario._loop
+		for put: Array in setup[3]:
+			var row := board.drop(put[0], put[1])
+			loop._cell_goobs[Vector2i(put[0], row)] = V
+		if not setup[4].is_empty():
+			loop.opponent_deck.hand.assign(setup[4])
+		loop.player_deck.discard_pile.assign(setup[5])
+		loop.player_deck.hand.assign(setup[1])
+		_hand_view(scenario).rebuild(loop.player_deck.hand)
+		_view(scenario).sync_from_board(board)
+		_play_col(scenario, setup[2])
+		var deadline := Time.get_ticks_msec() + 25000
+		while scenario._opponent_timer.is_stopped() and Time.get_ticks_msec() < deadline:
+			await process_frame
+		_check(not scenario._opponent_timer.is_stopped(), "discard %s: play finishes, opponent's turn starts" % label)
+		for sound: StringName in setup[6]:
+			_check(scenario._sfx.history.has(sound), "discard %s: sound %s" % [label, sound])
+		_check(_view_matches(scenario), "discard %s: animated view matches the board" % label)
+		_check(_fan_in_step(scenario), "discard %s: fan matches the hand" % label)
 		await _free(scenario)
