@@ -413,8 +413,20 @@ func debug_discard_random(side: BoardState.CellOwner) -> void:
 		_opponent_hand_index -= 1
 	if side == BoardState.CellOwner.PLAYER:
 		_end_touch()
-	var goob := _loop.discard_from(side, index)
-	await _show_discard(goob, side, index)
+	var first := _loop.effect_steps.size()
+	_loop.discard_from(side, index)
+	# The discard, and a Defiant's drop and landing moves (M6e Discard).
+	var steps := _loop.effect_steps.slice(first)
+	for step in steps:
+		if step.has("discarded"):
+			await _play_discard_step(step)
+		else:
+			await _play_effect(step)
+		if not is_inside_tree():
+			return
+	if steps.size() > 1:
+		_board_view.sync_from_board(_loop.board)
+		_refresh_hud()
 	if not is_inside_tree() or _loop.phase != TurnLoop.Phase.PLAYER_TURN or side != BoardState.CellOwner.PLAYER:
 		return
 	if _loop.player_deck.hand.is_empty():
@@ -467,7 +479,7 @@ func set_autoplay(on: bool) -> void:
 ## OPPONENT), then thinks like him before playing it.
 func _run_autoplay_turn() -> void:
 	var deck := _loop.player_deck
-	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs(), _loop.destroyed_piles(true))
+	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs(), _loop.destroyed_piles(true), _loop.sim_state(true))
 	if move["column"] == -1:
 		set_autoplay(false) # nothing it can play: auto-play off, your turn as usual
 		_set_input_enabled(true)
@@ -1049,10 +1061,17 @@ func _play_effect(effect: Dictionary, face: StringName = &"") -> void:
 
 func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, cell: Vector2i, side: BoardState.CellOwner) -> void:
 	if effect.has("discarded"):
-		await _show_discard(effect["discarded"], side, effect.get("index", -1))
+		await _play_discard_step(effect)
 		return
 	if effect["fizzled"]:
 		await _board_view.play_fizzle(cell)
+		return
+	if effect.get("cue", false):
+		# A discard Goob winds up; its discards are the steps after this one.
+		await _board_view.play_cue(cell)
+		return
+	if effect.has("drawn"):
+		await _play_draw_step(effect, cell, side)
 		return
 	if effect.has("motions"):
 		# Move Goobs (M6e): a chain roll has no wind-up.
@@ -1061,11 +1080,12 @@ func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, ce
 	match kind:
 		GoobDefinition.EffectType.FLIP_ADJACENT:
 			await _board_view.play_flip(cell, effect["target"], side)
-		GoobDefinition.EffectType.DESTROY_ADJACENT, GoobDefinition.EffectType.DESTROY_RANDOM, GoobDefinition.EffectType.DESTROY_BELOW, GoobDefinition.EffectType.DESTROY_BESIDE, GoobDefinition.EffectType.DESTROY_LANDER, GoobDefinition.EffectType.DESTROY_LATER:
+		GoobDefinition.EffectType.DESTROY_ADJACENT, GoobDefinition.EffectType.DESTROY_RANDOM, GoobDefinition.EffectType.DESTROY_BELOW, GoobDefinition.EffectType.DESTROY_BESIDE, GoobDefinition.EffectType.DESTROY_LANDER, GoobDefinition.EffectType.DESTROY_LATER, GoobDefinition.EffectType.DISCARD_DESTROY_ENEMY, GoobDefinition.EffectType.DISCARD_DESTROY:
 			await _board_view.play_destroy(cell, effect["target"])
-		GoobDefinition.EffectType.RESURRECT:
-			# Occult: the destroyed Goob arcs out of it and drops for you; its
-			# own landing and effect are the steps after this one.
+		GoobDefinition.EffectType.RESURRECT, GoobDefinition.EffectType.RETURN_DISCARD:
+			# Occult / Thrifty: the destroyed (discarded) Goob arcs out of it
+			# and drops for you; its own landing and effect are the steps
+			# after this one.
 			var back: GoobDefinition = effect["returned"]
 			var at: Vector2i = effect["extra"]
 			await _board_view.play_summon(cell, at.x, side, back, &"resurrect")
@@ -1077,21 +1097,38 @@ func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, ce
 			await _board_view.play_drop(extra.x, extra.y, side)
 			_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 			_board_view.sparkle(extra, side)
-		GoobDefinition.EffectType.DRAW_TWO:
-			var drawn: Array[GoobDefinition] = effect["drawn"]
-			if drawn.is_empty():
-				# Hand already full: nothing drawn.
-				if side == BoardState.CellOwner.PLAYER:
-					_show_hand_full()
-				else:
-					await _board_view.play_fizzle(cell)
-				return
-			await _board_view.play_draw_cue(cell, side, drawn.size())
-			if side == BoardState.CellOwner.PLAYER:
-				if effect["hand_full"]:
-					_show_hand_full()
-				for goob in drawn:
-					await _reveal_drawn(goob)
+
+
+## A draw effect (Plentiful, Fickle's draw): ghosts fly to the hand, yours pop
+## in; a full hand toasts (his fizzles).
+func _play_draw_step(effect: Dictionary, cell: Vector2i, side: BoardState.CellOwner) -> void:
+	var drawn: Array[GoobDefinition] = effect["drawn"]
+	if drawn.is_empty():
+		# Hand already full: nothing drawn.
+		if side == BoardState.CellOwner.PLAYER:
+			_show_hand_full()
+		else:
+			await _board_view.play_fizzle(cell)
+		return
+	await _board_view.play_draw_cue(cell, side, drawn.size())
+	if side == BoardState.CellOwner.PLAYER:
+		if effect["hand_full"]:
+			_show_hand_full()
+		for goob in drawn:
+			await _reveal_drawn(goob)
+
+
+## A discard step: the reveal; a Defiant then flips up from behind the board
+## and drops where TurnLoop played it (its landing moves are the next steps).
+func _play_discard_step(effect: Dictionary) -> void:
+	var goob: GoobDefinition = effect["discarded"]
+	var side: BoardState.CellOwner = effect["side"]
+	var played: Vector2i = effect.get("played", Vector2i(-1, -1))
+	await _show_discard(goob, side, effect.get("index", -1), played.x >= 0)
+	if played.x < 0 or not is_inside_tree():
+		return
+	await _board_view.play_drop(played.x, played.y, side, [], goob, true)
+	_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 
 
 ## Timeout: the column under the finger, else a random one (full included).
@@ -1219,10 +1256,10 @@ func _reveal_drawn(goob: GoobDefinition) -> void:
 ## his). HandView.DISCARD_SEC, never sped up by Fast; one at a time (await
 ## it). `index`: the hand index it left (yours leaves the fan there). Tests
 ## (animate_drops = false) skip the motion.
-func _show_discard(goob: GoobDefinition, side: BoardState.CellOwner, index: int = -1) -> void:
+func _show_discard(goob: GoobDefinition, side: BoardState.CellOwner, index: int = -1, defiant := false) -> void:
 	var start_msec := Time.get_ticks_msec()
 	_hud.show_caption(goob.display_name, HandView.DISCARD_SEC)
-	await _hand.play_discard(goob, side, index)
+	await _hand.play_discard(goob, side, index, defiant)
 	# The tween's first tick can count frame time from before it started: top
 	# up to the full length on the clock (a pause already ran it past that).
 	while _animating() and is_inside_tree() and Time.get_ticks_msec() - start_msec < HandView.DISCARD_SEC * 1000.0:
@@ -1259,7 +1296,7 @@ func _shake_screen() -> void:
 func _run_opponent_turn() -> void:
 	_set_input_enabled(false)
 	var deck := _loop.opponent_deck
-	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs(), _loop.destroyed_piles())
+	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs(), _loop.destroyed_piles(), _loop.sim_state())
 	_opponent_column = move["column"]
 	_opponent_hand_index = move["hand_index"]
 	var wait := _think_sec(move["blocking"] or move["close"])

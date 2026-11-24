@@ -42,7 +42,7 @@ const _DIRECTIONS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1
 ## Does not mutate `board` or `hand`. `goobs`: the board's cell ->
 ## GoobDefinition map (TurnLoop.cell_goobs()), so Goobs that act while on
 ## the board (Bouncy, Slippery, Springy, Lopsided, Tipsy) are simulated.
-static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_count: int, rng: RandomNumberGenerator, goobs: Dictionary = {}, piles: Dictionary = {}) -> Dictionary:
+static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_count: int, rng: RandomNumberGenerator, goobs: Dictionary = {}, piles: Dictionary = {}, state: Dictionary = {}) -> Dictionary:
 	var move := {"column": -1, "hand_index": -1, "blocking": false, "close": false}
 	var legal := TurnLoop.open_columns(board)
 	if legal.is_empty() or hand.is_empty():
@@ -57,7 +57,7 @@ static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_cou
 			continue
 		seen_types[key] = true
 		for column in legal:
-			var value := _play_value(board, goob, column, hand.size(), deck_count, goobs, piles)
+			var value := _play_value(board, goob, column, hand.size(), deck_count, goobs, piles, state)
 			scored.append({"column": column, "hand_index": i, "value": value,
 				"vanilla": goob.effect_type == GoobDefinition.EffectType.NONE})
 	var best := -INF
@@ -91,18 +91,42 @@ static func choose_column(board: BoardState, rng: RandomNumberGenerator) -> int:
 	return choose_move(board, hand, 0, rng)["column"]
 
 
-## Expected score of playing `goob` into `column`.
-static func _play_value(board: BoardState, goob: GoobDefinition, column: int, hand_size: int, deck_count: int, goobs: Dictionary = {}, piles: Dictionary = {}) -> float:
+## Expected score of playing `goob` into `column`. `state`: hands and discard
+## piles (TurnLoop.sim_state) for the discard Goobs (M6e).
+static func _play_value(board: BoardState, goob: GoobDefinition, column: int, hand_size: int, deck_count: int, goobs: Dictionary = {}, piles: Dictionary = {}, state: Dictionary = {}) -> float:
 	var total := 0.0
 	var weights := 0.0
-	for result in TurnLoop.play_results(board, goobs, goob, column, _O, 48, piles):
+	for result in TurnLoop.play_results(board, goobs, goob, column, _O, 48, piles, state):
 		total += score_board(result["board"], result["goobs"]) * result["weight"]
 		weights += result["weight"]
 	var value := total / weights
 	if goob.effect_type == GoobDefinition.EffectType.DRAW_TWO:
 		var room := Deck.HAND_MAX - (hand_size - 1)
 		value += DRAW_VALUE * mini(mini(TurnLoop.PLENTIFUL_DRAW, deck_count), room)
+	if state.has("hands"):
+		value += _hand_value(board, goob, hand_size - 1, deck_count, state)
 	return value
+
+
+## Discard Goobs (M6e): each Goob a hand gains or loses is worth DRAW_VALUE
+## (destroys and Thrifty are simulated). `left`: its hand after the play.
+static func _hand_value(board: BoardState, goob: GoobDefinition, left: int, deck_count: int, state: Dictionary) -> float:
+	var theirs: int = state["hands"].get(_P, []).size()
+	match goob.effect_type:
+		GoobDefinition.EffectType.DISCARD_ENEMY:
+			return DRAW_VALUE if theirs > 0 else 0.0
+		GoobDefinition.EffectType.DISCARD_DESTROY_ENEMY:
+			var enemies := false
+			for c in BoardState.COLUMNS:
+				for r in BoardState.ROWS:
+					enemies = enemies or board.get_owner(c, r) == _P
+			return -2.0 * DRAW_VALUE if left >= 2 and enemies else 0.0
+		GoobDefinition.EffectType.DISCARD_DESTROY:
+			return -DRAW_VALUE if left >= 1 else 0.0
+		GoobDefinition.EffectType.DISCARD_HAND:
+			# A weak (small) hand is worth trading for the extra draws.
+			return DRAW_VALUE * (mini(TurnLoop.RECKLESS_DRAW, deck_count) - left)
+	return 0.0
 
 
 ## Score of a board after the opponent's play (win check after effects).

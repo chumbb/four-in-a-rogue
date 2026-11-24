@@ -276,8 +276,10 @@ func reveal(goob: GoobDefinition) -> void:
 ## like a drawn one, holds, then flies off the bottom (yours) or the top (his)
 ## and is freed. Yours first leaves the fan at hand `index` (the fan follows
 ## Deck.hand order). Its timing ignores speed_scale (never faster on Fast):
-## DISCARD_SEC in all. Await to know when it has gone.
-func play_discard(goob: GoobDefinition, side: BoardState.CellOwner, index: int = -1) -> void:
+## DISCARD_SEC in all. Await to know when it has gone. `defiant`: it refuses
+## to go (M6e Defiant): it shakes and shrinks away at the centre instead, to
+## be played on the board.
+func play_discard(goob: GoobDefinition, side: BoardState.CellOwner, index: int = -1, defiant := false) -> void:
 	if side == BoardState.CellOwner.PLAYER and index >= 0 and index < _cards.size():
 		_take_card(index)
 	if not animate or not is_inside_tree():
@@ -290,6 +292,20 @@ func play_discard(goob: GoobDefinition, side: BoardState.CellOwner, index: int =
 	var pop := card.create_tween()
 	pop.tween_callback(hand_sound.emit.bind(&"draw_pop"))
 	pop.tween_property(card, "scale", Vector2.ONE * REVEAL_SCALE, REVEAL_POP_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if defiant:
+		var x := card.position.x
+		var shake_px := _px * 2.0
+		var step_sec := DISCARD_HOLD_SEC / 8.0
+		for i in 4:
+			pop.tween_property(card, "position:x", x + shake_px, step_sec)
+			pop.tween_property(card, "position:x", x - shake_px, step_sec)
+		pop.tween_property(card, "position:x", x, 0.0)
+		pop.tween_callback(hand_sound.emit.bind(&"fly"))
+		pop.tween_property(card, "scale", Vector2.ZERO, REVEAL_FLY_SEC).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		await pop.finished
+		if is_instance_valid(card):
+			card.queue_free()
+		return
 	pop.tween_interval(DISCARD_HOLD_SEC)
 	pop.tween_callback(hand_sound.emit.bind(&"fly"))
 	var off := GOOB_PX * _px * REVEAL_SCALE
