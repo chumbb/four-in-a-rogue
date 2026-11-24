@@ -109,18 +109,23 @@ static func _play_value(board: BoardState, goob: GoobDefinition, column: int, ha
 		total += score_board(result["board"], result["goobs"]) * result["weight"]
 		weights += result["weight"]
 	var value := total / weights
+	# Nostalgic / Mocking (M6e): flat values for the Goob it becomes.
+	var as_goob := goob
+	if goob.effect_type == GoobDefinition.EffectType.COPY_OWN or goob.effect_type == GoobDefinition.EffectType.COPY_ENEMY:
+		as_goob = TurnLoop.copy_source(goob.effect_type, _O, state.get("last_played", {}))
 	if state.get("stifles", {}).get(_O, 0) > 0:
 		# Stifled (M6e Tech): no landing effect, but an ongoing one still works.
+		# A stifled Nostalgic / Mocking copies nothing.
 		if goob.effect_type in GoobDefinition.PASSIVE_EFFECTS:
 			value += _draw_effect_value(goob, deck_count, state) + _tech_value(board, goob, goobs, state)
 		return value
-	if goob.effect_type == GoobDefinition.EffectType.DRAW_TWO:
+	if as_goob.effect_type == GoobDefinition.EffectType.DRAW_TWO:
 		var room := Deck.HAND_MAX - (hand_size - 1)
 		value += DRAW_VALUE * mini(mini(TurnLoop.GREEDY_DRAW, deck_count), room)
-	value += _draw_effect_value(goob, deck_count, state)
-	value += _tech_value(board, goob, goobs, state)
+	value += _draw_effect_value(as_goob, deck_count, state)
+	value += _tech_value(board, as_goob, goobs, state)
 	if state.has("hands"):
-		value += _hand_value(board, goob, hand_size - 1, deck_count, state, goobs)
+		value += _hand_value(board, as_goob, hand_size - 1, deck_count, state, goobs)
 	return value
 
 

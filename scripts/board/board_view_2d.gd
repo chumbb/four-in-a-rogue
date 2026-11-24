@@ -37,6 +37,8 @@ const BOUNCE_SEC := 0.1
 const ROLL_SEC_PER_COLUMN := 0.11
 const ROLL_BUMP_PX := 6 ## nudge into the board edge on a bounce
 const HOP_SEC := 0.24 ## M6e bounce (Bouncy, Springy)
+const OFF_SEC := 0.45 ## M6e Uniquely powerful: a Goob falling off the board
+const OFF_DROP_PX := CELL * 3 ## how far it falls past the board as it fades
 const HOP_ARC_PX := 14
 const HIGHLIGHT_MODULATE := Color(1.5, 1.5, 1.5)
 ## Aim preview: while the player holds a legal column, their Goob floats on top
@@ -529,6 +531,10 @@ func play_move(source: Vector2i, motions: Array, marked: Vector2i = Vector2i(-1,
 	if animate and wind_up and _tokens.has(source):
 		await _charge(source)
 		_settle(source)
+		# It moves itself (Seismic, Rowdy): let it come to rest first, or the
+		# settle tween drags it back after a short slide.
+		if motions.any(func(m: Dictionary) -> bool: return m["from"] == source):
+			await _wait(SETTLE_SEC)
 	if animate and marked.x >= 0:
 		await _telegraph(marked)
 	await play_motions(motions)
@@ -554,6 +560,15 @@ func play_motions(motions: Array) -> void:
 			if entry.is_empty():
 				continue
 			var to: Vector2i = batch[k]["to"]
+			if batch[k].get("gone", false):
+				# Off the board (Seismic, Sinking): it falls away, then it's gone.
+				if not animate:
+					entry["token"].queue_free()
+					continue
+				var away := _queue_motion(entry["token"], batch[k]["points"], entry["owner"])
+				away.tween_callback(entry["token"].queue_free)
+				tweens.append(away)
+				continue
 			_tokens[to] = entry["token"]
 			_token_owner[to] = entry["owner"]
 			_token_goob[to] = entry["goob"]
@@ -613,6 +628,17 @@ func _queue_motion(token: Sprite2D, points: Array, side: BoardState.CellOwner) -
 				if apex != to:
 					_queue_fall(tween, token, apex.y, to)
 				pos = to
+			&"off":
+				# Out past the edge (or the bottom) of the board, falling as it
+				# fades (M6e Uniquely powerful).
+				tween.tween_callback(token.reparent.bind(_fx, false))
+				tween.tween_callback(drop_sound.emit.bind(&"fall", side))
+				if to.x != pos.x:
+					tween.tween_method(_set_x.bind(token), pos.x, to.x, ROLL_SEC_PER_COLUMN)
+				var low := maxf(pos.y, to.y) + OFF_DROP_PX
+				tween.tween_method(_set_y.bind(token), pos.y, low, OFF_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				tween.parallel().tween_property(token, "modulate:a", 0.0, OFF_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				pos = Vector2(to.x, low)
 			&"edge":
 				var wall := pos.x + signf(to.x - pos.x) * ROLL_BUMP_PX
 				tween.tween_method(_set_x.bind(token), pos.x, wall, ROLL_SEC_PER_COLUMN * 0.4)

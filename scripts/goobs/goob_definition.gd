@@ -45,6 +45,12 @@ enum EffectType {
 	STIFLE, ## Stifling: the opponent's next played Goob has no effect
 	STEAL, ## Thieving: takes a random enemy Goob's ongoing effect
 	HOARDING, ## passive: its owner's hand can't be discarded
+	# M6e Uniquely powerful (Sean, 2026-11-24; vault Special Goobs "M6e Uniquely powerful rules")
+	SHIFT, ## Seismic: every Goob one column left or right; the edge column falls off
+	SINK, ## Sinking: the bottom row falls out
+	BOUNCE_TOPS, ## Rowdy: the top Goob of every column bounces, left to right
+	COPY_OWN, ## Nostalgic: becomes the last Goob you played
+	COPY_ENEMY, ## Mocking: becomes the last Goob your opponent played
 }
 
 ## Deck-building pool (M6e framework).
