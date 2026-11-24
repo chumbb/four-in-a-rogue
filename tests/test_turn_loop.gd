@@ -106,6 +106,16 @@ func _initialize() -> void:
 	_test_generous()
 	_test_plentiful()
 	_test_plentiful_no_loop()
+	_test_tech_roster()
+	_test_steadfast()
+	_test_loyal()
+	_test_stalwart()
+	_test_territorial()
+	_test_inspiring()
+	_test_stifling()
+	_test_thieving()
+	_test_hoarding()
+	_test_tech_simulated()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -1807,3 +1817,201 @@ func _test_plentiful_no_loop() -> void:
 	_check(t.opponent_deck.hand.size() == his + 1, "plentiful: he drew only his turn draw")
 	t.play(0, 0) # your turn draw: his echoes
 	_check(t.turn_draw_steps.size() == 1 and t.turn_draw_steps[0]["side"] == O, "plentiful: his Plentiful answers your draw")
+
+
+# --- M6e Tech (Sean, 2026-11-24: vault Special Goobs "M6e Tech rules") ------
+
+const STEADFAST := preload("res://resources/goobs/steadfast_goob.tres")
+const LOYAL := preload("res://resources/goobs/loyal_goob.tres")
+const STALWART := preload("res://resources/goobs/stalwart_goob.tres")
+const TERRITORIAL := preload("res://resources/goobs/territorial_goob.tres")
+const INSPIRING := preload("res://resources/goobs/inspiring_goob.tres")
+const STIFLING := preload("res://resources/goobs/stifling_goob.tres")
+const THIEVING := preload("res://resources/goobs/thieving_goob.tres")
+const HOARDING := preload("res://resources/goobs/hoarding_goob.tres")
+
+
+func _test_tech_roster() -> void:
+	var expected := {
+		STEADFAST: ["Steadfast Goob", "Your Goobs can't be moved next turn."],
+		LOYAL: ["Loyal Goob", "Your Goobs can't be destroyed next turn."],
+		STALWART: ["Stalwart Goob", "This Goob can't be destroyed or moved."],
+		TERRITORIAL: ["Territorial Goob", "Your opponent can't play in this column next turn."],
+		INSPIRING: ["Inspiring Goob", "Trigger a random adjacent friendly Goob's effect again."],
+		STIFLING: ["Stifling Goob", "Your opponent's next Goob has no effect."],
+		THIEVING: ["Thieving Goob", "Steal a random enemy Goob's ongoing effect."],
+		HOARDING: ["Hoarding Goob", "While on the board, your Goobs can't be discarded."],
+	}
+	var techs := GoobRoster.specials(GoobDefinition.Category.TECH)
+	_check(techs.size() == 8, "tech: eight tech Goobs in the roster (got %d)" % techs.size())
+	for goob: GoobDefinition in expected:
+		_check(goob in techs and goob.multiplier == 2.0 and goob.art_id == "vanilla", "tech: %s is x2, Vanilla art, in the roster" % goob.id)
+		_check(goob.display_name == expected[goob][0] and goob.effect_description == expected[goob][1], "tech: %s name and card text" % goob.id)
+
+
+func _test_steadfast() -> void:
+	var t := _with_hand([STEADFAST, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 2, TurnLoop.VANILLA, P)
+	t.play(3, 0) # Steadfast at (3,0)
+	_check(t.last_effect.get("cue", false) and t.has_status(&"steadfast", P), "steadfast: winds up, pill")
+	t.opponent_deck.hand[0] = SINISTER
+	t.play(4, 0) # his Sinister at (4,0) pushes your row left
+	_check(t.board.get_owner(2, 0) == P and t.board.get_owner(3, 0) == P and t.last_effect["fizzled"], "steadfast: your Goobs can't be pushed on his turn")
+	_check(not t.has_status(&"steadfast", P), "steadfast: the window ends with his turn")
+	var b := _with_hand([STEADFAST, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(b, 5, BOUNCY, O)
+	b.play(3, 0)
+	b.play(0, 0) # his turn
+	b.player_deck.hand[0] = TurnLoop.VANILLA
+	b._protect(P, GoobDefinition.EffectType.STEADFAST)
+	b.play(5, 0) # your Goob onto his Bouncy
+	_check(b.board.get_owner(5, 1) == P, "steadfast: your Goob landing on a Bouncy stays on top")
+
+
+func _test_loyal() -> void:
+	var t := _with_hand([LOYAL, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.play(3, 0) # Loyal at (3,0)
+	_check(t.has_status(&"loyal", P), "loyal: pill")
+	t.opponent_deck.hand[0] = FAT
+	t.play(4, 0) # his Fat: (3,0) is its only neighbour
+	_check(t.board.get_owner(3, 0) == P and t.last_effect["fizzled"] and t.last_effect["target"] == Vector2i(3, 0), "loyal: a protected target wastes the destroy")
+	_check(not t.has_status(&"loyal", P), "loyal: the window ends with his turn")
+
+
+func _test_stalwart() -> void:
+	var s := _with_hand([SINISTER, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(s, 1, STALWART, O)
+	_place(s, 2, TurnLoop.VANILLA, O)
+	s.play(3, 0) # Sinister at (3,0)
+	_check(s.board.get_owner(1, 0) == O and s.board.get_owner(2, 0) == O and s.last_effect["fizzled"], "stalwart: can't be pushed, and walls the Goob behind it")
+	var f := _with_hand([FAT, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(f, 2, STALWART, O)
+	f.play(3, 0) # Fat at (3,0): only the Stalwart beside it
+	_check(f.board.get_owner(2, 0) == O and f.last_effect["fizzled"], "stalwart: can't be destroyed")
+	var g := _with_hand([TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(g, 4)
+	_place(g, 4, STALWART)
+	g.destroy_at(Vector2i(4, 0))
+	_check(TurnLoop.base_of(g.goob_at(4, 0)) == STALWART and g.board.is_empty(4, 1), "stalwart: falls when the Goob below goes")
+
+
+func _test_territorial() -> void:
+	var t := _with_hand([TERRITORIAL, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.play(3, 0) # Territorial at (3,0): column 3 locked for him
+	_check(t.phase == TurnLoop.Phase.OPPONENT_TURN and t.column_blocked(3) and not t.can_play(3), "territorial: he can't play in its column")
+	_check(t.locked_columns(O).size() == 1 and t.locked_columns(O)[0] == 3 and t.has_status(&"territorial", O), "territorial: locked column + pill on his side")
+	_check(t.roll_target(3, true) == 4, "territorial: at his timeout the locked column counts as full")
+	_check(t.play(3, 0) == -1 and t.phase == TurnLoop.Phase.OPPONENT_TURN, "territorial: his play there is refused")
+	t.play(2, 0)
+	_check(t.locked_columns(O).is_empty() and not t.has_status(&"territorial", O), "territorial: only for his next turn")
+	var lift := _with_hand([TERRITORIAL, TurnLoop.VANILLA] as Array[GoobDefinition])
+	lift.play(3, 0)
+	for c in [0, 1, 2, 4, 5, 6]:
+		while not lift.board.column_full(c):
+			lift.board.drop(c, P if (lift.board.lowest_empty_row(c) + c) % 3 == 0 else O)
+	_check(lift.can_play(3), "territorial: every other column full lifts the lock")
+
+
+func _test_inspiring() -> void:
+	var t := _with_hand([INSPIRING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 4, FAT, P)
+	_place(t, 5, TurnLoop.VANILLA, O)
+	t._scripted = true
+	t._script = [0, 1] # Inspiring picks the Fat; the Fat picks (5,0)
+	t.play(3, 0)
+	_check(t.last_effect["kind"] == GoobDefinition.EffectType.INSPIRE and t.last_effect["inspired"] == Vector2i(4, 0), "inspiring: picks the adjacent friendly Fat")
+	var fat := _steps_of(t.effect_steps, GoobDefinition.EffectType.DESTROY_ADJACENT)
+	_check(fat.size() == 1 and fat[0]["cell"] == Vector2i(4, 0) and fat[0]["side"] == P and t.board.is_empty(5, 0), "inspiring: the Fat destroys again, for you, from its cell")
+	var e := _with_hand([INSPIRING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(e, 2, TurnLoop.VANILLA, P)
+	_place(e, 4, FAT, O)
+	_place(e, 5, BOUNCY, P)
+	e.play(3, 0)
+	_check(e.last_effect["fizzled"], "inspiring: plain, enemy and passive Goobs are skipped (fizzle)")
+
+
+func _test_stifling() -> void:
+	var t := _with_hand([STIFLING, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	t.play(3, 0)
+	_check(t.last_effect.get("cue", false) and t.has_status(&"stifled", O), "stifling: winds up, pill on his side")
+	t.opponent_deck.hand[0] = FAT
+	t.play(4, 0) # his Fat beside your Stifling
+	_check(t.last_effect["fizzled"] and t.last_effect.get("stifled", false) and t.board.get_owner(3, 0) == P, "stifling: his next Goob has no effect")
+	_check(not t.has_status(&"stifled", O), "stifling: used up")
+	t.play(0, 0)
+	t.opponent_deck.hand[0] = FAT
+	t.play(4, 0)
+	_check(not t.last_effect.get("stifled", false), "stifling: only one Goob")
+	var v := _with_hand([STIFLING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	v.play(3, 0)
+	v.play(5, 0) # his plain Goob uses it up
+	_check(not v.has_status(&"stifled", O) and not v._stifles.has(O), "stifling: a plain Goob wastes it")
+
+
+func _test_thieving() -> void:
+	var t := _with_hand([THIEVING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 5, BOUNCY, O)
+	t.play(3, 0)
+	_check(t.last_effect["stolen_from"] == Vector2i(5, 0), "thieving: steals the Bouncy")
+	_check(t.goob_at(5, 0).effect_type == GoobDefinition.EffectType.NONE and t.goob_at(3, 0).effect_type == GoobDefinition.EffectType.BOUNCY, "thieving: the Bouncy turns plain, the thief bounces")
+	_check(TurnLoop.base_of(t.goob_at(3, 0)) == THIEVING and TurnLoop.base_of(t.goob_at(5, 0)) == BOUNCY, "thieving: both keep their type")
+	var s := _with_hand([THIEVING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	var spite := _place(s, 5, SPITEFUL, O)
+	s._mark(spite, &"armed_by", O)
+	s.play(3, 0)
+	_check(s.armed_side(Vector2i(3, 0)) == P and s.armed_side(spite) == E, "thieving: an armed Spiteful's curse now acts for you")
+	var g := _with_hand([THIEVING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(g, 5, GENEROUS, O)
+	g.play(3, 0)
+	_check(g.has_status(&"generous", P) and not g.has_status(&"generous", O), "thieving: a stolen Generous gives you the bonus")
+	var u := _with_hand([THIEVING, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(u, 5, SPITEFUL, O) # spent (not armed)
+	_place(u, 6, FAT, O) # nothing ongoing
+	u.play(3, 0)
+	_check(u.last_effect["fizzled"], "thieving: nothing ongoing to steal fizzles")
+
+
+func _test_hoarding() -> void:
+	var t := _with_hand([TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 6, HOARDING, P)
+	t.opponent_deck.hand[0] = DISTRACTING
+	t.play(3, 0)
+	_check(t.has_status(&"hoarding", P), "hoarding: pill")
+	t.play(4, 0) # his Distracting
+	_check(t.last_effect["fizzled"] and t.player_deck.discard_pile.is_empty(), "hoarding: his discard fizzles")
+	var f := _with_hand([FICKLE, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(f, 6, HOARDING, P)
+	f.play(3, 0)
+	_check(f.last_effect["fizzled"] and f.player_deck.discard_pile.is_empty(), "hoarding: your own discard cost can't be paid")
+	var r := _with_hand([RECKLESS, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(r, 6, HOARDING, P)
+	r.play(3, 0)
+	_check(r.last_effect["fizzled"] and not r._bonus_draws.has(P) and r.player_deck.hand.size() == 1, "hoarding: Reckless discards nothing, no +2")
+
+
+func _test_tech_simulated() -> void:
+	var t := _with_hand([TERRITORIAL, TurnLoop.VANILLA] as Array[GoobDefinition])
+	_place(t, 0, TurnLoop.VANILLA, P)
+	_place(t, 1, TurnLoop.VANILLA, P)
+	_place(t, 2, TurnLoop.VANILLA, O)
+	_place(t, 0, TurnLoop.VANILLA, O)
+	_place(t, 1, TurnLoop.VANILLA, O)
+	_place(t, 2, TurnLoop.VANILLA, O) # his three on row 1; (3,1) wins
+	t.play(3, 0) # Territorial at (3,0) locks column 3
+	var hand: Array[GoobDefinition] = [TurnLoop.VANILLA]
+	var move := OpponentAI.choose_move(t.board, hand, 5, _seeded(3), t.cell_goobs(), t.destroyed_piles(), t.sim_state())
+	_check(move["column"] != 3 and move["column"] != -1, "tech AI: never plays into a locked column")
+	var b := BoardState.new()
+	var goobs := {}
+	b.drop(3, P)
+	goobs[Vector2i(3, 0)] = TurnLoop.VANILLA
+	var results := TurnLoop.play_results(b, goobs, FAT, 4, O, 48, {}, {"stifles": {O: 1}})
+	_check(results.size() == 1 and results[0]["board"].get_owner(3, 0) == P, "tech AI: a stifled Fat is simulated with no effect")
+	var state := {"hands": {P: [TurnLoop.VANILLA], O: []}}
+	b.drop(6, P)
+	goobs[Vector2i(6, 0)] = HOARDING
+	_check(OpponentAI._hand_value(b, DISTRACTING, 1, 5, state, goobs) == 0.0, "tech AI: Distracting is worth nothing against your Hoarding")
+	var stifled := {"stifles": {O: 1}}
+	var gen := OpponentAI._play_value(b, GENEROUS, 0, 2, 5, goobs, {}, stifled)
+	var van := OpponentAI._play_value(b, TurnLoop.VANILLA, 0, 2, 5, goobs, {}, stifled)
+	_check(gen > van, "tech AI: a stifled Generous still counts its ongoing bonus")

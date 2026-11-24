@@ -66,6 +66,8 @@ var _jinxes: Dictionary = {}
 ## Goobs the current turn draw lost to Jinxing (0 = not jinxed), for the view's
 ## toast, and how many it then drew for (0 = no draw at all).
 var last_jinx_lost := 0
+## Side -> Stiflings on it: its next played Goobs have no effect (M6e Tech).
+var _stifles: Dictionary = {}
 var last_draw_count := 0
 ## Plentiful's draws set off by the current turn draw (effect steps with
 ## "drawn"), for the view to show after that draw. Reset by each turn start.
@@ -143,6 +145,7 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	_skipped_last.clear()
 	_bonus_draws.clear()
 	_jinxes.clear()
+	_stifles.clear()
 	turn_draw_steps = []
 	result = Result.NONE
 	if deck.is_empty():
@@ -176,7 +179,29 @@ func current_deck() -> Deck:
 
 
 func can_play(column: int) -> bool:
-	return phase != Phase.OVER and board.is_valid_column(column) and not board.column_full(column)
+	return phase != Phase.OVER and board.is_valid_column(column) and not column_blocked(column)
+
+
+## Whether the current side can't play into `column`: full, or locked by an
+## enemy Territorial (M6e Tech).
+func column_blocked(column: int) -> bool:
+	return board.column_full(column) or column in locked_columns(current_side())
+
+
+## Where a Goob played into blocked `column` at a timeout rolls to (like
+## BoardState.roll_target, a locked column counts as full); -1 = board full.
+func roll_target(column: int, go_right: bool) -> int:
+	if not board.is_valid_column(column) or board.is_board_full():
+		return -1
+	var step := 1 if go_right else -1
+	var c := column
+	for i in BoardState.COLUMNS * 2 + 2:
+		if not column_blocked(c):
+			return c
+		if not board.is_valid_column(c + step):
+			step = -step
+		c += step
+	return -1
 
 
 ## The Goob in (column, row), or null if empty.
@@ -199,7 +224,7 @@ func play(column: int, hand_index: int = 0, rolled_dir: int = 0) -> int:
 	last_effect = {}
 	var goob := deck.take(hand_index)
 	var side := current_side()
-	var row := _play_goob(goob, column, side, rolled_dir)
+	var row := _play_goob(goob, column, side, rolled_dir, _use_stifle(side))
 	_on_turn_end(side)
 	board_after_play = board.copy()
 	if not _check_end():
@@ -227,8 +252,8 @@ func _check_end() -> bool:
 ## The whole play of `goob`: it lands and resolves, then the Goobs a Spiteful
 ## doomed are destroyed (after their own effects; M6e Destroy). Returns the
 ## row it first landed in.
-func _play_goob(goob: GoobDefinition, column: int, side: BoardState.CellOwner, rolled_dir: int = 0) -> int:
-	var row := _land_and_resolve(goob, column, side, rolled_dir)
+func _play_goob(goob: GoobDefinition, column: int, side: BoardState.CellOwner, rolled_dir: int = 0, stifled := false) -> int:
+	var row := _land_and_resolve(goob, column, side, rolled_dir, stifled)
 	_destroy_doomed()
 	_sync_board_statuses()
 	return row
@@ -236,14 +261,14 @@ func _play_goob(goob: GoobDefinition, column: int, side: BoardState.CellOwner, r
 
 ## Drops `goob` for `side` into `column`; a Bouncy or Slippery Goob under it
 ## moves it first (M6e), then its effect resolves where it ended up. Returns
-## the row it first landed in.
-func _land_and_resolve(goob: GoobDefinition, column: int, side: BoardState.CellOwner, rolled_dir: int = 0) -> int:
+## the row it first landed in. `stifled`: its effect is cancelled (Stifling).
+func _land_and_resolve(goob: GoobDefinition, column: int, side: BoardState.CellOwner, rolled_dir: int = 0, stifled := false) -> int:
 	var row := board.drop(column, side)
 	var cell := Vector2i(column, row)
 	_cell_goobs[cell] = goob
 	_check_landing(cell)
 	cell = _landing_step(cell, rolled_dir)
-	_resolve_effect(goob, cell, side)
+	_resolve_effect(goob, cell, side, stifled)
 	return row
 
 
@@ -274,6 +299,8 @@ func _on_mover(cell: Vector2i) -> bool:
 ## (boxed in = stays). Sean, 2026-11-23. Records into the current motions;
 ## returns where it ended up.
 func _landing_move(cell: Vector2i, dir: int = 0) -> Vector2i:
+	if not _can_move(cell):
+		return cell # Stalwart / Steadfast: it stays on top
 	if _effect_at(cell + Vector2i(0, -1)) == GoobDefinition.EffectType.BOUNCY:
 		if dir == 0:
 			var sides := _open_sides(cell)
@@ -292,11 +319,16 @@ func _landing_move(cell: Vector2i, dir: int = 0) -> Vector2i:
 
 
 ## The played Goob's special effect (slice §4 roster). Random targets come
-## from the scenario rng; with nothing to act on the effect fizzles.
-func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.CellOwner) -> void:
+## from the scenario rng; with nothing to act on the effect fizzles. A
+## `stifled` Goob's effect is cancelled (Stifling; ongoing ones still work).
+func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.CellOwner, stifled := false) -> void:
 	var step := {"kind": goob.effect_type, "cell": cell, "side": side, "fizzled": false}
 	effect_steps.append(step)
 	last_effect = step
+	if stifled:
+		step["fizzled"] = true
+		step["stifled"] = true
+		return
 	if goob.effect_type in GoobDefinition.PASSIVE_EFFECTS:
 		step["passive"] = true # acts later, while on the board
 	match goob.effect_type:
@@ -337,7 +369,7 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 		GoobDefinition.EffectType.DISCARD_ENEMY:
 			# Distracting: a random Goob from the opponent's hand.
 			var enemy := enemy_of(side)
-			if deck_of(enemy).hand.is_empty():
+			if deck_of(enemy).hand.is_empty() or not _can_discard(enemy, 0):
 				step["fizzled"] = true
 				return
 			step["cue"] = true
@@ -345,7 +377,7 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 		GoobDefinition.EffectType.DISCARD_DRAW:
 			# Fickle: an empty hand fizzles, the draw too (Sean, 2026-11-23).
 			var deck := deck_of(side)
-			if deck.hand.is_empty():
+			if deck.hand.is_empty() or not _can_discard(side, 0):
 				step["fizzled"] = true
 				return
 			step["cue"] = true
@@ -359,7 +391,7 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			# Ruthless (cost 2) / Desperate (cost 1): the cost is paid in full or
 			# the whole effect fizzles, nothing discarded (Sean, 2026-11-23).
 			var cost := 2 if goob.effect_type == GoobDefinition.EffectType.DISCARD_DESTROY_ENEMY else 1
-			if deck_of(side).hand.size() < cost or _discard_destroy_targets(goob.effect_type, cell, side).is_empty():
+			if deck_of(side).hand.size() < cost or not _can_discard(side, 0) or _discard_destroy_targets(goob.effect_type, cell, side).is_empty():
 				step["fizzled"] = true
 				return
 			step["cue"] = true
@@ -376,7 +408,11 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			_destroy_target(hit, targets[_pick(targets.size())])
 		GoobDefinition.EffectType.DISCARD_HAND:
 			# Reckless: every hand Goob, then +2 on your next turn draw (also
-			# with an empty hand).
+			# with an empty hand). Hoarding: nothing discarded, no +2 (Sean,
+			# 2026-11-24).
+			if not _can_discard(side, 0):
+				step["fizzled"] = true
+				return
 			step["cue"] = true
 			var deck := deck_of(side)
 			for i in range(deck.hand.size() - 1, -1, -1):
@@ -415,6 +451,41 @@ func _resolve_effect(goob: GoobDefinition, cell: Vector2i, side: BoardState.Cell
 			step["cue"] = true
 			_jinxes[enemy] = _jinxes.get(enemy, 0) + 1
 			_sync_jinx_status(enemy)
+		GoobDefinition.EffectType.STEADFAST, GoobDefinition.EffectType.LOYAL:
+			# Tech (M6e): your Goobs can't be moved / destroyed until the end
+			# of the opponent's next turn; another copy restarts the window.
+			step["cue"] = true
+			_protect(side, goob.effect_type)
+		GoobDefinition.EffectType.TERRITORIAL:
+			step["cue"] = true
+			_lock_column(enemy_of(side), cell.x)
+		GoobDefinition.EffectType.STIFLE:
+			step["cue"] = true
+			var enemy := enemy_of(side)
+			_stifles[enemy] = _stifles.get(enemy, 0) + 1
+			_sync_stifle_status(enemy)
+		GoobDefinition.EffectType.INSPIRE:
+			# A random adjacent friendly Goob's landing effect fires again, for
+			# you, from its cell (Sean, 2026-11-24).
+			var targets := _inspire_targets(cell, side)
+			if targets.is_empty():
+				step["fizzled"] = true
+				return
+			var target := targets[_pick(targets.size())]
+			step["inspired"] = target
+			_resolve_effect(_cell_goobs[target], target, side)
+			last_effect = step
+		GoobDefinition.EffectType.STEAL:
+			# Thieving: a random enemy Goob's ongoing effect becomes its own;
+			# the target turns plain. Nothing fires now (Sean, 2026-11-24).
+			var targets := _steal_targets(side)
+			if targets.is_empty():
+				step["fizzled"] = true
+				return
+			var target := targets[_pick(targets.size())]
+			step["stolen_from"] = target
+			step["stolen_name"] = _cell_goobs[target].display_name
+			_steal(target, cell, side)
 		GoobDefinition.EffectType.PUSH_LEFT, GoobDefinition.EffectType.PUSH_RIGHT:
 			step["motions"] = []
 			_motions = step["motions"]
@@ -491,18 +562,27 @@ static func base_of(goob: GoobDefinition) -> GoobDefinition:
 
 ## Sets (or with null, clears) per-Goob state `key` on the Goob in `cell`.
 func _mark(cell: Vector2i, key: StringName, value: Variant) -> void:
-	var goob: GoobDefinition = _cell_goobs.get(cell)
-	if goob == null:
+	var copy := _own_copy(cell)
+	if copy == null:
 		return
-	var copy := goob.duplicate() as GoobDefinition
-	for k in goob.get_meta_list():
-		copy.set_meta(k, goob.get_meta(k))
-	copy.set_meta(&"base", base_of(goob))
 	if value == null:
 		copy.remove_meta(key)
 	else:
 		copy.set_meta(key, value)
+
+
+## Swaps a fresh copy of the Goob in `cell` (its state kept) into the board and
+## returns it to change (copy-on-write); null if the cell has no Goob.
+func _own_copy(cell: Vector2i) -> GoobDefinition:
+	var goob: GoobDefinition = _cell_goobs.get(cell)
+	if goob == null:
+		return null
+	var copy := goob.duplicate() as GoobDefinition
+	for k in goob.get_meta_list():
+		copy.set_meta(k, goob.get_meta(k))
+	copy.set_meta(&"base", base_of(goob))
 	_cell_goobs[cell] = copy
+	return copy
 
 
 ## The side an armed Spiteful / Smouldering in `cell` acts for (EMPTY = none).
@@ -560,10 +640,21 @@ func _destroy_targets(kind: GoobDefinition.EffectType, cell: Vector2i) -> Array[
 	return targets
 
 
-## Whether the Goob in `cell` can be destroyed. Stalwart / Loyal (tech
-## session) block here; nothing does yet.
-func _can_destroy(_cell: Vector2i) -> bool:
-	return true
+## Whether the Goob in `cell` can be destroyed: not a Stalwart, nor a Goob of
+## a side under Loyal (M6e Tech).
+func _can_destroy(cell: Vector2i) -> bool:
+	if _effect_at(cell) == GoobDefinition.EffectType.STALWART:
+		return false
+	return not has_status(&"loyal", board.get_owner(cell.x, cell.y))
+
+
+## Whether the Goob in `cell` can be moved sideways (pushes, rolls, bounces):
+## not a Stalwart, nor a Goob of a side under Steadfast (M6e Tech). Gravity
+## always applies.
+func _can_move(cell: Vector2i) -> bool:
+	if _effect_at(cell) == GoobDefinition.EffectType.STALWART:
+		return false
+	return not has_status(&"steadfast", board.get_owner(cell.x, cell.y))
 
 
 ## Destroys `target` for `step` (target, target_owner, fell = how many Goobs
@@ -637,7 +728,7 @@ func _smoulder(side: BoardState.CellOwner) -> void:
 ## Status pills for the armed Spiteful / Smouldering Goobs on the board, one
 ## per kind and side (tap = which columns).
 func _sync_board_statuses() -> void:
-	for id: StringName in [&"spiteful", &"smouldering", &"generous", &"plentiful"]:
+	for id: StringName in [&"spiteful", &"smouldering", &"generous", &"plentiful", &"hoarding"]:
 		for side in [BoardState.CellOwner.PLAYER, BoardState.CellOwner.OPPONENT]:
 			remove_status(id, side)
 	for side in [BoardState.CellOwner.PLAYER, BoardState.CellOwner.OPPONENT]:
@@ -660,6 +751,9 @@ func _sync_board_statuses() -> void:
 		if not plentiful.is_empty():
 			var who := "you draw a Goob whenever he draws one" if side == BoardState.CellOwner.PLAYER else "he draws a Goob whenever you draw one"
 			add_status(&"plentiful", side, "Plentiful", "Plentiful (%s): %s." % [_columns_text(plentiful), who], -1)
+		var hoarding := _owned_columns(GoobDefinition.EffectType.HOARDING, side)
+		if not hoarding.is_empty():
+			add_status(&"hoarding", side, "Hoarding", "Hoarding (%s): %s Goobs can't be discarded." % [_columns_text(hoarding), whose], -1)
 		if not spiteful.is_empty():
 			add_status(&"spiteful", side, "Spiteful", "Spiteful (%s): the next Goob that lands on it is destroyed." % _columns_text(spiteful), -1)
 		if not smouldering.is_empty():
@@ -811,6 +905,8 @@ func _put(cell: Vector2i, carried: Dictionary) -> void:
 ## Whether the Goob in `cell` can roll `dir`: the cell beside it is free, or
 ## holds a Springy it would bounce off.
 func _can_roll(cell: Vector2i, dir: int) -> bool:
+	if not _can_move(cell):
+		return false # a wall for the Goobs rolling into it
 	var next := cell + Vector2i(dir, 0)
 	if not board.in_bounds(next.x, next.y):
 		return false
@@ -1103,10 +1199,133 @@ func _discard_random(side: BoardState.CellOwner) -> void:
 	_discard(side, 0 if _scripted and not defiant else _pick(hand.size()))
 
 
-## Whether `side`'s hand Goob at `index` can be discarded. The tech Goob "your
-## Goobs can't be discarded" blocks here; nothing does yet.
-func _can_discard(_side: BoardState.CellOwner, _index: int) -> bool:
+## Whether `side`'s hand Goob at `index` can be discarded: not while `side`
+## owns a Hoarding on the board (M6e Tech; also its own discard costs).
+func _can_discard(side: BoardState.CellOwner, _index: int) -> bool:
+	return _owned_cells(GoobDefinition.EffectType.HOARDING, side).is_empty()
+
+
+# --- Tech effects (M6e; Sean, 2026-11-24: vault Special Goobs "M6e Tech
+# rules"). Windows (Steadfast, Loyal, Territorial's lock) are statuses that
+# last until the end of the opponent's next turn.
+
+## Turns (status ticks) until the end of the next turn of `side`'s opponent.
+func _window_turns(side: BoardState.CellOwner) -> int:
+	return 2 if current_side() == side else 3
+
+
+## Steadfast / Loyal: the window for `side`'s Goobs.
+func _protect(side: BoardState.CellOwner, kind: GoobDefinition.EffectType) -> void:
+	var whose := "your" if side == BoardState.CellOwner.PLAYER else "his"
+	var theirs := "his" if side == BoardState.CellOwner.PLAYER else "your"
+	if kind == GoobDefinition.EffectType.STEADFAST:
+		add_status(&"steadfast", side, "Steadfast", "Steadfast: %s Goobs can't be moved until the end of %s next turn." % [whose, theirs], _window_turns(side))
+	else:
+		add_status(&"loyal", side, "Loyal", "Loyal: %s Goobs can't be destroyed until the end of %s next turn." % [whose, theirs], _window_turns(side))
+
+
+## Territorial: `side` can't play into `column` on its next turn.
+func _lock_column(side: BoardState.CellOwner, column: int) -> void:
+	var columns: Array[int] = []
+	columns.assign(_lock_status_columns(side))
+	if not column in columns:
+		columns.append(column)
+	columns.sort()
+	var names: Array[String] = []
+	for c in columns:
+		names.append(str(c + 1))
+	var who := "you can't" if side == BoardState.CellOwner.PLAYER else "he can't"
+	add_status(&"territorial", side, "Locked", "Territorial: %s play in %s on the next turn." % [who, _columns_text(names)], _window_turns(enemy_of(side)))
+	statuses[-1]["columns"] = columns
+
+
+func _lock_status_columns(side: BoardState.CellOwner) -> Array:
+	for st in statuses:
+		if st["id"] == &"territorial" and st["side"] == side:
+			return st.get("columns", [])
+	return []
+
+
+## Columns `side` can't play into (Territorial); none when every other
+## column is full (the lock lifts).
+func locked_columns(side: BoardState.CellOwner) -> Array[int]:
+	var locked: Array[int] = []
+	locked.assign(_lock_status_columns(side))
+	if locked.is_empty():
+		return locked
+	for c in open_columns(board):
+		if not c in locked:
+			return locked
+	locked.clear()
+	return locked
+
+
+## Stifling: `side`'s next played Goob has no effect; true uses one up.
+func _use_stifle(side: BoardState.CellOwner) -> bool:
+	if _stifles.get(side, 0) <= 0:
+		return false
+	_stifles[side] -= 1
+	if _stifles[side] <= 0:
+		_stifles.erase(side)
+	_sync_stifle_status(side)
 	return true
+
+
+func _sync_stifle_status(side: BoardState.CellOwner) -> void:
+	var count: int = _stifles.get(side, 0)
+	if count <= 0:
+		remove_status(&"stifled", side)
+		return
+	var whose := "your" if side == BoardState.CellOwner.PLAYER else "his"
+	var goobs := "Goob has" if count == 1 else "%d Goobs have" % count
+	add_status(&"stifled", side, "Stifled", "Stifled: %s next played %s no effect." % [whose, goobs], -1)
+
+
+## Inspiring: adjacent Goobs of `side` with a landing effect.
+func _inspire_targets(cell: Vector2i, side: BoardState.CellOwner) -> Array[Vector2i]:
+	var found: Array[Vector2i] = []
+	for at in neighbours(board, cell, side):
+		if not _effect_at(at) in GoobDefinition.NO_LANDING_EFFECT:
+			found.append(at)
+	return found
+
+
+## Thieving: enemy Goobs with an ongoing effect it can take.
+func _steal_targets(side: BoardState.CellOwner) -> Array[Vector2i]:
+	var found: Array[Vector2i] = []
+	for c in BoardState.COLUMNS:
+		for r in BoardState.ROWS:
+			var at := Vector2i(c, r)
+			if board.get_owner(c, r) == enemy_of(side) and _stealable(at):
+				found.append(at)
+	return found
+
+
+## A passive (Bouncy, Generous, Stalwart, ...) or an armed Spiteful /
+## pending Smouldering.
+func _stealable(cell: Vector2i) -> bool:
+	var kind := _effect_at(cell)
+	if kind in GoobDefinition.STEALABLE_EFFECTS:
+		return true
+	var armed := kind == GoobDefinition.EffectType.DESTROY_LANDER or kind == GoobDefinition.EffectType.DESTROY_LATER
+	return armed and armed_side(cell) != BoardState.CellOwner.EMPTY
+
+
+## The Goob in `thief` takes the effect of the one in `target` (for `side`,
+## an armed one too); `target` turns plain (still x2: its type is kept).
+func _steal(target: Vector2i, thief: Vector2i, side: BoardState.CellOwner) -> void:
+	var kind := _effect_at(target)
+	var armed := armed_side(target) != BoardState.CellOwner.EMPTY
+	var victim: GoobDefinition = _cell_goobs[target]
+	var gained := _own_copy(thief)
+	gained.effect_type = kind
+	gained.effect_description = "Stole %s's effect: %s" % [victim.display_name, victim.effect_description]
+	var lost := _own_copy(target)
+	lost.effect_type = GoobDefinition.EffectType.NONE
+	lost.effect_description = "Its effect was stolen."
+	lost.remove_meta(&"armed_by")
+	if armed:
+		gained.set_meta(&"armed_by", side)
 
 
 ## Ruthless: any enemy Goob; Desperate: any Goob but itself (`cell`).
@@ -1264,9 +1483,13 @@ static func play_results(on: BoardState, goobs: Dictionary, goob: GoobDefinition
 		var discards: Dictionary = state.get("discards", {})
 		for pile_side: BoardState.CellOwner in discards:
 			sim.deck_of(pile_side).discard_pile.assign(discards[pile_side])
+		# Tech (M6e): Steadfast / Loyal windows and Stiflings, from sim_state().
+		for st: Dictionary in state.get("statuses", []):
+			sim.statuses.append(st.duplicate())
+		sim._stifles = state.get("stifles", {}).duplicate()
 		sim._scripted = true
 		sim._script = script
-		sim._play_goob(goob, column, side)
+		sim._play_goob(goob, column, side, 0, sim._stifles.get(side, 0) > 0)
 		var weight := 1.0
 		for pick: Array in sim._picks:
 			weight /= pick[1]
@@ -1300,11 +1523,27 @@ func sim_state(mirrored := false) -> Dictionary:
 	var unseen: Array[GoobDefinition] = []
 	for i in other.hand.size():
 		unseen.append(VANILLA)
+	# Statuses and Stiflings with the sides as the AI sees them.
+	var seen_statuses: Array[Dictionary] = []
+	for st in statuses:
+		var copy: Dictionary = st.duplicate()
+		copy["side"] = _seen_side(st["side"], mirrored)
+		seen_statuses.append(copy)
+	var seen_stifles := {}
+	for s: BoardState.CellOwner in _stifles:
+		seen_stifles[_seen_side(s, mirrored)] = _stifles[s]
 	return {
+		"statuses": seen_statuses,
+		"stifles": seen_stifles,
+		"locked": locked_columns(BoardState.CellOwner.PLAYER if mirrored else BoardState.CellOwner.OPPONENT),
 		"hands": {BoardState.CellOwner.OPPONENT: actor.hand.duplicate(), BoardState.CellOwner.PLAYER: unseen},
 		"discards": {BoardState.CellOwner.OPPONENT: actor.discard_pile.duplicate(), BoardState.CellOwner.PLAYER: other.discard_pile.duplicate()},
 		"their_deck": other.draw_pile.size(), # Jinxing fizzles on an empty deck
 	}
+
+
+static func _seen_side(side: BoardState.CellOwner, mirrored: bool) -> BoardState.CellOwner:
+	return enemy_of(side) if mirrored else side
 
 
 ## A copy of the cell -> GoobDefinition map (for play_outcomes).

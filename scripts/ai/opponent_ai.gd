@@ -29,6 +29,9 @@ const CENTRE := 3.0
 const DRAW_VALUE := 4.0
 ## Turns of extra Goobs a Generous / Plentiful is expected to give (M6e Draw).
 const DRAW_EFFECT_TURNS := 2
+## Flat worth of a tech Goob's window or lock (M6e Tech); Stifling and a
+## steal count as one Goob (DRAW_VALUE).
+const TECH_VALUE := 2.0
 const TIE_EPSILON := 0.5
 ## "Close" choice: the runner-up is within this much of the best (think delay).
 const CLOSE_MARGIN := 10.0
@@ -46,7 +49,11 @@ const _DIRECTIONS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1
 ## the board (Bouncy, Slippery, Springy, Lopsided, Tipsy) are simulated.
 static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_count: int, rng: RandomNumberGenerator, goobs: Dictionary = {}, piles: Dictionary = {}, state: Dictionary = {}) -> Dictionary:
 	var move := {"column": -1, "hand_index": -1, "blocking": false, "close": false}
-	var legal := TurnLoop.open_columns(board)
+	var legal: Array[int] = []
+	var locked: Array = state.get("locked", []) # Territorial (M6e Tech)
+	for column in TurnLoop.open_columns(board):
+		if not column in locked:
+			legal.append(column)
 	if legal.is_empty() or hand.is_empty():
 		return move
 	move["blocking"] = not winning_drops(board, _P, goobs).is_empty()
@@ -102,12 +109,18 @@ static func _play_value(board: BoardState, goob: GoobDefinition, column: int, ha
 		total += score_board(result["board"], result["goobs"]) * result["weight"]
 		weights += result["weight"]
 	var value := total / weights
+	if state.get("stifles", {}).get(_O, 0) > 0:
+		# Stifled (M6e Tech): no landing effect, but an ongoing one still works.
+		if goob.effect_type in GoobDefinition.PASSIVE_EFFECTS:
+			value += _draw_effect_value(goob, deck_count, state) + _tech_value(board, goob, goobs, state)
+		return value
 	if goob.effect_type == GoobDefinition.EffectType.DRAW_TWO:
 		var room := Deck.HAND_MAX - (hand_size - 1)
 		value += DRAW_VALUE * mini(mini(TurnLoop.GREEDY_DRAW, deck_count), room)
 	value += _draw_effect_value(goob, deck_count, state)
+	value += _tech_value(board, goob, goobs, state)
 	if state.has("hands"):
-		value += _hand_value(board, goob, hand_size - 1, deck_count, state)
+		value += _hand_value(board, goob, hand_size - 1, deck_count, state, goobs)
 	return value
 
 
@@ -122,10 +135,36 @@ static func _draw_effect_value(goob: GoobDefinition, deck_count: int, state: Dic
 	return 0.0
 
 
+## Tech Goobs (M6e Tech), flat values: Steadfast, Loyal, Territorial and
+## Hoarding a little; Stifling one Goob; Thieving one Goob when an enemy
+## Goob has something to steal. Stalwart and Inspiring are simulated.
+static func _tech_value(board: BoardState, goob: GoobDefinition, goobs: Dictionary, _state: Dictionary) -> float:
+	match goob.effect_type:
+		GoobDefinition.EffectType.STEADFAST, GoobDefinition.EffectType.LOYAL, GoobDefinition.EffectType.TERRITORIAL, GoobDefinition.EffectType.HOARDING:
+			return TECH_VALUE
+		GoobDefinition.EffectType.STIFLE:
+			return DRAW_VALUE
+		GoobDefinition.EffectType.STEAL:
+			for cell: Vector2i in goobs:
+				var other: GoobDefinition = goobs[cell]
+				if board.get_owner(cell.x, cell.y) != _P or other == null:
+					continue
+				var armed := other.has_meta(&"armed_by") and (other.effect_type == GoobDefinition.EffectType.DESTROY_LANDER or other.effect_type == GoobDefinition.EffectType.DESTROY_LATER)
+				if armed or other.effect_type in GoobDefinition.STEALABLE_EFFECTS:
+					return DRAW_VALUE
+	return 0.0
+
+
 ## Discard Goobs (M6e): each Goob a hand gains or loses is worth DRAW_VALUE
 ## (destroys and Thrifty are simulated). `left`: its hand after the play.
-static func _hand_value(board: BoardState, goob: GoobDefinition, left: int, deck_count: int, state: Dictionary) -> float:
+static func _hand_value(board: BoardState, goob: GoobDefinition, left: int, deck_count: int, state: Dictionary, goobs: Dictionary = {}) -> float:
 	var theirs: int = state["hands"].get(_P, []).size()
+	# Hoarding (M6e Tech): a hand under it can't be discarded, so the Goob
+	# fizzles (its own costs too).
+	if goob.effect_type == GoobDefinition.EffectType.DISCARD_ENEMY and _owns_hoarding(board, goobs, _P):
+		return 0.0
+	if goob.effect_type != GoobDefinition.EffectType.DISCARD_ENEMY and _owns_hoarding(board, goobs, _O):
+		return 0.0
 	match goob.effect_type:
 		GoobDefinition.EffectType.DISCARD_ENEMY:
 			return DRAW_VALUE if theirs > 0 else 0.0
@@ -141,6 +180,14 @@ static func _hand_value(board: BoardState, goob: GoobDefinition, left: int, deck
 			# A weak (small) hand is worth trading for the extra draws.
 			return DRAW_VALUE * (mini(TurnLoop.RECKLESS_DRAW, deck_count) - left)
 	return 0.0
+
+
+static func _owns_hoarding(board: BoardState, goobs: Dictionary, side: BoardState.CellOwner) -> bool:
+	for cell: Vector2i in goobs:
+		var goob: GoobDefinition = goobs[cell]
+		if goob != null and goob.effect_type == GoobDefinition.EffectType.HOARDING and board.get_owner(cell.x, cell.y) == side:
+			return true
+	return false
 
 
 ## Score of a board after the opponent's play (win check after effects).

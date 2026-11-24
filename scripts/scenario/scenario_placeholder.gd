@@ -45,6 +45,9 @@ const MSG_JINXED := "Jinxed: no draw" # Jinxing (M6e Draw)
 const MSG_JINXED_FEWER := "Jinxed: %d fewer"
 const MSG_OPPONENT_JINXED := "Opponent jinxed: no draw"
 const MSG_OPPONENT_JINXED_FEWER := "Opponent jinxed: %d fewer"
+const MSG_STIFLED := "Stifled: no effect" # Stifling (M6e Tech)
+const MSG_OPPONENT_STIFLED := "Opponent stifled: no effect"
+const MSG_STOLE := "Stole %s's effect" # Thieving
 ## Forest hand prop (assets/hand/forest_stump.png), in its game px: the row the
 ## hand Goobs' bottoms rest on, and the usable width of its top.
 const STUMP_SEAT_Y := 34.0
@@ -743,9 +746,10 @@ func _on_release(event: InputEventScreenTouch) -> void:
 	if not _input_enabled or _selected == -1:
 		return
 	var column := column_at(event.position)
-	var legal := column != -1 and not event.canceled and not _loop.board.column_full(column)
-	# Letting go on a full column is the play attempt: shake + error sound.
-	var full := column != -1 and not event.canceled and _loop.board.column_full(column)
+	var legal := column != -1 and not event.canceled and not _loop.column_blocked(column)
+	# Letting go on a full (or Territorial-locked) column is the play attempt:
+	# shake + error sound.
+	var full := column != -1 and not event.canceled and _loop.column_blocked(column)
 	match gesture:
 		Gesture.HAND:
 			if not dragging:
@@ -755,7 +759,7 @@ func _on_release(event: InputEventScreenTouch) -> void:
 			else:
 				# Released off the board (or on a full column): it flies back.
 				if full:
-					_reject_placement(Toast.MSG_COLUMN_FULL)
+					_reject_placement(_blocked_message(column))
 				_hand.cancel_drag()
 				_sfx.play(&"cancel")
 				_clear_aim()
@@ -765,7 +769,7 @@ func _on_release(event: InputEventScreenTouch) -> void:
 			if not legal:
 				_clear_aim() # off the board or a full column: back to neutral
 				if full:
-					_reject_placement(Toast.MSG_COLUMN_FULL)
+					_reject_placement(_blocked_message(column))
 			elif held or column == _aim_at_press:
 				_play_selected(column)
 			else:
@@ -804,15 +808,21 @@ func _enter_column(column: int) -> void:
 	_aim_column = -1
 	if column == -1:
 		_hide_aim()
-	elif _loop.board.column_full(column):
+	elif _loop.column_blocked(column):
 		_board_view.hide_preview()
 		_show_flash(column, COLOR_FLASH_FULL)
-		_toast.show_message(Toast.MSG_COLUMN_FULL)
+		_toast.show_message(_blocked_message(column))
 		_place_toast()
 	else:
 		# Every column entry clicks (first touch and each slide; Sean 2026-11-19).
 		_sfx.play(&"column_tick")
 		_show_aim(column)
+
+
+## The toast for a column you can't play into: full, or locked by his
+## Territorial (M6e Tech).
+func _blocked_message(column: int) -> String:
+	return Toast.MSG_COLUMN_FULL if _loop.board.column_full(column) else Toast.MSG_BLOCKED_CELL
 
 
 func _clear_aim() -> void:
@@ -837,7 +847,7 @@ func _end_touch() -> void:
 func _refresh_grey() -> void:
 	for column in BoardState.COLUMNS:
 		var grey := _grey[column]
-		grey.visible = _selected != -1 and _input_enabled and _loop.board.column_full(column)
+		grey.visible = _selected != -1 and _input_enabled and _loop.column_blocked(column)
 		if grey.visible:
 			var rect := column_hit_rect(column)
 			grey.global_position = rect.position
@@ -919,8 +929,8 @@ func try_drop(column: int, hand_index: int = 0) -> int:
 	if hand_index < 0 or hand_index >= _loop.player_deck.hand.size():
 		push_error("Scenario.try_drop: invalid hand index %d" % hand_index)
 		return -1
-	if _loop.board.column_full(column):
-		_reject_placement(Toast.MSG_COLUMN_FULL)
+	if _loop.column_blocked(column):
+		_reject_placement(_blocked_message(column))
 		return -1
 	return _play_player(column, hand_index)
 
@@ -1044,7 +1054,7 @@ func _chained(effect: Dictionary) -> bool:
 ## `face`: the portrait reaction to show as the effect starts ("" = none).
 func _play_effect(effect: Dictionary, face: StringName = &"") -> void:
 	var kind: GoobDefinition.EffectType = effect.get("kind", GoobDefinition.EffectType.NONE)
-	if kind == GoobDefinition.EffectType.NONE and not effect.has("discarded"):
+	if kind == GoobDefinition.EffectType.NONE and not effect.has("discarded") and not effect.get("stifled", false):
 		return
 	if effect.get("passive", false):
 		return # Bouncy / Slippery / Springy act later, while on the board
@@ -1067,6 +1077,9 @@ func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, ce
 	if effect.has("discarded"):
 		await _play_discard_step(effect)
 		return
+	if effect.get("stifled", false):
+		_toast.show_message(MSG_STIFLED if side == BoardState.CellOwner.PLAYER else MSG_OPPONENT_STIFLED)
+		_place_toast()
 	if effect["fizzled"]:
 		await _board_view.play_fizzle(cell)
 		return
@@ -1095,6 +1108,21 @@ func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, ce
 			await _board_view.play_summon(cell, at.x, side, back, &"resurrect")
 			await _board_view.play_drop(at.x, at.y, side, [], back)
 			_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
+		GoobDefinition.EffectType.INSPIRE:
+			# Inspiring winds up and lights the friend it sets off; that
+			# Goob's own effect is the next step.
+			var inspired: Vector2i = effect["inspired"]
+			await _board_view.play_cue(cell)
+			_board_view.sparkle(inspired, side)
+			await _board_view.play_cue(inspired)
+		GoobDefinition.EffectType.STEAL:
+			# Thieving: the robbed Goob shudders, the thief sparkles.
+			var robbed: Vector2i = effect["stolen_from"]
+			_toast.show_message(MSG_STOLE % effect["stolen_name"])
+			_place_toast()
+			await _board_view.play_cue(robbed)
+			_board_view.sparkle(cell, side)
+			await _board_view.play_cue(cell)
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
 			var extra: Vector2i = effect["extra"]
 			await _board_view.play_summon(cell, extra.x, side)
@@ -1159,7 +1187,7 @@ func _on_turn_timeout() -> void:
 	_sfx.play(&"times_up")
 	_place_toast()
 	var rightward := _rng.randi() % 2 == 0
-	_timeout_column = _loop.board.roll_target(column, rightward)
+	_timeout_column = _loop.roll_target(column, rightward)
 	_timeout_path = _roll_path(column, rightward)
 	if timeout_reveal_sec > 0.0:
 		_show_aim(column, _loop.player_deck.hand[_timeout_hand_index], from)
@@ -1186,11 +1214,11 @@ static func roll_dir(path: Array[int]) -> int:
 ## entry (-1 or COLUMNS) marks a bounce off that edge. [column] if it is open.
 func _roll_path(column: int, rightward: bool) -> Array[int]:
 	var path: Array[int] = [column]
-	if _loop.board.roll_target(column, rightward) == -1:
+	if _loop.roll_target(column, rightward) == -1:
 		return path
 	var step := 1 if rightward else -1
 	var at := column
-	while _loop.board.column_full(at):
+	while _loop.column_blocked(at): # a locked column counts as full (M6e Tech)
 		if not _loop.board.is_valid_column(at + step):
 			path.append(at + step)
 			step = -step

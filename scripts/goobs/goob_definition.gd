@@ -36,6 +36,15 @@ enum EffectType {
 	JINX, ## Jinxing: the opponent's next turn draw gives one Goob fewer
 	GENEROUS, ## Generous, passive: +1 on its owner's turn draw while on the board
 	DRAW_ECHO, ## Plentiful, passive: its owner draws 1 for each Goob the opponent draws
+	# M6e Tech (Sean, 2026-11-24; vault Special Goobs "M6e Tech rules")
+	STEADFAST, ## your Goobs can't be moved until the end of the opponent's next turn
+	LOYAL, ## your Goobs can't be destroyed until the end of the opponent's next turn
+	STALWART, ## passive: this Goob can't be destroyed or moved
+	TERRITORIAL, ## the opponent can't play in this column on their next turn
+	INSPIRE, ## Inspiring: a random adjacent friendly Goob's landing effect fires again
+	STIFLE, ## Stifling: the opponent's next played Goob has no effect
+	STEAL, ## Thieving: takes a random enemy Goob's ongoing effect
+	HOARDING, ## passive: its owner's hand can't be discarded
 }
 
 ## Deck-building pool (M6e framework).
@@ -58,7 +67,14 @@ enum Category { NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW }
 @export var flips_vertically: bool = false
 
 ## Effects that do nothing when played; they act while on the board.
-const PASSIVE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.DESTROY_LANDER, EffectType.DESTROY_LATER, EffectType.DEFIANT, EffectType.GENEROUS, EffectType.DRAW_ECHO]
+const PASSIVE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.DESTROY_LANDER, EffectType.DESTROY_LATER, EffectType.DEFIANT, EffectType.GENEROUS, EffectType.DRAW_ECHO, EffectType.STALWART, EffectType.HOARDING]
+
+## Effects with nothing to do when the Goob lands (Inspiring skips them).
+const NO_LANDING_EFFECT: Array[EffectType] = [EffectType.NONE, EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.DEFIANT, EffectType.GENEROUS, EffectType.DRAW_ECHO, EffectType.STALWART, EffectType.HOARDING, EffectType.INSPIRE]
+
+## Ongoing effects Thieving can take (an armed Spiteful / pending Smouldering
+## too; TurnLoop._stealable). Lopsided / Tipsy: their roll when they fall.
+const STEALABLE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.GENEROUS, EffectType.DRAW_ECHO, EffectType.STALWART, EffectType.HOARDING, EffectType.ROLL_LEFT, EffectType.ROLL_RIGHT]
 
 const ART_DIR := "res://assets/goobs/%s/%s_%s"
 
