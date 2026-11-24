@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ✅ → Tech (built, playtest pending) → Uniquely powerful | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ✅ → Tech ✅ → Uniquely powerful ← **next** | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -99,7 +99,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Test in F5:** F4 → give yourself Jinxing / Generous / Plentiful / Greedy; » auto-play to watch the AI.
 - Playtest OK (Sean: "playtest works", 2026-11-24) → code review fixes → merged. Fixes: the Jinxed pill lasts through the jinxed turn (2 ticks); the toast counts only Goobs the deck / hand cap would really have given; a Plentiful whose owner's hand is full (or deck empty) draws nothing, silently; Generous pill wording; Locked rules say Greedy. Left open (nits): the AI's flat draw values ignore the hand cap and a forced draw after a skip; a jinx toast is lost when the jinx skips the turn (the skip toast still shows).
 
-### M6e Tech category ← **built on `m6e-tech`, playtest pending** (2026-11-24)
+### M6e Tech category (accepted and merged 2026-11-24)
 
 - **Rules approved by Sean (2026-11-24):** vault spec `Design/Special Goobs.md` → "M6e Tech rules", Decision-Log "M6e Tech rules". **Steadfast** / **Loyal** (your Goobs can't be moved / destroyed until the end of his next turn; another copy restarts the window), **Stalwart** (itself: never destroyed or moved; a wall for rolls), **Territorial** (his next turn he can't play in its column; at his timeout it counts as full; lifts if every other column is full), **Inspiring** (a random adjacent friendly Goob with a landing effect fires it again, for you), **Stifling** (his next played Goob has no effect, whatever it is), **Thieving** (steals a random enemy Goob's ongoing effect: passives + armed Spiteful / pending Smouldering; the target turns plain), **Hoarding** (while on the board, its owner's hand can't be discarded by anything, own costs too: Fickle / Ruthless / Desperate / Reckless fizzle).
 - **Engine (`TurnLoop`):** `_can_move` (new) next to `_can_destroy` / `_can_discard`; `_can_roll` and `_landing_move` ask it, so pushes, rolls and Bouncy / Slippery landings stop at a protected Goob. Windows are statuses (`_protect`, `_lock_column` with a `columns` key; `_window_turns` = 2 ticks, 3 when set during the other side's turn). `column_blocked` / `locked_columns` / `roll_target` (lock = full); `can_play` refuses locked columns. `_stifles` + `_use_stifle` in `play()` → `_resolve_effect(…, stifled)` (step `stifled`). Thieving rewrites `effect_type` / `effect_description` on copy-on-write copies (`_own_copy`, shared with `_mark`); piles still get the plain definition. `sim_state` carries statuses, stifles and the actor's locked columns (mirrored for auto-play); `play_results` applies them.
@@ -108,6 +108,11 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Tests:** 10 unit tests (`tests/test_turn_loop.gd`, 489 checks), `_test_tech_animations` (`tests/test_scenario.gd`, 678 checks), fuzz `godot --headless -s res://tests/fuzz_m6e_tech.gd` (100 games: 23 protected targets, 157 stifled plays, 106 steals, 41 inspired, 0 failures).
 - **Claude's calls to confirm in the playtest:** Territorial's lock stays on its column even if Territorial moves or is destroyed; a Thieving that stole shows "Stole X's effect: …" as its inspect text and the robbed Goob "Its effect was stolen."; a stolen Lopsided / Tipsy also rolls the thief when it falls; Inspiring can retrigger Spiteful / Smouldering (re-arms) and Thieving.
 - **Test in F5:** F4 → category deck top = Tech → "New game with these", or give yourself / him each tech Goob; » auto-play to watch the AI.
+- Playtest OK (Sean: "playtest is good", 2026-11-24) → code review fixes → merged. Fixes: the AI gives discard Goobs no value when a Hoarding makes them fizzle; a stifled passive (Generous / Plentiful / Hoarding) keeps its value. Left open (nits): the AI's threat check ignores your Territorial-locked column; an Inspiring-triggered hit gets no portrait reaction. Not changed: `_window_turns`' 3-tick branch is for off-turn drops (a Defiant Steadfast dropping on his turn).
+
+### M6e Uniquely powerful category ← **next** (fresh session; branch `m6e-unique` from `main`)
+
+- **Step 1, before any code:** propose rules, names and card text per Goob (vault `Design/Special Goobs.md` "2026-11-23 update": Convincing, Popular, shift all Goobs left or right once (outer column falls out), the bottom row falls out, the top Goob in every column bounces, copy the last Goob you played, copy the last Goob your opponent played); Sean approves; log to the Decision-Log and a spec section "M6e Uniquely powerful rules". **Build nothing before that.** Only these Goobs remove Goobs over the edge (spec).
 
 #### Original plan (for reference)
 

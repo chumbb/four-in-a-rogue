@@ -2007,3 +2007,11 @@ func _test_tech_simulated() -> void:
 	goobs[Vector2i(3, 0)] = TurnLoop.VANILLA
 	var results := TurnLoop.play_results(b, goobs, FAT, 4, O, 48, {}, {"stifles": {O: 1}})
 	_check(results.size() == 1 and results[0]["board"].get_owner(3, 0) == P, "tech AI: a stifled Fat is simulated with no effect")
+	var state := {"hands": {P: [TurnLoop.VANILLA], O: []}}
+	b.drop(6, P)
+	goobs[Vector2i(6, 0)] = HOARDING
+	_check(OpponentAI._hand_value(b, DISTRACTING, 1, 5, state, goobs) == 0.0, "tech AI: Distracting is worth nothing against your Hoarding")
+	var stifled := {"stifles": {O: 1}}
+	var gen := OpponentAI._play_value(b, GENEROUS, 0, 2, 5, goobs, {}, stifled)
+	var van := OpponentAI._play_value(b, TurnLoop.VANILLA, 0, 2, 5, goobs, {}, stifled)
+	_check(gen > van, "tech AI: a stifled Generous still counts its ongoing bonus")

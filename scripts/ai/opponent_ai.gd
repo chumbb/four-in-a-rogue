@@ -110,14 +110,17 @@ static func _play_value(board: BoardState, goob: GoobDefinition, column: int, ha
 		weights += result["weight"]
 	var value := total / weights
 	if state.get("stifles", {}).get(_O, 0) > 0:
-		return value # stifled (M6e Tech): no effect, so no flat values either
+		# Stifled (M6e Tech): no landing effect, but an ongoing one still works.
+		if goob.effect_type in GoobDefinition.PASSIVE_EFFECTS:
+			value += _draw_effect_value(goob, deck_count, state) + _tech_value(board, goob, goobs, state)
+		return value
 	if goob.effect_type == GoobDefinition.EffectType.DRAW_TWO:
 		var room := Deck.HAND_MAX - (hand_size - 1)
 		value += DRAW_VALUE * mini(mini(TurnLoop.GREEDY_DRAW, deck_count), room)
 	value += _draw_effect_value(goob, deck_count, state)
 	value += _tech_value(board, goob, goobs, state)
 	if state.has("hands"):
-		value += _hand_value(board, goob, hand_size - 1, deck_count, state)
+		value += _hand_value(board, goob, hand_size - 1, deck_count, state, goobs)
 	return value
 
 
@@ -154,8 +157,14 @@ static func _tech_value(board: BoardState, goob: GoobDefinition, goobs: Dictiona
 
 ## Discard Goobs (M6e): each Goob a hand gains or loses is worth DRAW_VALUE
 ## (destroys and Thrifty are simulated). `left`: its hand after the play.
-static func _hand_value(board: BoardState, goob: GoobDefinition, left: int, deck_count: int, state: Dictionary) -> float:
+static func _hand_value(board: BoardState, goob: GoobDefinition, left: int, deck_count: int, state: Dictionary, goobs: Dictionary = {}) -> float:
 	var theirs: int = state["hands"].get(_P, []).size()
+	# Hoarding (M6e Tech): a hand under it can't be discarded, so the Goob
+	# fizzles (its own costs too).
+	if goob.effect_type == GoobDefinition.EffectType.DISCARD_ENEMY and _owns_hoarding(board, goobs, _P):
+		return 0.0
+	if goob.effect_type != GoobDefinition.EffectType.DISCARD_ENEMY and _owns_hoarding(board, goobs, _O):
+		return 0.0
 	match goob.effect_type:
 		GoobDefinition.EffectType.DISCARD_ENEMY:
 			return DRAW_VALUE if theirs > 0 else 0.0
@@ -171,6 +180,14 @@ static func _hand_value(board: BoardState, goob: GoobDefinition, left: int, deck
 			# A weak (small) hand is worth trading for the extra draws.
 			return DRAW_VALUE * (mini(TurnLoop.RECKLESS_DRAW, deck_count) - left)
 	return 0.0
+
+
+static func _owns_hoarding(board: BoardState, goobs: Dictionary, side: BoardState.CellOwner) -> bool:
+	for cell: Vector2i in goobs:
+		var goob: GoobDefinition = goobs[cell]
+		if goob != null and goob.effect_type == GoobDefinition.EffectType.HOARDING and board.get_owner(cell.x, cell.y) == side:
+			return true
+	return false
 
 
 ## Score of a board after the opponent's play (win check after effects).
