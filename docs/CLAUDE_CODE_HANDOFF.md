@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). Move category built on `m6e-move` (playtest + code review fixes done, merge pending). Next: M6e Destroy category, then discard → draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move accepted and merged (2026-11-23). Next: M6e Destroy category, then discard → draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move (built, merge pending) → Destroy ← **next** → Discard → Draw → Tech → Uniquely powerful | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ← **next** → Discard → Draw → Tech → Uniquely powerful | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -72,10 +72,11 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6c** AI, play anims, reactions | ✅ Accepted and merged 2026-11-23 (18 playtest rounds) |
 | **M6d** Sound + smoke | ✅ Accepted and merged 2026-11-23 (sound grill done) |
 | **M6e framework** | ✅ Accepted and merged 2026-11-23 |
+| **M6e Move** | ✅ Accepted and merged 2026-11-23 |
 
 ### M6e Destroy category ← **next** (fresh session; Sean 2026-11-23)
 
-- **Before starting:** `m6e-move` must be merged to `main` (Sean's OK). If it isn't, ask Sean whether to merge it first or branch Destroy off `m6e-move`. Then branch **`m6e-destroy`**.
+- **Branch:** **`m6e-destroy`** from `main` (Move is merged).
 - **Step 1, before any code:** propose rules, names ("<Adjective> Goob") and one-line card text for each destroy Goob, with edge cases and fizzles. Get Sean's approval, then log it to the Decision-Log and the spec (a new "M6e Destroy rules" section like "M6e Move rules"). **Build nothing before that.** Don't invent mechanics; ask.
 - **Roster** (vault `Design/Special Goobs.md` "2026-11-23 update" + Sean's list `resources/goobs/special goobs.txt`):
   - **Fat** (built in M5): "Destroy a random adjacent Goob." It already rolls fallen Lopsided/Tipsy and moves Goobs that fall onto a Bouncy/Slippery.
@@ -105,7 +106,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **Tests:** unit tests per Goob in `tests/test_turn_loop.gd`, scenario animation checks like `_test_move_animations`, and a fuzz like `tests/fuzz_m6e_move.gd` with a Destroy (+ Move) deck.
 - **Vault:** session log `Session-Logs/2026-11-2x Claude - M6e Destroy category.md`, Decision-Log, spec. Push every commit. When done: F5 steps for Sean, then stop.
 
-### M6e Move category ← **built on `m6e-move`, playtest + review fixes done, merge pending** (2026-11-23)
+### M6e Move category (accepted and merged 2026-11-23)
 
 - **Rules approved by Sean** (2 rounds): vault spec `Design/Special Goobs.md` → "M6e Move rules", Decision-Log 2026-11-23.
 - **Engine** (`TurnLoop`): `_roll` (roll rule + Springy hop + Bouncy bounce; a bounce ends a roll), `_hop` (onto a column top, or the timeout-style roll from the top of a full one), `_apply_gravity` (one group), `_settle` (gravity, then fallen Lopsided/Tipsy roll, repeat). Motions go into the step's `"motions"` (format in the code comment above `_move_step`). `_land_and_resolve` = land → Bouncy/Slippery (an `"instant"` step) → the Goob's own effect. `_pick` replaces direct rng calls so `play_outcomes` can enumerate every random pick for the AI. `roll_goob` now runs on the same engine.
