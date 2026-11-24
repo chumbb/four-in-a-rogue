@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ← **next** → Draw → Tech → Uniquely powerful | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ← **playtest** → Draw → Tech → Uniquely powerful | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -74,15 +74,20 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6e framework** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Move** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Destroy** | ✅ Accepted and merged 2026-11-23 |
+| **M6e Discard** | Built on `m6e-discard`, playtest pending |
 
-### M6e Discard category ← **next** (fresh session; Sean 2026-11-23)
+### M6e Discard category ← **built, playtest pending** (branch `m6e-discard`)
 
-- **Branch:** **`m6e-discard`** from `main`.
-- **Step 1, before any code:** propose rules, names ("<Adjective> Goob") and one-line card text for each discard Goob, with edge cases and fizzles; Sean approves; log to the Decision-Log and the spec (a new "M6e Discard rules" section). **Build nothing before that.**
-- **Roster** (vault `Design/Special Goobs.md` "2026-11-23 update" + `resources/goobs/special goobs.txt`): Distracting (your opponent discards a Goob), Defiant (when discarded, it is played instead), discard a Goob then draw a Goob, discard 2 Goobs then destroy an opponent Goob, discard your hand then draw 2 extra Goobs next turn, bring back a discarded Goob to your side, discard a Goob then destroy a random Goob.
-- **Questions for Sean** (examples): random or chosen discards (framework: random only); fewer Goobs in hand than the cost (fizzle, or do what it can?); where Defiant is played (random column?) and whether its effect fires; whether "bring back a discarded Goob" goes to the hand or the board; whether the destroy Goobs reuse the Destroy rules (`_destroy_target`, Spiteful landings).
-- **What exists:** `TurnLoop.discard_from(side, index)` + discard steps; the scenario's `_show_discard` (one at a time, never sped up); empty-hand skip rules (`skip_turn`, `_skipped_last`); `Deck.discard_pile`; the destroy path `_destroy_target` / `_can_destroy`; turn-start hooks + `turn_start_steps` (the "draw 2 extra next turn" can use `_turn_draw_count`); **every "bring back" effect plays the `resurrect` sound** (Sean, 2026-11-23); `play_summon(…, goob, sound)`.
-- **Tests:** unit tests in `tests/test_turn_loop.gd`, scenario checks like `_test_destroy_animations`, a fuzz like `tests/fuzz_m6e_destroy.gd`.
+- **Rules approved by Sean (2026-11-23):** vault spec `Design/Special Goobs.md` → "M6e Discard rules", Decision-Log 2026-11-23. Distracting (opponent discards a random Goob), Defiant (when discarded, it drops for its owner into a random open column instead), Fickle (discard 1, then draw 1; empty hand fizzles), Ruthless (discard 2, then destroy a random enemy Goob), Reckless (discard your hand, +2 on your next turn draw), Thrifty (a random Goob from your discard pile drops for you, like Occult), Desperate (discard 1, then destroy a random Goob, never itself). **Discard costs are paid in full or the whole effect fizzles, nothing discarded.**
+- **Engine (`TurnLoop`):** every discard goes through `_discard` (Defiant drops instead; `_can_discard` hook for tech) and `_discard_random`. Discard Goobs record a `cue` step, then one step per discard; Fickle's draw and Ruthless / Desperate's destroy are their own later steps (the destroy is `last_effect`). Reckless: `_bonus_draws` → `_turn_draw_count`, used up by that draw, "Reckless" pill. Thrifty shares Occult's branch. `sim_state(mirrored)` gives the AI its own hand, the other hand as plain Goobs, and both discard piles.
+- **AI:** `_hand_value`: each Goob gained or lost = `DRAW_VALUE`; destroys and Thrifty simulated. **View:** `BoardView2D.play_cue`; `HandView.play_discard(…, defiant)` shakes and shrinks the card at the centre, then the Defiant flips up from behind the board and drops; `_play_draw_step` / `_play_discard_step` in the scenario; debug discards play a Defiant drop too.
+- **Tests:** 10 unit tests in `tests/test_turn_loop.gd`, `_test_discard_animations` in `tests/test_scenario.gd`, fuzz `godot --headless -s res://tests/fuzz_m6e_discard.gd` (100 games, ~2.5 min; 300 games passed with 2043 discards / 332 Defiant plays).
+- **Claude's calls to confirm in the playtest:** each discard Goob winds up before its reveals; Reckless discards from the right end of the hand; Defiant's drop counts as a landing but not as the turn's play.
+- **Test in F5:** F4 → category deck main = Discard + another → "New game with these", or give yourself each Goob (F4 picker); » auto-play to watch the AI.
+
+### M6e Draw category ← next after Discard is accepted (fresh session, rules first)
+
+- Roster: Plentiful · Jinxing · Generous · "whenever your opponent draws a Goob, you draw a Goob" (vault spec "2026-11-23 update"). `_turn_draw_count` + `_bonus_draws` already exist.
 
 ### M6e Destroy category (accepted and merged 2026-11-23)
 
