@@ -77,6 +77,18 @@ func _initialize() -> void:
 	_test_outcome_weights()
 	_test_threat_on_bouncy()
 	_test_chain_loop_stops()
+	_test_destroy_roster()
+	_test_volatile()
+	_test_crushing()
+	_test_brawling()
+	_test_spiteful()
+	_test_spiteful_effect_fires()
+	_test_spiteful_fall_and_roll()
+	_test_spiteful_threat()
+	_test_occult()
+	_test_smouldering()
+	_test_spiteful_two_gaps()
+	_test_occult_simulated()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -1226,3 +1238,224 @@ func _test_chain_loop_stops() -> void:
 			gap = true
 		elif gap:
 			_check(false, "chain loop: floating Goob at (3,%d)" % r)
+
+
+# --- M6e Destroy (Sean, 2026-11-23: vault Special Goobs "M6e Destroy rules")
+
+const VOLATILE := preload("res://resources/goobs/volatile_goob.tres")
+const SPITEFUL := preload("res://resources/goobs/spiteful_goob.tres")
+const OCCULT := preload("res://resources/goobs/occult_goob.tres")
+const CRUSHING := preload("res://resources/goobs/crushing_goob.tres")
+const BRAWLING := preload("res://resources/goobs/brawling_goob.tres")
+const SMOULDERING := preload("res://resources/goobs/smouldering_goob.tres")
+
+
+## The steps in `steps` with effect `kind`.
+func _steps_of(steps: Array[Dictionary], kind: GoobDefinition.EffectType) -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
+	for step in steps:
+		if step["kind"] == kind:
+			found.append(step)
+	return found
+
+
+func _test_destroy_roster() -> void:
+	var destroys := GoobRoster.specials(GoobDefinition.Category.DESTROY)
+	_check(destroys.size() == 7, "destroy: seven destroy Goobs in the roster (got %d)" % destroys.size())
+	for goob in destroys:
+		_check(goob.multiplier == 2.0 and goob.display_name.ends_with(" Goob") and goob.effect_description != "", "destroy: %s is x2, named, has card text" % goob.id)
+	_check(SPITEFUL.effect_description == "Destroy the next Goob that lands on this Goob.", "destroy: Spiteful card text")
+	_check(BRAWLING.display_name == "Brawling Goob" and CRUSHING.display_name == "Crushing Goob" and SMOULDERING.display_name == "Smouldering Goob", "destroy: new names")
+
+
+func _test_volatile() -> void:
+	var t := _with_special(VOLATILE)
+	_place(t, 0) # (0,0)
+	t._scripted = true
+	t._script = [1] # targets, column by column: (0,0), (3,0) = itself
+	t.play(3, 0)
+	_check(t.last_effect["target"] == Vector2i(3, 0) and t.board.is_empty(3, 0), "volatile: can destroy itself")
+	_check(t.player_deck.destroyed_pile == [VOLATILE], "volatile: itself to your destroyed pile")
+	_check(t.goob_at(0, 0) == TurnLoop.VANILLA, "volatile: the other Goob survives")
+	t = _with_special(VOLATILE)
+	_place(t, 0)
+	t._scripted = true
+	t._script = [0]
+	t.play(3, 0)
+	_check(t.board.is_empty(0, 0) and t.goob_at(3, 0) == VOLATILE, "volatile: or any other Goob")
+	_check(t.opponent_deck.destroyed_pile == [TurnLoop.VANILLA], "volatile: opponent's Goob to his pile")
+
+
+func _test_crushing() -> void:
+	var t := _with_special(CRUSHING)
+	_place(t, 2) # (2,0)
+	_place(t, 2, FAT) # (2,1): crushed
+	t.play(2, 0) # lands (2,2)
+	_check(t.last_effect["target"] == Vector2i(2, 1), "crushing: destroys the Goob below")
+	_check(t.goob_at(2, 1) == CRUSHING and t.board.is_empty(2, 2), "crushing: falls into its cell")
+	_check(t.opponent_deck.destroyed_pile == [FAT], "crushing: Fat to his pile")
+	_check(t.last_effect["fell"] == 1, "crushing: only itself fell")
+	t = _with_special(CRUSHING)
+	t.play(4, 0)
+	_check(t.last_effect["fizzled"], "crushing: on the bottom row it fizzles")
+
+
+func _test_brawling() -> void:
+	var t := _with_special(BRAWLING)
+	_place(t, 2) # (2,0): diagonal to it, not beside
+	_place(t, 3) # (3,0): under it
+	_place(t, 2) # (2,1): beside it
+	t.play(3, 0) # lands (3,1)
+	_check(t.last_effect["target"] == Vector2i(2, 1), "brawling: only one side has a Goob: that one")
+	t = _with_special(BRAWLING)
+	_place(t, 2)
+	_place(t, 4, FAT)
+	t._scripted = true
+	t._script = [1] # left, right
+	t.play(3, 0)
+	_check(t.last_effect["target"] == Vector2i(4, 0) and t.goob_at(2, 0) == TurnLoop.VANILLA, "brawling: one side only")
+	t = _with_special(BRAWLING)
+	_place(t, 3)
+	t.play(3, 0) # nothing beside (3,1)
+	_check(t.last_effect["fizzled"], "brawling: nothing beside it fizzles")
+
+
+func _test_spiteful() -> void:
+	var t := _with_special(SPITEFUL)
+	t.play(3, 0) # Spiteful at (3,0), armed for you
+	_check(t.last_effect.get("passive", false) and t.armed_side(Vector2i(3, 0)) == P, "spiteful: armed for the player")
+	_check(t.has_status(&"spiteful", P), "spiteful: pill while armed")
+	t.play(3, 0) # opponent's Vanilla lands on it
+	_check(t.board.is_empty(3, 1), "spiteful: the Goob that landed is destroyed")
+	_check(t.opponent_deck.destroyed_pile == [TurnLoop.VANILLA], "spiteful: it goes to his pile")
+	var hits := _steps_of(t.effect_steps, GoobDefinition.EffectType.DESTROY_LANDER)
+	_check(hits.size() == 1 and hits[0]["target"] == Vector2i(3, 1) and hits[0]["cell"] == Vector2i(3, 0), "spiteful: a step from the Spiteful to the lander")
+	_check(t.armed_side(Vector2i(3, 0)) == E and not t.has_status(&"spiteful", P), "spiteful: spent")
+	_check(TurnLoop.base_of(t.goob_at(3, 0)) == SPITEFUL, "spiteful: still a Spiteful Goob")
+	t.play(3, 0) # your next Goob stays
+	_check(t.board.get_owner(3, 1) == P, "spiteful: acts only once")
+
+
+func _test_spiteful_effect_fires() -> void:
+	var t := _with_special(FAT)
+	var spite := _place(t, 3, SPITEFUL)
+	t._mark(spite, &"armed_by", O)
+	_place(t, 2) # (2,0): Fat's target
+	t._scripted = true
+	t._script = [0] # Fat at (3,1): neighbour 0 = (2,0)
+	t.play(3, 0)
+	_check(t.board.is_empty(2, 0), "spiteful: the lander's effect still fires")
+	_check(t.board.is_empty(3, 1), "spiteful: then the lander is destroyed")
+	_check(t.player_deck.destroyed_pile == [FAT], "spiteful: the plain Fat goes to the pile (no marks)")
+	_check(t.effect_steps[-1]["kind"] == GoobDefinition.EffectType.DESTROY_LANDER, "spiteful: its destroy comes after the effect")
+
+
+func _test_spiteful_fall_and_roll() -> void:
+	# Falling onto it: (3,1) is destroyed, (3,2) drops onto the Spiteful.
+	var t := _with_special(VOLATILE)
+	var spite := _place(t, 3, SPITEFUL)
+	t._mark(spite, &"armed_by", O)
+	_place(t, 3) # (3,1)
+	_place(t, 3, FAT) # (3,2)
+	t._scripted = true
+	t._script = [2] # targets: (0,0) Volatile, (3,0), (3,1), (3,2)
+	t.play(0, 0)
+	_check(t.board.lowest_empty_row(3) == 1, "spiteful: a Goob falling onto it is destroyed")
+	_check(t.opponent_deck.destroyed_pile.has(FAT), "spiteful: the fallen Fat went to the pile")
+	# Rolling across it: a Lopsided rolls over it and on; it is still destroyed.
+	t = _with_special(LOPSIDED)
+	spite = _place(t, 3, SPITEFUL)
+	t._mark(spite, &"armed_by", O)
+	_place(t, 4) # (4,0)
+	t.play(4, 0) # lands (4,1), rolls left over the Spiteful's top, down to (0,0)
+	_check(t.board.is_empty(0, 0) and t.board.is_empty(4, 1), "spiteful: a Goob rolling across it is destroyed")
+	_check(t.player_deck.destroyed_pile == [LOPSIDED], "spiteful: the Lopsided went to the pile")
+	_check(t.armed_side(Vector2i(3, 0)) == E, "spiteful: spent by the roll")
+
+
+func _test_spiteful_threat() -> void:
+	# You have three in row 1; the fourth cell is on an armed Spiteful.
+	var b := BoardState.new()
+	var goobs := {}
+	for c in 3:
+		b.drop(c, O)
+		b.drop(c, P)
+	b.drop(3, O)
+	var spite := SPITEFUL.duplicate() as GoobDefinition
+	spite.set_meta(&"base", SPITEFUL)
+	spite.set_meta(&"armed_by", O)
+	goobs[Vector2i(3, 0)] = spite
+	_check(OpponentAI.winning_drops(b, P, {}).has(3), "spiteful threat: without it, column 3 wins")
+	_check(not OpponentAI.winning_drops(b, P, goobs).has(3), "spiteful threat: on an armed Spiteful it doesn't")
+
+
+func _test_occult() -> void:
+	var t := _with_special(OCCULT)
+	t.player_deck.destroyed_pile.append(FAT)
+	_place(t, 0) # (0,0): the returned Fat's target
+	t._scripted = true
+	t._script = [0, 1, 0] # pile 0 (Fat), open column 1, Fat's neighbour 0
+	t.play(6, 0) # Occult at (6,0)
+	var occult := _steps_of(t.effect_steps, GoobDefinition.EffectType.RESURRECT)
+	_check(occult.size() == 1 and occult[0]["returned"] == FAT and occult[0]["extra"] == Vector2i(1, 0), "occult: Fat back in column 1")
+	_check(t.last_effect == occult[0], "occult: its own step stays last_effect")
+	_check(t.goob_at(1, 0) == FAT and t.board.get_owner(1, 0) == P, "occult: on your side")
+	_check(t.board.is_empty(0, 0), "occult: the returned Goob's effect fired")
+	_check(t.player_deck.destroyed_pile.is_empty(), "occult: taken off the pile")
+	t = _with_special(OCCULT)
+	t.play(3, 0)
+	_check(t.last_effect["fizzled"], "occult: empty pile fizzles")
+
+
+func _test_smouldering() -> void:
+	var t := _with_special(SMOULDERING)
+	t.play(3, 0) # Smouldering at (3,0), armed for you
+	_check(t.has_status(&"smouldering", P), "smouldering: pill while pending")
+	_check(t.turn_start_steps.is_empty(), "smouldering: not at his turn start")
+	t.play(2, 0) # his Vanilla at (2,0)
+	var steps := _steps_of(t.turn_start_steps, GoobDefinition.EffectType.DESTROY_LATER)
+	_check(steps.size() == 1 and steps[0]["target"] == Vector2i(2, 0), "smouldering: at your turn start, destroys the adjacent Goob")
+	_check(t.board.is_empty(2, 0) and _steps_of(t.effect_steps, GoobDefinition.EffectType.DESTROY_LATER).is_empty(), "smouldering: a turn-start step, not the play's")
+	_check(not t.has_status(&"smouldering", P) and t.armed_side(Vector2i(3, 0)) == E, "smouldering: done")
+	t.play(4, 0)
+	t.play(4, 0)
+	_check(_steps_of(t.turn_start_steps, GoobDefinition.EffectType.DESTROY_LATER).is_empty(), "smouldering: fires once")
+	# Flipped to his side: it still fires at your turn start.
+	t = _with_special(SMOULDERING)
+	t.play(0, 0)
+	t.board.set_owner(0, 0, O)
+	t.play(6, 0)
+	steps = _steps_of(t.turn_start_steps, GoobDefinition.EffectType.DESTROY_LATER)
+	_check(steps.size() == 1 and steps[0]["fizzled"], "smouldering: still yours when flipped; no neighbour fizzles")
+
+
+## Code review: a Goob falling farther than the Goob under it landed on it.
+func _test_spiteful_two_gaps() -> void:
+	var t := TurnLoop.new()
+	_place(t, 3) # (3,0): lifted below
+	_place(t, 3) # (3,1): A
+	var spite := _place(t, 3, SPITEFUL) # (3,2)
+	t._mark(spite, &"armed_by", O)
+	_place(t, 3) # (3,3): lifted
+	_place(t, 3, FAT) # (3,4): B
+	t._lift(Vector2i(3, 0))
+	t._lift(Vector2i(3, 3))
+	t._apply_gravity() # A and the Spiteful fall 1, B falls 2 onto the Spiteful
+	_check(TurnLoop.base_of(t.goob_at(3, 2)) == FAT and t.goob_at(3, 2).has_meta(&"doomed"), "two gaps: B landed on the Spiteful and is doomed")
+	_check(t.armed_side(Vector2i(3, 1)) == E, "two gaps: the Spiteful is spent")
+
+
+## Code review: the AI's simulation sees the destroyed piles (Occult).
+func _test_occult_simulated() -> void:
+	var b := BoardState.new()
+	var piles := {O: [FAT] as Array[GoobDefinition]}
+	var results := TurnLoop.play_results(b, {}, OCCULT, 3, O, 48, piles)
+	var back := false
+	for result in results:
+		var count := 0
+		for c in BoardState.COLUMNS:
+			if not result["board"].is_empty(c, 0):
+				count += 1
+		back = back or count == 2
+	_check(back, "occult sim: the returned Goob drops in the simulation")
+	_check(piles[O].size() == 1, "occult sim: the real pile is untouched")

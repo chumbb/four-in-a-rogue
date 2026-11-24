@@ -42,7 +42,7 @@ const _DIRECTIONS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1
 ## Does not mutate `board` or `hand`. `goobs`: the board's cell ->
 ## GoobDefinition map (TurnLoop.cell_goobs()), so Goobs that act while on
 ## the board (Bouncy, Slippery, Springy, Lopsided, Tipsy) are simulated.
-static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_count: int, rng: RandomNumberGenerator, goobs: Dictionary = {}) -> Dictionary:
+static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_count: int, rng: RandomNumberGenerator, goobs: Dictionary = {}, piles: Dictionary = {}) -> Dictionary:
 	var move := {"column": -1, "hand_index": -1, "blocking": false, "close": false}
 	var legal := TurnLoop.open_columns(board)
 	if legal.is_empty() or hand.is_empty():
@@ -57,7 +57,7 @@ static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_cou
 			continue
 		seen_types[key] = true
 		for column in legal:
-			var value := _play_value(board, goob, column, hand.size(), deck_count, goobs)
+			var value := _play_value(board, goob, column, hand.size(), deck_count, goobs, piles)
 			scored.append({"column": column, "hand_index": i, "value": value,
 				"vanilla": goob.effect_type == GoobDefinition.EffectType.NONE})
 	var best := -INF
@@ -92,10 +92,10 @@ static func choose_column(board: BoardState, rng: RandomNumberGenerator) -> int:
 
 
 ## Expected score of playing `goob` into `column`.
-static func _play_value(board: BoardState, goob: GoobDefinition, column: int, hand_size: int, deck_count: int, goobs: Dictionary = {}) -> float:
+static func _play_value(board: BoardState, goob: GoobDefinition, column: int, hand_size: int, deck_count: int, goobs: Dictionary = {}, piles: Dictionary = {}) -> float:
 	var total := 0.0
 	var weights := 0.0
-	for result in TurnLoop.play_results(board, goobs, goob, column, _O):
+	for result in TurnLoop.play_results(board, goobs, goob, column, _O, 48, piles):
 		total += score_board(result["board"], result["goobs"]) * result["weight"]
 		weights += result["weight"]
 	var value := total / weights
@@ -174,7 +174,8 @@ static func winning_drops(board: BoardState, side: BoardState.CellOwner, goobs: 
 	return found
 
 
-## Whether a Goob dropped into `column` lands on a Bouncy or Slippery.
+## Whether a Goob dropped into `column` lands on a Bouncy or Slippery, or on
+## an armed Spiteful (which destroys it; M6e Destroy).
 static func _drop_moves(board: BoardState, goobs: Dictionary, column: int) -> bool:
 	if goobs.is_empty():
 		return false
@@ -182,6 +183,8 @@ static func _drop_moves(board: BoardState, goobs: Dictionary, column: int) -> bo
 	var goob: GoobDefinition = goobs.get(Vector2i(column, row))
 	if goob == null or row < 0 or board.is_empty(column, row):
 		return false
+	if goob.effect_type == GoobDefinition.EffectType.DESTROY_LANDER and goob.has_meta(&"armed_by"):
+		return true
 	return goob.effect_type == GoobDefinition.EffectType.BOUNCY or goob.effect_type == GoobDefinition.EffectType.SLIPPERY
 
 

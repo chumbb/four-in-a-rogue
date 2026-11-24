@@ -19,6 +19,7 @@ fallback credited here). Files in `sfx/` were trimmed / converted to Ogg Vorbis.
 | `sfx/effect_flip.ogg` | Kenney — Starter Kits Match-3 + City Builder (`art/audio/make_effect_sounds.py`) | `sounds/tile-swap.ogg` + `sounds/placement-a.ogg` |
 | `sfx/effect_crunch.ogg` | Kenney — Starter Kit 3D Platformer | `sounds/break.ogg` |
 | `sfx/effect_popular.ogg` | Kenney — Starter Kit Match-3 | `sounds/tile-land.ogg` |
+| `sfx/effect_resurrect.ogg` | Made for this project (`art/audio/make_effect_sounds.py` `write_resurrect()`: synthesised breathy swell + hollow pop, option A of `make_resurrect_options.py`, 2026-11-23) | — |
 | `sfx/score_0..8.ogg`, `sfx/score_collapse.ogg`, `sfx/score_recognise.ogg` | Made for this project (`art/audio/make_effect_sounds.py`: chiptune square blips, 2026-11-19) | — |
 | `sfx/press_start.ogg`, `sfx/ui_tap.ogg`, `sfx/first_sting.ogg`, `sfx/coin_whirr.ogg`, `sfx/coin_clink.ogg` | Made for this project (`art/audio/make_flow_sounds.py` + `make_snes_coin_fizzle_options.py`: SNES-style wood block UI, synthesised metal coin flick + landing, 2026-11-23) | — |
 | `sfx/turn_whoosh.ogg` | Made for this project (`art/audio/make_menu_sounds.py`: chiptune blips; soft turn-banner whoosh, 2026-11-20) | — |

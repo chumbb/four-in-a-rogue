@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move accepted and merged (2026-11-23). Next: M6e Destroy category, then discard → draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move and M6e Destroy accepted and merged (2026-11-23). Next: M6e Discard category, then → draw → tech → uniquely powerful → Art F → Art G → M7.** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -48,7 +48,7 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 6 | **Art pass D2** — Goob production ✅ | Expression loops, board/hand stills, flip frames per type; `SpriteFrames`; hand labels removed | D1 |
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
-| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ← **next** → Discard → Draw → Tech → Uniquely powerful | all |
+| 9 | **M6e** special Goobs (Sean 2026-11-23) ← **in progress** | Framework ✅ → Move ✅ → Destroy ✅ → Discard ← **next** → Draw → Tech → Uniquely powerful | all |
 | 10 | **Art F / Art G** | Special Goob faces; effect icons (starts with a grill) | M6e |
 | 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | all |
 
@@ -73,8 +73,32 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6d** Sound + smoke | ✅ Accepted and merged 2026-11-23 (sound grill done) |
 | **M6e framework** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Move** | ✅ Accepted and merged 2026-11-23 |
+| **M6e Destroy** | ✅ Accepted and merged 2026-11-23 |
 
-### M6e Destroy category ← **next** (fresh session; Sean 2026-11-23)
+### M6e Discard category ← **next** (fresh session; Sean 2026-11-23)
+
+- **Branch:** **`m6e-discard`** from `main`.
+- **Step 1, before any code:** propose rules, names ("<Adjective> Goob") and one-line card text for each discard Goob, with edge cases and fizzles; Sean approves; log to the Decision-Log and the spec (a new "M6e Discard rules" section). **Build nothing before that.**
+- **Roster** (vault `Design/Special Goobs.md` "2026-11-23 update" + `resources/goobs/special goobs.txt`): Distracting (your opponent discards a Goob), Defiant (when discarded, it is played instead), discard a Goob then draw a Goob, discard 2 Goobs then destroy an opponent Goob, discard your hand then draw 2 extra Goobs next turn, bring back a discarded Goob to your side, discard a Goob then destroy a random Goob.
+- **Questions for Sean** (examples): random or chosen discards (framework: random only); fewer Goobs in hand than the cost (fizzle, or do what it can?); where Defiant is played (random column?) and whether its effect fires; whether "bring back a discarded Goob" goes to the hand or the board; whether the destroy Goobs reuse the Destroy rules (`_destroy_target`, Spiteful landings).
+- **What exists:** `TurnLoop.discard_from(side, index)` + discard steps; the scenario's `_show_discard` (one at a time, never sped up); empty-hand skip rules (`skip_turn`, `_skipped_last`); `Deck.discard_pile`; the destroy path `_destroy_target` / `_can_destroy`; turn-start hooks + `turn_start_steps` (the "draw 2 extra next turn" can use `_turn_draw_count`); **every "bring back" effect plays the `resurrect` sound** (Sean, 2026-11-23); `play_summon(…, goob, sound)`.
+- **Tests:** unit tests in `tests/test_turn_loop.gd`, scenario checks like `_test_destroy_animations`, a fuzz like `tests/fuzz_m6e_destroy.gd`.
+
+### M6e Destroy category (accepted and merged 2026-11-23)
+
+- **Rules approved by Sean:** vault spec `Design/Special Goobs.md` → "M6e Destroy rules", Decision-Log 2026-11-23. Volatile (any Goob, itself included), Spiteful ("Destroy the next Goob that lands on this Goob": any landing, either side, once; the lander's effect still fires, then it is destroyed), Occult (a random Goob from your destroyed pile drops for you; its effect fires), Crushing (below), Brawling (one random side), Smouldering (at the start of the next turn of the player who played it, a random adjacent Goob around where it is then).
+- **Engine (`TurnLoop`):**
+  - Per-Goob state is metadata on a **copy-on-write copy** of the cell's definition (`_mark`, `base_of`): `armed_by` for Spiteful / Smouldering, `doomed` for a Spiteful's lander. It moves with the Goob, and `play_results` simulations never touch the real board. Piles always get the plain definition.
+  - `_check_landing` runs at every landing: drop, Popular, roll (also sliding across the top), bounce, gravity (not riding down), and the Goob that drops into a destroyed cell.
+  - `_play_goob` = land and resolve → `_destroy_doomed` → `_sync_board_statuses` (pills).
+  - `_destroy_target` is the one destroy path (Fat too), with the `_can_destroy` hook for tech; steps carry `fell`.
+  - `turn_start_steps`: `_on_turn_start` runs `_smoulder`; the scenario's `_play_turn_start` shows them after the banner (before your draw / his think delay); `_land_then_continue` skips its sync while they're pending.
+- **AI:** `_drop_moves` also simulates drops onto an armed Spiteful. **View:** `play_destroy` handles source == target; `play_summon(…, goob)` for Occult's art.
+- **Tests:** `tests/test_turn_loop.gd` (10 destroy tests), `tests/test_scenario.gd` `_test_destroy_animations`, fuzz `godot --headless -s res://tests/fuzz_m6e_destroy.gd`.
+- **Claude's calls to confirm in the playtest:** a Spiteful lander that its own effect removed just spends the curse; Smouldering fires before the turn draw and its destroy is win-checked at the end of that turn; Occult reuses Popular's summon animation, with its own resurrect sound (Sean picked A, 2026-11-23).
+- Playtest OK (Sean, 2026-11-23) → merged. Code review fixes and the new `resurrect` sound (Sean picked A) are in.
+
+#### Original plan for this session (kept for reference)
 
 - **Branch:** **`m6e-destroy`** from `main` (Move is merged).
 - **Step 1, before any code:** propose rules, names ("<Adjective> Goob") and one-line card text for each destroy Goob, with edge cases and fizzles. Get Sean's approval, then log it to the Decision-Log and the spec (a new "M6e Destroy rules" section like "M6e Move rules"). **Build nothing before that.** Don't invent mechanics; ask.

@@ -18,6 +18,12 @@ const PATHS: Array[String] = [
 	"res://resources/goobs/blustery_goob.tres",
 	"res://resources/goobs/springy_goob.tres",
 	"res://resources/goobs/fidgety_goob.tres",
+	"res://resources/goobs/volatile_goob.tres",
+	"res://resources/goobs/spiteful_goob.tres",
+	"res://resources/goobs/occult_goob.tres",
+	"res://resources/goobs/crushing_goob.tres",
+	"res://resources/goobs/brawling_goob.tres",
+	"res://resources/goobs/smouldering_goob.tres",
 ]
 
 

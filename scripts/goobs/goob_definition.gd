@@ -17,6 +17,13 @@ enum EffectType {
 	ROLL_HIGHEST, ## Blustery
 	SPRINGY, ## passive: rolling Goobs bounce off it
 	ROLL_IN_ROW, ## Fidgety
+	# M6e Destroy (Sean, 2026-11-23; vault Special Goobs "M6e Destroy rules")
+	DESTROY_RANDOM, ## Volatile: any Goob, itself included
+	DESTROY_LANDER, ## Spiteful, passive: destroys the next Goob that lands on it
+	RESURRECT, ## Occult: one of your destroyed Goobs drops for you
+	DESTROY_BELOW, ## Crushing
+	DESTROY_BESIDE, ## Brawling: one random side
+	DESTROY_LATER, ## Smouldering: a random adjacent Goob at your next turn start
 }
 
 ## Deck-building pool (M6e framework).
@@ -39,7 +46,7 @@ enum Category { NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW }
 @export var flips_vertically: bool = false
 
 ## Effects that do nothing when played; they act while on the board.
-const PASSIVE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY]
+const PASSIVE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.DESTROY_LANDER, EffectType.DESTROY_LATER]
 
 const ART_DIR := "res://assets/goobs/%s/%s_%s"
 

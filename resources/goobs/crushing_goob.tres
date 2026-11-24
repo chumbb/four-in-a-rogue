@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GoobDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/goobs/goob_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "crushing"
+display_name = "Crushing Goob"
+multiplier = 2.0
+effect_description = "Destroy the Goob below this Goob."
+effect_type = 17
+category = 4
+art_id = "vanilla"
+flips_vertically = true

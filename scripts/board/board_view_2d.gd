@@ -415,9 +415,9 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	await _glow(token)
 
 
-## Fat: winds up slowly (heavy), marks `target`, slams into it: hit-stop on a
-## white flash, big shake, the target bursts; the Goobs above it then fall one
-## row (BoardState.destroy_cell).
+## Fat (and every destroy Goob, M6e): winds up slowly (heavy), marks
+## `target`, slams into it: hit-stop on a white flash, big shake, the target
+## bursts; the Goobs above it then fall one row (BoardState.destroy_cell).
 func play_destroy(source: Vector2i, target: Vector2i) -> void:
 	var token: Sprite2D = _tokens.get(target)
 	if token == null:
@@ -426,11 +426,17 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 	# The Fat Goob itself may fall below (target under it): keep hold of it.
 	var source_token: Sprite2D = _tokens.get(source)
 	var source_base := cell_position(source.x, source.y)
+	# Volatile can pick itself, and a Spiteful's lander can have rolled off
+	# it: then the target just bursts (M6e Destroy).
+	var self_hit := source == target
+	if self_hit:
+		source_token = null
 	if animate:
 		await _charge(source, FAT_CHARGE_PX, FAT_CHARGE_SEC)
 		await _telegraph(target)
-		_lunge(source, target, FAT_LUNGE_PX)
-		await _wait(LUNGE_SEC)
+		if not self_hit:
+			_lunge(source, target, FAT_LUNGE_PX)
+			await _wait(LUNGE_SEC)
 	# Re-key: the target leaves, everything above moves down a row.
 	_tokens.erase(target)
 	_token_owner.erase(target)
@@ -478,18 +484,19 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 
 
 ## Popular: winds up, cheers (two hops), and a Vanilla arcs out of it to rest
-## on top of the board over `column`. The caller then drops it with
-## play_drop(), which starts from that same spot.
-func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner) -> void:
+## on top of the board over `column` (`goob` = its art; null = Vanilla; Occult
+## brings back other types; `sound` = resurrect for it). The caller then drops
+## it with play_drop(), which starts from that same spot.
+func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner, goob: GoobDefinition = null, sound: StringName = &"popular") -> void:
 	var token: Sprite2D = _tokens.get(source)
 	if token == null:
 		return
 	if not animate:
-		drop_sound.emit(&"popular", side)
+		drop_sound.emit(sound, side)
 		return
 	await _charge(source)
 	var base := cell_position(source.x, source.y)
-	drop_sound.emit(&"popular", side)
+	drop_sound.emit(sound, side)
 	var cheer := _tween()
 	for i in 2:
 		cheer.tween_method(_set_y.bind(token), base.y, base.y - CHEER_PX, CHEER_SEC * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -497,7 +504,7 @@ func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner) -> v
 	await cheer.finished
 	_settle(source)
 	# The new Goob pops out of it and arcs over the board.
-	var ghost := _make_sprite(_tex(side), "Summoned")
+	var ghost := _make_sprite(goob.still(side) if goob != null else _tex(side), "Summoned")
 	ghost.material = _outline
 	ghost.position = base
 	_fx.add_child(ghost)

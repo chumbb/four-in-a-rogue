@@ -12,6 +12,9 @@ Outputs (Ogg Vorbis, 44.1 kHz, via ffmpeg) in assets/audio/sfx/:
   effect_popular.ogg  Popular: the extra Vanilla pops out (Kenney tile-land)
   effect_fizzle.ogg   no target: water putting out a candle, a soft "tsst" (synthesised,
                       fizzle A1 in make_snes_coin_fizzle_options.py; Sean 2026-11-23)
+  effect_resurrect.ogg  Occult / any "bring back" effect: a breathy swell that rises,
+                      a faint ghostly hum, a soft hollow pop (synthesised, option A in
+                      make_resurrect_options.py; Sean 2026-11-23)
   score_0..8.ogg      scoring ladder: chiptune square blips, one major-scale step each (C5 up)
   score_collapse.ogg  multipliers collapse into the sum: quick chiptune down-up sweep
   score_recognise.ogg the scored Goobs light up: bright chiptune up-arpeggio (G4 C5 E5 G5 C6)
@@ -69,6 +72,11 @@ def write_fizzle():
     write_ogg(opt.fizzle_a1(), "effect_fizzle.ogg")
 
 
+def write_resurrect():
+    import make_resurrect_options as opt  # lazy: that module imports this one
+    write_ogg(opt.option_a(), "effect_resurrect.ogg")
+
+
 def main():
     packs = sys.argv[1]
     out = lambda n: os.path.join(OUT_DIR, n)
@@ -81,6 +89,7 @@ def main():
     ffmpeg("-i", find(packs, "break.ogg"), "-ac", "1", "-ar", str(SR), "-c:a", "libvorbis", "-q:a", "6", out("effect_crunch.ogg"))
     ffmpeg("-i", find(packs, "tile-land.ogg"), "-ac", "1", "-ar", str(SR), "-c:a", "libvorbis", "-q:a", "6", out("effect_popular.ogg"))
     write_fizzle()
+    write_resurrect()
     for i, hz in enumerate(LADDER_HZ):
         write_ogg(square(hz, 0.16), f"score_{i}.ogg")
     sweep = np.concatenate([square(hz, 0.035, vol=0.2) for hz in [1046.5, 783.99, 659.25, 523.25, 659.25, 783.99]])

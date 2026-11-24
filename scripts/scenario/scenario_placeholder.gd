@@ -467,7 +467,7 @@ func set_autoplay(on: bool) -> void:
 ## OPPONENT), then thinks like him before playing it.
 func _run_autoplay_turn() -> void:
 	var deck := _loop.player_deck
-	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs())
+	var move := OpponentAI.choose_move(_loop.board.mirrored(), deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs(), _loop.destroyed_piles(true))
 	if move["column"] == -1:
 		set_autoplay(false) # nothing it can play: auto-play off, your turn as usual
 		_set_input_enabled(true)
@@ -958,8 +958,11 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 		await _play_effect(steps[i], face if on_effect and i == effect_index else &"")
 		if not is_inside_tree():
 			return
-	_board_view.sync_from_board(_loop.board)
-	_refresh_hud() # statuses the effects added or ticked
+	# A turn-start effect (Smouldering) already changed the board: the view
+	# catches up when it plays (_play_turn_start).
+	if _loop.turn_start_steps.is_empty():
+		_board_view.sync_from_board(_loop.board)
+		_refresh_hud() # statuses the effects added or ticked
 	_after_play()
 
 
@@ -974,6 +977,8 @@ func _land_then_continue(column: int, row: int, side: BoardState.CellOwner, roll
 func _reaction_for(_column: int, side: BoardState.CellOwner, roll_path: Array[int], effect: Dictionary) -> StringName:
 	if _loop.phase == TurnLoop.Phase.OVER:
 		return &""
+	# Before the next turn's start effects (Smouldering) changed it.
+	var after: BoardState = _loop.board_after_play if _loop.board_after_play != null else _loop.board
 	var hit_other := false
 	var chain := false
 	if effect.has("target"):
@@ -986,31 +991,35 @@ func _reaction_for(_column: int, side: BoardState.CellOwner, roll_path: Array[in
 		face = &"surprised"
 	elif side == BoardState.CellOwner.OPPONENT:
 		var threes_before := OpponentAI.open_threes(_board_before, side)
-		if hit_other or OpponentAI.open_threes(_loop.board, side) > threes_before:
+		if hit_other or OpponentAI.open_threes(after, side) > threes_before:
 			face = &"happy"
 	else:
 		var his := BoardState.CellOwner.OPPONENT
 		if hit_other:
 			face = &"angry"
-		elif OpponentAI.open_threes(_loop.board, his) < OpponentAI.open_threes(_board_before, his):
+		elif OpponentAI.open_threes(after, his) < OpponentAI.open_threes(_board_before, his):
 			face = &"sad" # disappointed, not angry (Sean, M6c playtest)
 	if face == &"":
 		var other := TurnLoop.enemy_of(side)
-		if OpponentAI.open_lines(_loop.board, other, 2, true) < OpponentAI.open_lines(_board_before, other, 2, true):
+		if OpponentAI.open_lines(after, other, 2, true) < OpponentAI.open_lines(_board_before, other, 2, true):
 			face = &"well_played" if side == BoardState.CellOwner.PLAYER else &"giggle"
 	return face
 
 
-## Whether `effect` set off a chain: Fat's destroy made the Goobs above
-## fall, or a Lopsided / Tipsy rolled after falling (M6e).
+## Whether `effect` set off a chain: a destroy made the Goobs above fall
+## (Crushing's own fall doesn't count), or a Lopsided / Tipsy rolled after
+## falling (M6e).
 func _chained(effect: Dictionary) -> bool:
 	for step in _loop.effect_steps:
 		if step.get("chain", false):
 			return true
-	if not effect.has("target") or effect["kind"] != GoobDefinition.EffectType.DESTROY_ADJACENT:
-		return false
-	var target: Vector2i = effect["target"]
-	return not _loop.board.is_empty(target.x, target.y)
+	# Any destroy this play, also one nested in Occult's returned Goob.
+	for step in _loop.effect_steps:
+		var own_fall := 1 if step.get("kind") == GoobDefinition.EffectType.DESTROY_BELOW else 0
+		if step.get("fell", 0) > own_fall:
+			return true
+	var own := 1 if effect.get("kind") == GoobDefinition.EffectType.DESTROY_BELOW else 0
+	return effect.get("fell", 0) > own
 
 
 ## Shows one TurnLoop effect step: the type's impact on its target (the
@@ -1052,8 +1061,16 @@ func _play_effect_impact(effect: Dictionary, kind: GoobDefinition.EffectType, ce
 	match kind:
 		GoobDefinition.EffectType.FLIP_ADJACENT:
 			await _board_view.play_flip(cell, effect["target"], side)
-		GoobDefinition.EffectType.DESTROY_ADJACENT:
+		GoobDefinition.EffectType.DESTROY_ADJACENT, GoobDefinition.EffectType.DESTROY_RANDOM, GoobDefinition.EffectType.DESTROY_BELOW, GoobDefinition.EffectType.DESTROY_BESIDE, GoobDefinition.EffectType.DESTROY_LANDER, GoobDefinition.EffectType.DESTROY_LATER:
 			await _board_view.play_destroy(cell, effect["target"])
+		GoobDefinition.EffectType.RESURRECT:
+			# Occult: the destroyed Goob arcs out of it and drops for you; its
+			# own landing and effect are the steps after this one.
+			var back: GoobDefinition = effect["returned"]
+			var at: Vector2i = effect["extra"]
+			await _board_view.play_summon(cell, at.x, side, back, &"resurrect")
+			await _board_view.play_drop(at.x, at.y, side, [], back)
+			_sfx.play(&"land", side == BoardState.CellOwner.OPPONENT)
 		GoobDefinition.EffectType.EXTRA_VANILLA_DROP:
 			var extra: Vector2i = effect["extra"]
 			await _board_view.play_summon(cell, extra.x, side)
@@ -1153,6 +1170,9 @@ func _after_play() -> void:
 			await _show_turn_banner(true)
 			if not is_inside_tree():
 				return
+			await _play_turn_start()
+			if not is_inside_tree() or _loop.phase != TurnLoop.Phase.PLAYER_TURN:
+				return
 			await _show_turn_draw()
 			if is_inside_tree() and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
 				_refresh_hud() # statuses ticked at the turn start (also on auto-play turns)
@@ -1160,6 +1180,21 @@ func _after_play() -> void:
 					_run_autoplay_turn()
 				else:
 					_set_input_enabled(true)
+
+
+## Effects that ran at the start of this turn (Smouldering; TurnLoop.
+## turn_start_steps), shown once after the turn banner, before the draw.
+func _play_turn_start() -> void:
+	var steps := _loop.turn_start_steps.duplicate()
+	if steps.is_empty():
+		return
+	_loop.turn_start_steps = [] # shown: never again
+	for step in steps:
+		await _play_effect(step)
+		if not is_inside_tree():
+			return
+	_board_view.sync_from_board(_loop.board)
+	_refresh_hud()
 
 
 ## The player's start-of-turn draw: each drawn Goob pops in big and flies into
@@ -1224,7 +1259,7 @@ func _shake_screen() -> void:
 func _run_opponent_turn() -> void:
 	_set_input_enabled(false)
 	var deck := _loop.opponent_deck
-	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs())
+	var move := OpponentAI.choose_move(_loop.board, deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs(), _loop.destroyed_piles())
 	_opponent_column = move["column"]
 	_opponent_hand_index = move["hand_index"]
 	var wait := _think_sec(move["blocking"] or move["close"])
@@ -1234,6 +1269,9 @@ func _run_opponent_turn() -> void:
 		await _show_turn_banner(false)
 		if not is_inside_tree() or _loop.phase != TurnLoop.Phase.OPPONENT_TURN:
 			return
+	await _play_turn_start()
+	if not is_inside_tree() or _loop.phase != TurnLoop.Phase.OPPONENT_TURN:
+		return
 	_hud.set_base_face(&"thinking")
 	if wait > 0.0:
 		_opponent_timer.start(wait)
