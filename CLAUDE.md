@@ -40,7 +40,7 @@ Roguelike Connect 4 with deck Goobs. **You are the only programmer.** Implement 
 ```text
 Repo: four-in-a-rogue. Read CLAUDE.md, then GameDev vault vertical-slice-v0.1.md (path in §Design source of truth) for rules.
 
-Implement the next incomplete milestone (currently **M6e Move category**: propose each move Goob's rules for Sean's approval first; plan in §Milestones "M6e" + handoff "M6e Move category", Sean 2026-11-23). Rules: vault slice spec + §Locked rules below.
+Implement the next incomplete milestone (currently **M6e Destroy category**: propose each destroy Goob's rules for Sean's approval first; plan in §Milestones "M6e" + handoff "M6e Destroy category", Sean 2026-11-23). Rules: vault slice spec + §Locked rules below.
 Small diff, match existing GDScript style, no new scope. When done: what to press in F5 to verify, then stop.
 ```
 
