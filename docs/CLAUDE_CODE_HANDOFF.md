@@ -118,6 +118,8 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 - **AI:** simulates every outcome (Rowdy capped at 48); flat values follow the Goob a copy becomes.
 - **Tests:** 7 unit tests (`tests/test_turn_loop.gd`, 530 checks), `_test_unique_animations` (`tests/test_scenario.gd`, 697 checks), fuzz `godot --headless -s res://tests/fuzz_m6e_unique.gd` (100 games: 612 fell off, 375 copies, 0 failures; ~80 ms per play incl. AI, check in M7).
 - **Claude's calls to confirm in the playtest:** Rowdy bounces the top Goob of each column *at that moment* (a Goob that just bounced onto the next column covers it, so that column's old top stays); a Nostalgic with nothing to copy becomes a plain Goob for good; a stifled Nostalgic copies nothing; Goobs falling off slide past the edge / drop out the bottom and fade.
+- **Playtest 1 (Sean, 2026-11-24):** Springy changed: a rolling Goob jumps onto a Springy's column only if it is higher; level or lower, it bounces back and rolls on (`_springs_back`; vault Decision-Log "Springy bounce-back").
+- **Code review fixes:** a stifled copy turns plain and is recorded plain; Seismic slides onto a Goob that stayed put count as landings (Spiteful / Bouncy / Slippery); the AI samples Rowdy (48 random outcomes, fixed seed per column) instead of the first 48 in order; "Nothing to copy yet" inspect text; no land thud for an all-fell-off batch. Not committed: the editor's `project.godot` churn.
 - **Test in F5:** F4 → category deck top = Unique → "New game with these", or give yourself / him each Goob; » auto-play to watch the AI.
 
 #### Original plan (for reference)
