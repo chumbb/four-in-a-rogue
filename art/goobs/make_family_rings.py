@@ -1,6 +1,7 @@
 """M6f: family rings, special tints and ongoing-effect sparkles (options for Sean).
 
-Usage: python art/goobs/make_family_rings.py
+Usage: python art/goobs/make_family_rings.py          (option mocks)
+       python art/goobs/make_family_rings.py final    (Sean's picks -> assets/goobs/rings/)
 
 Specials get a darker tint (legendary = Uniquely powerful, darker still) and a
 ring per effect family that repaints the Goob's rim band (the 2-3 px band just
@@ -467,7 +468,20 @@ def mock_round2():
     still_strip.save(os.path.join(OUT, "mock_round2_still.png"))
 
 
+def export_final():
+    """Sean's pick (ring A) -> assets/goobs/rings/<family>_<team>.png."""
+    dst = os.path.join(ROOT, "assets", "goobs", "rings")
+    os.makedirs(dst, exist_ok=True)
+    for fam in FAMILIES:
+        for team in ("blue", "red"):
+            ring(fam, "A", team).save(os.path.join(dst, "%s_%s.png" % (fam, team)))
+    print("wrote", dst)
+
+
 if __name__ == "__main__":
+    if sys.argv[1:] == ["final"]:
+        export_final()
+        sys.exit()
     os.makedirs(OUT, exist_ok=True)
     mock_rings()
     mock_tints()

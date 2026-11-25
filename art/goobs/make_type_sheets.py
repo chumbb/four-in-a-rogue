@@ -134,7 +134,7 @@ TYPES = {
         },
     },
     "convincing": {
-        "title": "Convincing Goob", "tag": "smug Gooberius persuader", "rim": "eyes",
+        "title": "Convincing Goob", "tag": "smug Gooberius persuader", "rim": None,  # was "eyes"; the M6f family ring replaces it (Sean, 2026-11-24)
         "faces": {
             "idle":        ("halflid", ("low", "raised"), "smirk", []),
             "giggle":      ("arc", None, "snicker", []),
@@ -146,7 +146,7 @@ TYPES = {
         },
     },
     "fat": {
-        "title": "Fat Goob", "tag": "Falstaff - jolly red-faced braggart", "rim": "shields",
+        "title": "Fat Goob", "tag": "Falstaff - jolly red-faced braggart", "rim": None,  # was "shields"; the M6f family ring replaces it (Sean, 2026-11-24)
         "faces": {
             "idle":        ("open", None, "fat_smile", FAT),
             "giggle":      ("arc", None, "fat_grin", FAT),
@@ -158,7 +158,7 @@ TYPES = {
         },
     },
     "popular": {
-        "title": "Popular Goob", "tag": "beaming court favourite", "rim": "stars",
+        "title": "Popular Goob", "tag": "beaming court favourite", "rim": None,  # was "stars"; the M6f family ring replaces it (Sean, 2026-11-24)
         "faces": {
             "idle":        ("sparkle", None, "opensmile", ["blush"]),
             "giggle":      ("arc", None, "laugh", ["blush", "twinkle"]),
@@ -170,7 +170,7 @@ TYPES = {
         },
     },
     "plentiful": {
-        "title": "Plentiful Goob", "tag": "motherly provider, worn but still giving", "rim": "wheat",
+        "title": "Plentiful Goob", "tag": "motherly provider, worn but still giving", "rim": None,  # was "wheat"; the M6f family ring replaces it (Sean, 2026-11-24)
         "faces": {
             "idle":        ("kind", None, "warm", ["rosy", "tired", "lashes"]),
             "giggle":      ("u", None, "warmlaugh", ["rosy"]),
