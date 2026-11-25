@@ -62,6 +62,9 @@ enum Category { NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW }
 @export_multiline var effect_description: String = ""
 @export var effect_type: EffectType = EffectType.NONE
 @export var category: Category = Category.NONE
+## Family ring on its rim (M6f, Sean 2026-11-24). NONE = its category's ring;
+## Uniquely powerful ("legendary") Goobs wear another family's ring.
+@export var ring: Category = Category.NONE
 ## Inspect panel lore line (writing session; vault Design/Lore seed.md).
 @export_multiline var flavour_text: String = ""
 ## Art folder under res://assets/goobs/ (Art pass D2): <team>_yaw/frame_00–07
@@ -83,6 +86,67 @@ const NO_LANDING_EFFECT: Array[EffectType] = [EffectType.NONE, EffectType.BOUNCY
 const STEALABLE_EFFECTS: Array[EffectType] = [EffectType.BOUNCY, EffectType.SLIPPERY, EffectType.SPRINGY, EffectType.GENEROUS, EffectType.DRAW_ECHO, EffectType.STALWART, EffectType.HOARDING, EffectType.ROLL_LEFT, EffectType.ROLL_RIGHT]
 
 const ART_DIR := "res://assets/goobs/%s/%s_%s"
+const RING_DIR := "res://assets/goobs/rings/%s_%s.png"
+const RING_NAMES := {Category.MOVE: "move", Category.DESTROY: "destroy", Category.DISCARD: "discard", Category.DRAW: "draw", Category.TECH: "tech"}
+
+
+## Whose look this Goob shows (M6f): a Nostalgic / Mocking that became another
+## Goob looks like it (TurnLoop._become sets "look"); else its plain definition.
+func look() -> GoobDefinition:
+	return get_meta(&"look", get_meta(&"base", self))
+
+
+## Any special (not a plain Goob): tinted darker and ringed.
+func is_special() -> bool:
+	return look().category != Category.NONE
+
+
+## Uniquely powerful: the legendary glint on top of the special look.
+func is_legendary() -> bool:
+	return look().category == Category.UNIQUE
+
+
+## The family whose ring it wears (NONE for a plain Goob).
+func ring_family() -> Category:
+	var l := look()
+	return l.ring if l.ring != Category.NONE else l.category
+
+
+## Its ring overlay for `side` (32 px, same frame as the still); null if none.
+func ring_texture(side: BoardState.CellOwner) -> Texture2D:
+	var family := ring_family()
+	if not RING_NAMES.has(family):
+		return null
+	return load(RING_DIR % [RING_NAMES[family], team_of(side)])
+
+
+## Its sparkle while on the board (M6f, Sean 2026-11-24), from what its effect
+## does now (a stolen or copied effect counts): &"embers" (armed destroy),
+## &"stars" (protection), &"motes" (bonus Goobs), &"chevrons" (bounce),
+## &"crackle_left" / &"crackle_right" / &"crackle" (rolling). Steadfast /
+## Loyal give &"steadfast" / &"loyal": stars only while that status lasts
+## (the board view checks). &"" = none.
+func sparkle() -> StringName:
+	match effect_type:
+		EffectType.DESTROY_LANDER, EffectType.DESTROY_LATER:
+			return &"embers" if get_meta(&"armed_by", BoardState.CellOwner.EMPTY) != BoardState.CellOwner.EMPTY else &""
+		EffectType.STALWART, EffectType.HOARDING:
+			return &"stars"
+		EffectType.STEADFAST:
+			return &"steadfast"
+		EffectType.LOYAL:
+			return &"loyal"
+		EffectType.GENEROUS, EffectType.DRAW_ECHO:
+			return &"motes"
+		EffectType.BOUNCY, EffectType.SPRINGY:
+			return &"chevrons"
+		EffectType.ROLL_LEFT:
+			return &"crackle_left"
+		EffectType.ROLL_RIGHT:
+			return &"crackle_right"
+		EffectType.SLIPPERY:
+			return &"crackle"
+	return &""
 
 
 static func team_of(side: BoardState.CellOwner) -> String:

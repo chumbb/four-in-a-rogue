@@ -7,7 +7,6 @@ extends Control
 ## Cards are kept in the same order as Deck.hand. Hand Goobs are one whole
 ## pixel step bigger than board Goobs (set_pixel_size()).
 
-const OUTLINE_SHADER := preload("res://shaders/pixel_outline.gdshader")
 const GOOB_PX := 32 ## game px
 const FAN_STEP_DEG := 4.0 ## tilt per card away from the centre
 const FAN_SINK_PX := 4.0 ## edge cards sit lower (logical px per step²)
@@ -47,8 +46,6 @@ var _fan_width := 0.0 ## logical px; 0 = whole zone (set_fan_width)
 var _selected := -1
 var _dragged := -1
 var _revealing: Node2D ## the drawn Goob still flying in (layout skips it)
-var _outline: ShaderMaterial
-var _outline_selected: ShaderMaterial
 ## M6c faces: giggle while selected or dragged, worried during the low-time
 ## fuse, idle (blinking) otherwise.
 var _worried := false
@@ -102,8 +99,6 @@ func face_of(index: int) -> StringName:
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_outline = _make_outline(COLOR_OUTLINE)
-	_outline_selected = _make_outline(COLOR_OUTLINE_SELECTED)
 	item_rect_changed.connect(layout.bind(false))
 
 
@@ -171,7 +166,7 @@ func select(index: int) -> void:
 	_selected = index
 	for i in _cards.size():
 		var sprite: Sprite2D = _cards[i].get_node("Sprite")
-		sprite.material = _outline_selected if i == index else _outline
+		GoobLook.dress(sprite, _cards[i].get_meta("goob"), _cards[i].get_meta("side"), COLOR_OUTLINE_SELECTED if i == index else COLOR_OUTLINE)
 	layout(true)
 
 
@@ -390,10 +385,11 @@ func _make_card(goob: GoobDefinition, side := BoardState.CellOwner.PLAYER) -> No
 	var card := Node2D.new()
 	card.name = "Goob"
 	card.set_meta("goob", goob)
+	card.set_meta("side", side)
 	var sprite := Sprite2D.new()
 	sprite.name = "Sprite"
 	sprite.texture = goob.still(side)
-	sprite.material = _outline
+	GoobLook.dress(sprite, goob, side, COLOR_OUTLINE)
 	sprite.scale = Vector2(_px, _px)
 	card.add_child(sprite)
 	if goob.art_id == "vanilla" and goob.effect_type != GoobDefinition.EffectType.NONE:
@@ -429,9 +425,3 @@ func _kill_tween(card: Node2D) -> void:
 		if tween and tween.is_valid():
 			tween.kill()
 
-
-func _make_outline(color: Color) -> ShaderMaterial:
-	var material := ShaderMaterial.new()
-	material.shader = OUTLINE_SHADER
-	material.set_shader_parameter("outline_color", color)
-	return material

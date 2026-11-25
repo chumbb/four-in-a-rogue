@@ -121,6 +121,7 @@ func _initialize() -> void:
 	_test_sinking()
 	_test_rowdy()
 	_test_nostalgic()
+	_test_m6f_looks()
 	_test_mocking()
 	_test_unique_simulated()
 
@@ -2138,6 +2139,7 @@ func _test_nostalgic() -> void:
 	var t := _with_hand([NOSTALGIC, TurnLoop.VANILLA] as Array[GoobDefinition])
 	t.play(3, 0)
 	_check(t.last_effect["fizzled"] and t.goob_at(3, 0).effect_type == GoobDefinition.EffectType.NONE, "nostalgic: no earlier play = a plain Goob")
+	_check(not t.goob_at(3, 0).is_special() and t.goob_at(3, 0).ring_texture(P) == null, "nostalgic: copying a plain Goob looks plain (M6f)")
 	var f := _with_hand([FAT, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
 	f.play(3, 0) # Fat at (3,0), no neighbour
 	f.play(0, 0) # his
@@ -2148,11 +2150,35 @@ func _test_nostalgic() -> void:
 	_check(f.board.is_empty(3, 0) and f.goob_at(3, 0) == null or f.board.get_owner(3, 0) == E, "nostalgic: the copied Fat destroys")
 	_check(f.goob_at(4, 0).effect_type == GoobDefinition.EffectType.DESTROY_ADJACENT and TurnLoop.base_of(f.goob_at(4, 0)) == NOSTALGIC, "nostalgic: becomes it, keeps its own type")
 	_check(f._last_played[P] == FAT, "nostalgic: counts as what it became")
+	var looks := f.goob_at(4, 0)
+	_check(looks.ring_family() == GoobDefinition.Category.DESTROY and looks.is_special() and not looks.is_legendary(), "nostalgic: wears the copied Fat's ring, no glint (M6f)")
 	f.play(1, 0) # his
 	f.player_deck.hand[0] = NOSTALGIC
 	f.play(6, 0)
 	var again := _steps_of(f.effect_steps, GoobDefinition.EffectType.COPY_OWN)
 	_check(again.size() == 1 and again[0]["copied"] == "Fat Goob", "nostalgic: copying a Nostalgic copies what it became")
+
+
+## M6f (Sean, 2026-11-24): family rings, legendary, sparkles.
+func _test_m6f_looks() -> void:
+	var g := func(id: String) -> GoobDefinition: return load("res://resources/goobs/%s_goob.tres" % id)
+	_check(not TurnLoop.VANILLA.is_special() and TurnLoop.VANILLA.ring_texture(P) == null, "looks: a plain Goob has no ring")
+	var rings := {"fickle": GoobDefinition.Category.DISCARD, "fat": GoobDefinition.Category.DESTROY, "greedy": GoobDefinition.Category.DRAW,
+		"sinister": GoobDefinition.Category.MOVE, "stalwart": GoobDefinition.Category.TECH, "seismic": GoobDefinition.Category.MOVE,
+		"rowdy": GoobDefinition.Category.MOVE, "sinking": GoobDefinition.Category.DESTROY, "convincing": GoobDefinition.Category.TECH,
+		"popular": GoobDefinition.Category.DRAW, "nostalgic": GoobDefinition.Category.TECH, "mocking": GoobDefinition.Category.TECH}
+	for id: String in rings:
+		var goob: GoobDefinition = g.call(id)
+		_check(goob.ring_family() == rings[id] and goob.ring_texture(O) != null, "looks: %s wears the %s ring" % [id, rings[id]])
+		_check(goob.is_legendary() == (goob.category == GoobDefinition.Category.UNIQUE), "looks: %s legendary only if Uniquely powerful" % id)
+	var sparkles := {"bouncy": &"chevrons", "springy": &"chevrons", "slippery": &"crackle", "lopsided": &"crackle_left", "tipsy": &"crackle_right",
+		"generous": &"motes", "plentiful": &"motes", "stalwart": &"stars", "hoarding": &"stars", "steadfast": &"steadfast", "loyal": &"loyal",
+		"spiteful": &"", "fat": &"", "defiant": &""}
+	for id: String in sparkles:
+		_check((g.call(id) as GoobDefinition).sparkle() == sparkles[id], "looks: %s sparkle %s" % [id, sparkles[id]])
+	var armed: GoobDefinition = (g.call("smouldering") as GoobDefinition).duplicate()
+	armed.set_meta(&"armed_by", P)
+	_check(armed.sparkle() == &"embers", "looks: an armed Smouldering has embers")
 
 
 func _test_mocking() -> void:

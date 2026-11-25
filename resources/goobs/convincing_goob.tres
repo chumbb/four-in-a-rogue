@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Flip a random adjacent enemy Goob to your side."
 effect_type = 1
 category = 1
+ring = 2
 art_id = "convincing"
 flavour_text = "Gooberius called this persuasion. Its neighbours call it rude."

@@ -216,6 +216,7 @@ func _ready() -> void:
 	_layout_table.call_deferred()
 	_start_loop()
 	_board_view.goob_lookup = _loop.goob_at
+	_board_view.status_lookup = _loop.has_status
 	_board_view.sync_from_board(_loop.board)
 	# The player's first-turn draw is revealed by _after_play(), so the fan
 	# starts without it.

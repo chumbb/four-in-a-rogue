@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "The bottom row falls out."
 effect_type = 39
 category = 1
+ring = 4
 art_id = "vanilla"
 flips_vertically = true

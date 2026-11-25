@@ -70,6 +70,7 @@ func _ready() -> void:
 ## (2× the hand Goob, slice §2B).
 func open(goob: GoobDefinition, side: BoardState.CellOwner, size_px: float) -> void:
 	_goob_rect.texture = goob.still(side)
+	GoobLook.dress(_goob_rect, goob, side)
 	_goob_rect.custom_minimum_size = Vector2(size_px, size_px)
 	_name_label.text = goob.display_name
 	_effect_label.text = goob.effect_description

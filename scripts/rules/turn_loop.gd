@@ -1498,6 +1498,8 @@ func _become(cell: Vector2i, source: GoobDefinition) -> void:
 	if copy == null:
 		return
 	copy.effect_type = source.effect_type
+	# It looks like what it became: that Goob's ring, tint and glint (M6f).
+	copy.set_meta(&"look", source.look())
 	if source.effect_type == GoobDefinition.EffectType.NONE:
 		copy.effect_description = "Copied a plain Goob: no effect."
 	else:
