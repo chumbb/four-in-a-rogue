@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23), Draw, Tech and Uniquely powerful (2026-11-24): M6e is done. M6f pre-M7 fixes accepted and merged (2026-11-24). Sean then added **M6g diagnostics & play data** before M7 (2026-11-25): built on `m6g-telemetry`, waiting for his check (accounts, keys, a Windows export). Next: M6g check → M7; Art F / G deferred to after M7 (Sean, 2026-11-24).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23), Draw, Tech and Uniquely powerful (2026-11-24): M6e is done. M6f pre-M7 fixes accepted and merged (2026-11-24). Sean then added **M6g diagnostics & play data** before M7 (2026-11-25): accepted and merged 2026-11-25. Next: M7; Art F / G deferred to after M7 (Sean, 2026-11-24).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -50,8 +50,8 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
 | 9 | **M6e** special Goobs (Sean 2026-11-23) ✅ | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ✅ → Tech ✅ → Uniquely powerful ✅ (M6e done) | all |
 | 10 | **M6f** pre-M7 fixes ✅ | Last-minute fixes and changes; **Sean plans the list at the start of the session** | M6e |
-| 11 | **M6g** diagnostics & play data (Sean 2026-11-25) ← **check pending** | Sentry crashes/errors + PostHog play/perf events from exports; Send diagnostics option; Goob win rate / pair / held stats tool | M6f |
-| 12 | **M7** (required) ← next after M6g | Android build on Pixel 11 (both renderers), Pixel 8 if available; telemetry from the phone | M6g |
+| 11 | **M6g** diagnostics & play data (Sean 2026-11-25) ✅ | Sentry crashes/errors + PostHog play/perf events from exports; Send diagnostics option; Goob win rate / pair / held stats tool | M6f |
+| 12 | **M7** (required) ← **next** | Android build on Pixel 11 (both renderers), Pixel 8 if available; telemetry from the phone | M6g |
 | 13 | **Art F / Art G** (deferred to after M7, Sean 2026-11-24) | Special Goob faces; effect icons (starts with a grill) | M7 |
 
 After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placeholders).
@@ -81,7 +81,7 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6e Tech** | ✅ Accepted and merged 2026-11-24 |
 | **M6e Uniquely powerful** | ✅ Accepted and merged 2026-11-24 |
 | **M6f** Pre-M7 fixes | ✅ Accepted and merged 2026-11-24 |
-| **M6g** Diagnostics & play data | Built on `m6g-telemetry` 2026-11-25; Sean's check pending (see "M6g" below) |
+| **M6g** Diagnostics & play data | ✅ Accepted and merged 2026-11-25 |
 
 ### M6e Discard category (accepted and merged 2026-11-23)
 
@@ -246,7 +246,7 @@ APIs the category sessions use:
 - Art F / G are **deferred to after M7**, so the hand's name labels under Vanilla-art specials (`HandView._place_name`) and the text pills stay for now.
 - Open nits from earlier code reviews, in case Sean wants any: the AI's threat check ignores your Territorial-locked column; an Inspiring-triggered hit gets no portrait reaction; the AI's flat draw values ignore the hand cap and a forced draw after a skip; a jinx toast is lost when the jinx skips the turn. Uncommitted editor churn in `project.godot` (dropped default-valued settings) is still in Sean's working copy.
 
-### M6g Diagnostics & play data ← **built on `m6g-telemetry`, playtest pending** (Sean, 2026-11-25; before M7)
+### M6g Diagnostics & play data ✅ (accepted by Sean and merged to `main` 2026-11-25)
 
 - **Decisions (Sean, 2026-11-25; vault Decision-Log):** testers he knows only, so it's kept light (no store privacy forms yet). **Sentry** handles crashes and script errors, **PostHog** handles play and performance events. "Send diagnostics" in Options is **on by default**, with no prompt. Only **exported builds** send (debug + release, tagged by `environment`); F5 and the editor's headless runs never do. Sean wants **every Goob's win rate, win rates of Goob combinations, and held in hand vs played at once**.
 - **Code:**
@@ -498,7 +498,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently: help Sean check **M6g** on `m6g-telemetry` (keys, Windows export, PostHog + Sentry), fix what he finds, merge on his OK; then **M7** on-device check, see "M7" above).
+3. Do the next item in CLAUDE.md §Milestones (currently: **M7** on-device check, see "M7" above).
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, Goobs beyond the M6e roster).
 6. When done: exact F5 playtest steps for Sean, then stop.
@@ -530,4 +530,4 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 
 ---
 
-*Last updated: 2026-11-25 (M6g diagnostics & play data built on `m6g-telemetry`: Sentry + PostHog, Send diagnostics option, Goob stats tool, export presets; Sean's check pending, then M7. Earlier: M6f accepted and merged 2026-11-24. Earlier: M6e Draw accepted and merged with code review fixes; next = M6e Tech. Earlier: M6e Discard accepted and merged; next = M6e Draw. Earlier: M6e Destroy accepted and merged with code review fixes and the resurrect sound. Earlier: M6e Move and framework accepted and merged; M6d accepted and merged after the sound grill)*
+*Last updated: 2026-11-25 (M6g accepted and merged; next = M7. Earlier: M6g diagnostics & play data built on `m6g-telemetry`: Sentry + PostHog, Send diagnostics option, Goob stats tool, export presets; Sean's check pending, then M7. Earlier: M6f accepted and merged 2026-11-24. Earlier: M6e Draw accepted and merged with code review fixes; next = M6e Tech. Earlier: M6e Discard accepted and merged; next = M6e Draw. Earlier: M6e Destroy accepted and merged with code review fixes and the resurrect sound. Earlier: M6e Move and framework accepted and merged; M6d accepted and merged after the sound grill)*

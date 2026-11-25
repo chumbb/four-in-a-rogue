@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="GoobDefinition" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="GoobDefinition" format=3 uid="uid://de4ggx22vak8w"]
 
-[ext_resource type="Script" path="res://scripts/goobs/goob_definition.gd" id="1"]
+[ext_resource type="Script" uid="uid://c1takk6rcprwn" path="res://scripts/goobs/goob_definition.gd" id="1"]
 
 [resource]
 script = ExtResource("1")
@@ -11,5 +11,5 @@ effect_description = "Drop a Goob into a random column."
 effect_type = 3
 category = 1
 ring = 6
-art_id = "popular"
 flavour_text = "A favourite at Gooberina's court. Wherever it lands, others follow."
+art_id = "popular"
