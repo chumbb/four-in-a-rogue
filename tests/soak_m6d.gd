@@ -1,7 +1,7 @@
 extends SceneTree
 ## M6d smoke (not part of the regular suites): plays whole games in real time
 ## with the starter deck, animations on and the real AI, and fails on a
-## softlock (no Goob landed for 20 s) or a stuck end screen. The player taps a
+## softlock (no Goob landed for 20 s) or a stuck end screen. The player drags a
 ## random hand Goob into a winning column, else one that blocks the
 ## opponent's four, else a random legal column; "timeout" games never touch
 ## the screen so every player turn times out (2 s timer) and rolls.
@@ -117,11 +117,11 @@ func _goobs_on_board(board: BoardState) -> int:
 	return n
 
 
-## Tap style: select a random hand Goob, tap a random legal column twice.
+## Drags a random hand Goob onto a winning, blocking or random legal column.
 func _play_random(scenario: Control, loop: TurnLoop) -> void:
 	var legal: Array[int] = []
 	for column in BoardState.COLUMNS:
-		if not loop.board.column_full(column):
+		if not loop.column_blocked(column): # full or Territorial-locked
 			legal.append(column)
 	if legal.is_empty():
 		return
@@ -139,11 +139,14 @@ func _play_random(scenario: Control, loop: TurnLoop) -> void:
 		column = block
 	scenario._last_tap_key = ""
 	var hand: HandView = scenario.get_node("%PlayerHand")
-	_tap(hand.slot_center(index))
+	var start := hand.slot_center(index)
 	var rect: Rect2 = scenario.column_hit_rect(column)
 	var pos := Vector2(rect.get_center().x, rect.end.y - rect.size.y * 0.3)
-	_tap(pos)
-	_tap(pos)
+	# Drag-only play (M6f): pick the Goob up, drag it over the column, let go.
+	_touch(start, true)
+	_drag(start + Vector2(0, -40))
+	_drag(pos)
+	_touch(pos, false)
 
 
 func _wins(board: BoardState, column: int, side: BoardState.CellOwner) -> bool:
@@ -152,9 +155,14 @@ func _wins(board: BoardState, column: int, side: BoardState.CellOwner) -> bool:
 	return test.find_winner() == side
 
 
-func _tap(pos: Vector2) -> void:
-	for pressed in [true, false]:
-		var ev := InputEventScreenTouch.new()
-		ev.position = pos
-		ev.pressed = pressed
-		root.push_input(ev, true)
+func _touch(pos: Vector2, pressed: bool) -> void:
+	var ev := InputEventScreenTouch.new()
+	ev.position = pos
+	ev.pressed = pressed
+	root.push_input(ev, true)
+
+
+func _drag(pos: Vector2) -> void:
+	var ev := InputEventScreenDrag.new()
+	ev.position = pos
+	root.push_input(ev, true)

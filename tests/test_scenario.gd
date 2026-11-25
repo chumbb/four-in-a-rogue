@@ -56,7 +56,7 @@ func _run() -> void:
 	await _test_roll_animation()
 	await _test_hand_at_start()
 	await _test_column_without_selection_ignored()
-	await _test_tap_aims_then_drops()
+	await _test_board_tap_never_plays()
 	await _test_drag_drop_and_cancel()
 	await _test_small_move_is_tap()
 	await _test_double_tap_inspects_hand()
@@ -245,11 +245,19 @@ func _select_hand(scenario: Control, index := 0) -> void:
 	_tap(hand.slot_center(index))
 
 
-## Tap style: select a hand Goob, tap the column to aim, tap again to drop.
+## Picks hand Goob `index` up and drags it over `column`; the finger stays down.
+func _grab(scenario: Control, column: int, index := 0) -> void:
+	scenario._last_tap_key = ""
+	var start := _hand_view(scenario).slot_center(index)
+	_touch(start, true)
+	_drag(start + Vector2(0, -40))
+	_drag(_col_pos(scenario, column))
+
+
+## The only way to play (M6f): drag a hand Goob onto the column and let go.
 func _play_col(scenario: Control, column: int, index := 0) -> void:
-	_select_hand(scenario, index)
-	_tap(_col_pos(scenario, column))
-	_tap(_col_pos(scenario, column))
+	_grab(scenario, column, index)
+	_touch(_col_pos(scenario, column), false)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -296,9 +304,8 @@ func _test_hold_slide_release() -> void:
 	var scenario := await _make(0.0)
 	var board := _board(scenario)
 	var flash: ColorRect = scenario._flash
-	_select_hand(scenario)
-	_touch(_col_pos(scenario, 1), true)
-	_check(flash.visible, "press shows the flash")
+	_grab(scenario, 1)
+	_check(flash.visible, "dragging over a column shows the flash")
 	_check(flash.color.b > flash.color.r, "player flash is blue")
 	var lane: Rect2 = scenario.get_node("%AimLane").get_global_rect()
 	var rect1: Rect2 = scenario.column_hit_rect(1)
@@ -323,8 +330,7 @@ func _test_hold_slide_release() -> void:
 func _test_release_off_board_cancels() -> void:
 	var scenario := await _make(0.0)
 	var board := _board(scenario)
-	_select_hand(scenario)
-	_touch(_col_pos(scenario, 2), true)
+	_grab(scenario, 2)
 	_drag(_off_board(scenario))
 	_check(not scenario._flash.visible, "flash hides off the board")
 	_check(not _view(scenario).is_preview_visible(), "floating Goob hides off the board")
@@ -347,8 +353,7 @@ func _test_full_column_entry() -> void:
 	var view := _view(scenario)
 	_fill_column(scenario, 3)
 	var before := board.to_debug_string()
-	_select_hand(scenario)
-	_touch(_col_pos(scenario, 3), true)
+	_grab(scenario, 3)
 	_check(scenario._toast._label.text == Toast.MSG_COLUMN_FULL, "toast says Column full")
 	_check(scenario._toast.modulate.a > 0.9, "toast visible on entry")
 	var toast_mid: Vector2 = scenario._toast.get_global_rect().get_center()
@@ -416,9 +421,7 @@ func _test_touch_during_opponent_turn() -> void:
 func _test_second_finger_and_mouse_ignored() -> void:
 	var scenario := await _make(0.0)
 	var board := _board(scenario)
-	_select_hand(scenario)
-	_tap(_col_pos(scenario, 1)) # aim; pressing it again drops on release
-	_touch(_col_pos(scenario, 1), true, 0)
+	_grab(scenario, 1) # finger 0 drags a Goob over column 1
 	_touch(_col_pos(scenario, 4), true, 1)
 	_touch(_col_pos(scenario, 4), false, 1)
 	_check(_count(board, P) == 0, "second finger does nothing")
@@ -469,8 +472,7 @@ func _test_timeout_is_obvious() -> void:
 	root.add_child(scenario)
 	await process_frame
 	var board := _board(scenario)
-	_select_hand(scenario)
-	_touch(_col_pos(scenario, 4), true)
+	_grab(scenario, 4)
 	await create_timer(0.3).timeout
 	_check(scenario._toast._label.text == "Time's up!", "timeout shows Time's up!")
 	_check(scenario._toast.modulate.a > 0.9, "Time's up! toast visible")
@@ -494,8 +496,7 @@ func _test_timeout_is_obvious() -> void:
 func _test_timeout_under_finger() -> void:
 	var scenario := await _make(5.0, true, 0.2)
 	var board := _board(scenario)
-	_select_hand(scenario)
-	_touch(_col_pos(scenario, 2), true)
+	_grab(scenario, 2)
 	await create_timer(0.35).timeout
 	_check(board.get_owner(2, 0) == P, "timeout plays into the held column")
 	_check(not scenario._flash.visible, "flash cleared at timeout")
@@ -508,8 +509,7 @@ func _test_timeout_rolls_off_full_column() -> void:
 	var scenario := await _make(5.0, true, 0.2)
 	var board := _board(scenario)
 	_fill_column(scenario, 6)
-	_select_hand(scenario)
-	_touch(_col_pos(scenario, 6), true)
+	_grab(scenario, 6)
 	await create_timer(0.35).timeout
 	# Column 6 is the right edge: rolling right bounces, rolling left goes 5.
 	_check(board.get_owner(5, 0) == P, "held full edge column rolls into 5")
@@ -631,8 +631,7 @@ func _test_roll_animation() -> void:
 	_check(right == [6, 7, 5, 4], "roll path bounces off the right edge (got %s)" % str(right))
 	_check(left == [6, 5, 4], "roll path left (got %s)" % str(left))
 	_check(open == [2], "open column: no roll (got %s)" % str(open))
-	_select_hand(scenario)
-	_touch(_col_pos(scenario, 6), true)
+	_grab(scenario, 6)
 	await create_timer(0.3).timeout
 	_check(board.get_owner(4, 0) == P, "timeout Goob lands in column 4")
 	var token: Sprite2D = view._tokens[Vector2i(4, 0)]
@@ -1146,24 +1145,24 @@ func _test_column_without_selection_ignored() -> void:
 	await _free(scenario)
 
 
-func _test_tap_aims_then_drops() -> void:
+## M6f (Sean, 2026-11-24): with a Goob selected, board touches never play or
+## aim; only a drag from the hand plays.
+func _test_board_tap_never_plays() -> void:
 	var scenario := await _make(5.0)
 	var board := _board(scenario)
 	var hand := _hand_view(scenario)
 	_select_hand(scenario, 2)
 	_check(scenario._selected == 2 and hand.selected() == 2, "tap selects hand Goob 2")
-	var chosen: GoobDefinition = scenario._loop.player_deck.hand[2]
 	_tap(_col_pos(scenario, 1))
-	_check(_count(board, P) == 0, "quick tap on a column only aims")
-	_check(scenario._flash.visible and _view(scenario).is_preview_visible(), "aim shows flash + float after the tap")
-	_tap(_col_pos(scenario, 4))
-	_check(_count(board, P) == 0, "tapping another column moves the aim")
-	_check(scenario._flash.get_global_rect().is_equal_approx(scenario.column_hit_rect(4)), "flash moved to column 4")
-	_tap(_col_pos(scenario, 4))
-	_check(board.get_owner(4, 0) == P, "tapping the aimed column again drops")
-	_check(scenario._loop.goob_at(4, 0) == chosen, "the selected Goob was played")
-	_check(hand.count() == 2, "played Goob left the fan")
-	_check(not scenario._flash.visible, "aim cleared after the drop")
+	_check(not scenario._flash.visible and not _view(scenario).is_preview_visible(), "m6f: a column tap does not aim")
+	_tap(_col_pos(scenario, 1))
+	_check(_count(board, P) == 0, "m6f: tapping a column twice does not play")
+	_touch(_col_pos(scenario, 4), true)
+	_drag(_col_pos(scenario, 5))
+	await create_timer(0.3).timeout
+	_touch(_col_pos(scenario, 5), false)
+	_check(_count(board, P) == 0, "m6f: hold + slide + release on the board does not play")
+	_check(scenario._selected == 2 and hand.selected() == 2, "m6f: board touches keep the selection")
 	await _free(scenario)
 
 
@@ -1245,11 +1244,13 @@ func _test_double_tap_inspects_board() -> void:
 			"inspect shows the Goob's flavour line")
 	_tap(cell_pos)
 	_check(not scenario._inspect.is_open(), "tap closes it")
-	_select_hand(scenario)
+	_select_hand(scenario, 1)
 	_tap(cell_pos)
 	_tap(cell_pos)
-	_check(not scenario._inspect.is_open(), "with a Goob selected a board double tap does not inspect")
-	_check(board.get_owner(2, 1) == P, "... it aims and drops instead")
+	_check(scenario._inspect.is_open(), "m6f: with a Goob selected a board double tap still inspects")
+	_check(board.is_empty(2, 1), "m6f: ... and plays nothing")
+	_tap(cell_pos)
+	_check(not scenario._inspect.is_open() and scenario._selected == 1, "m6f: closing inspect keeps the selection")
 	await _free(scenario)
 
 
@@ -1376,19 +1377,19 @@ func _test_sounds() -> void:
 	var hand := _hand_view(scenario)
 	_select_hand(scenario, 0)
 	_check(_heard(scenario, &"select"), "sound: select")
-	_tap(_col_pos(scenario, 1))
-	_check(_heard(scenario, &"column_tick"), "sound: first column touch clicks")
-	_tap(_col_pos(scenario, 2))
-	_check(_heard(scenario, &"column_tick"), "sound: column change tick")
 	_tap(hand.slot_center(0))
 	_check(scenario._inspect.is_open() and _heard(scenario, &"inspect_open"), "sound: inspect open")
 	_tap(_off_board(scenario))
 	_check(_heard(scenario, &"inspect_close"), "sound: inspect close")
-	scenario._last_tap_key = ""
-	var start := hand.slot_center(1)
-	_touch(start, true)
-	_drag(start + Vector2(0, -40))
+	scenario._sfx.history.clear()
+	await process_frame
+	_grab(scenario, 1, 1)
 	_check(_heard(scenario, &"drag"), "sound: drag pickup")
+	_check(_heard(scenario, &"column_tick"), "sound: first column entry clicks")
+	scenario._sfx.history.clear()
+	await process_frame
+	_drag(_col_pos(scenario, 2))
+	_check(_heard(scenario, &"column_tick"), "sound: column change tick")
 	_drag(_off_board(scenario))
 	_touch(_off_board(scenario), false)
 	_check(_heard(scenario, &"cancel"), "sound: cancel fly-back")
@@ -1401,8 +1402,7 @@ func _test_sounds() -> void:
 	scenario = await _make(5.0, true, 0.2)
 	_fill_column(scenario, 6)
 	_fill_column(scenario, 5)
-	_select_hand(scenario)
-	_touch(_col_pos(scenario, 6), true)
+	_grab(scenario, 6)
 	await create_timer(0.3).timeout
 	_check(_heard(scenario, &"times_up"), "sound: Time's up!")
 	_touch(_col_pos(scenario, 6), false)
@@ -1411,8 +1411,7 @@ func _test_sounds() -> void:
 	await _wait_input(scenario)
 	_fill_column(scenario, 6)
 	_fill_column(scenario, 5)
-	_select_hand(scenario)
-	_touch(_col_pos(scenario, 6), true)
+	_grab(scenario, 6)
 	await create_timer(1.2).timeout
 	_check(_heard(scenario, &"roll"), "sound: roll")
 	_touch(_col_pos(scenario, 6), false)
