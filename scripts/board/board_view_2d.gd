@@ -435,6 +435,8 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 		source_token = null
 	if animate:
 		await _charge(source, FAT_CHARGE_PX, FAT_CHARGE_SEC)
+		# Marked for destruction: it sees it coming (Sean, M6f).
+		set_face(target, &"surprised")
 		await _telegraph(target)
 		if not self_hit:
 			_lunge(source, target, FAT_LUNGE_PX)
