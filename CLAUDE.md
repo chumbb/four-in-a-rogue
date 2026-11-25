@@ -87,7 +87,7 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 | Drop | Column → lowest empty cell |
 | Win | 4 in a row (H/V/diag), either side |
 | Turn | Draw 1 (if deck not empty), play **exactly 1** Goob; no skip, no mana or cost — every Goob in hand is always playable |
-| Hand | Start **2** after shuffle, so the first turn draw makes 3 (Sean, 2026-11-19; was 3); **max 5** (Sean, 2026-11-09; was 10). A draw that would make a 6th is **skipped** (also Greedy's draw 2; Greedy was named Plentiful before M6e Draw); those Goobs stay on top of the deck. Skipped draw → "Hand full" toast + short whole-screen shake (~0.25 s, even on Skip) |
+| Hand | Start **2** after shuffle, so the first turn draw makes 3 (Sean, 2026-11-19; was 3); **max 7** (Sean, M6f 2026-11-24; was 5, before that 10; past 5 the hand Goobs drop one pixel step to board size, and with 7 the fan widens to the side insets to keep ≥ 96 px per Goob). A draw that would make an 8th is **skipped** (also Greedy's draw 2; Greedy was named Plentiful before M6e Draw); those Goobs stay on top of the deck. Skipped draw → "Hand full" toast + short whole-screen shake (~0.25 s, even on Skip) |
 | Deck | 21 Goobs each side, identical; shuffle once; **no reshuffle** |
 | Empty deck | No draws; may still play from hand |
 | Out of Goobs | A side with no Goobs (hand + deck) takes no more turns; the other side plays on until the board is full. A four during those turns still ends the scenario |
@@ -100,6 +100,8 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 | Destroyed Goob | Goobs above it **fall** (no gaps; `BoardState.destroy_cell`) |
 
 ### Starter deck (each side)
+
+**M6f (Sean, 2026-11-24; supersedes the M6e roll below where they differ):** two deck types, **50/50 per scenario, the same for both sides**: **10 specials + 11 Goobs** or **14 specials + 7**. Pools follow the **family rings**: top pool = **Tech family** (Tech + Convincing, Nostalgic, Mocking), 1–2 (14-special deck 2–3); Seismic, Rowdy roll in Move, Sinking in Destroy, Popular with Draw; two random main pools share the rest; **Draw 0–1 slots per main pool**; **≤ 2 legendaries per deck**. F4 can force the type (`DeckBuilder.DeckType`).
 
 **M6e (Sean, 2026-11-23; supersedes the 17 + 4 deck and the ×0.5 values):** each side rolls its own deck per scenario: **11 Goobs + 10 specials** = 1–2 from **uniquely powerful + tech** (one pool), then **2 random categories from move / destroy / discard**, 4–5 each; **draw** Goobs fill **0–1 slots in one of those pools and 0–2 in the other**; no duplicate types while the pool has enough; a draw replay reshuffles the same deck. **Every special ×2, a plain Goob ×1.** **Vanilla Goob is shown as "Goob"** (ids stay `vanilla`). Roster + categories: vault `Design/Special Goobs.md` "2026-11-23 update".
 
@@ -378,6 +380,8 @@ Grill + decisions: vault Decision-Log 2026-11-23, spec `Design/Special Goobs.md`
 - [ ] One branch (`m6f-fixes` from `main`) of last-minute fixes and changes, listed by Sean (2026-11-24); playtest, then merge. Built, playtest pending:
   - [x] A Goob marked for destruction shows its **surprised** face while it blinks
   - [x] **Specials tinted to 90 %**; **family ring** over the rim in the family colour (Move teal, Destroy charcoal, Discard purple, Draw green, Tech steel), replacing the Art D1 rim motifs; **legendary** (Uniquely powerful) Goobs glint and wear another family's ring (Seismic, Rowdy Move; Sinking Destroy; Convincing, Nostalgic, Mocking Tech; Popular Draw; a copycat takes the copied Goob's look). `GoobLook` (`scripts/goobs/goob_look.gd`), rings `assets/goobs/rings/` (`art/goobs/make_family_rings.py final`)
+  - [x] **Desktop Esc** closes the topmost menu (debug panel → Options → Quit confirm → pause → inspect); nothing open = toggles pause; title: closes Options (`EscapeKey`, `scripts/ui/escape_key.gd`)
+  - [x] **Deck types** 10 + 11 / 14 + 7 and family-ring pools (`DeckBuilder`); **hand max 7** with smaller hand Goobs past 5 (`HandView.goob_px()`), names staggered when they'd overlap
   - [x] **Sparkles** on the board by effect: embers (armed Spiteful / Smouldering), stars (Stalwart, Hoarding, active Steadfast / Loyal), motes (Generous, Plentiful), up-chevrons (Bouncy, Springy), crackle (Lopsided anticlockwise, Tipsy clockwise, Slippery both). Spec: vault `Design/Special Goobs.md` "Look on the board"
 
 ### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)

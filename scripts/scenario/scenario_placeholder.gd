@@ -363,6 +363,7 @@ func _build_debug_panel() -> void:
 		GameFlow.rolled_decks = {}
 		GameFlow.replay_after_draw())
 	add_child(_debug)
+	add_child(EscapeKey.new(handle_escape))
 
 
 func _on_debug_toggle() -> void:
@@ -533,6 +534,32 @@ func _place_banner_band() -> void:
 	_pills.set_band(_hud.bottom(), _aim_lane.get_global_rect().position.y)
 
 
+## Desktop Esc (Sean, M6f 2026-11-24): closes the topmost menu (debug panel,
+## Options, Quit confirm, pause, inspect) like its own button; with nothing
+## open it pauses, when the Pause button could. True when it used the key.
+func handle_escape() -> bool:
+	if _debug.is_open():
+		_on_debug_toggle()
+		return true
+	if _pause.is_open():
+		if _pause.options().is_open():
+			_pause.options()._on_back()
+		elif _pause.is_confirming():
+			_pause._on_cancel()
+		else:
+			_pause.resume()
+		return true
+	if _inspect.is_open():
+		_inspect.close()
+		_sfx.play(&"inspect_close")
+		return true
+	if _end_overlay.visible or _reviewing or GameFlow.is_fading():
+		return false
+	_end_touch() # a gesture can't finish while the tree is paused
+	_on_pause_pressed()
+	return true
+
+
 func _on_pause_pressed() -> void:
 	if _end_overlay.visible or GameFlow.is_fading():
 		return
@@ -585,7 +612,7 @@ func _show_turn_banner(player: bool) -> void:
 ## on its top, and the fan stays within it.
 func _layout_table() -> void:
 	var hand_px := _board_view.hand_px()
-	_hand.set_pixel_size(hand_px)
+	_hand.set_pixel_size(hand_px, _board_view.board_px())
 	var tex_size := _stump.texture.get_size()
 	var ui_scale := float(get_window().size.x) / get_viewport_rect().size.x
 	# Goob bottoms (hand_view slot) sit on the stump's seat line.

@@ -73,6 +73,12 @@ static func is_press_start(event: InputEvent) -> bool:
 ## _input, not _unhandled_input: tapping anywhere on the screen counts, except
 ## on the Options / Quit buttons.
 func _input(event: InputEvent) -> void:
+	# Desktop Esc closes Options (Sean, M6f 2026-11-24).
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if _options_panel.is_open() and not OS.has_feature("mobile"):
+			get_viewport().set_input_as_handled()
+			_options_panel._on_back()
+		return
 	if _started or GameFlow.is_fading() or _options_panel.is_open() or not is_press_start(event):
 		return
 	if event is InputEventScreenTouch and PixelStage.touches_button(self, event.position):

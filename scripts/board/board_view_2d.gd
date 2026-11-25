@@ -1128,6 +1128,11 @@ func cell_at(pos: Vector2) -> Vector2i:
 
 ## Logical px per game px for hand Goobs: one whole physical step bigger than
 ## the board (5× when the board is 4×; GDD Art direction).
+## Logical px per game px of the board (hand Goobs shrink to it past 5).
+func board_px() -> float:
+	return _k
+
+
 func hand_px() -> float:
 	return _k * (pixel_scale + 1) / pixel_scale
 

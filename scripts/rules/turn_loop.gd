@@ -153,8 +153,12 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	turn_draw_steps = []
 	result = Result.NONE
 	if deck.is_empty():
-		player_goobs = DeckBuilder.roll(rng, forced)
-		opponent_goobs = DeckBuilder.roll(rng, forced)
+		# One deck type for both sides (M6f, Sean 2026-11-24).
+		var both := forced.duplicate()
+		if not both.has("type"):
+			both["type"] = DeckBuilder.roll_type(rng)
+		player_goobs = DeckBuilder.roll(rng, both)
+		opponent_goobs = DeckBuilder.roll(rng, both)
 	else:
 		player_goobs = deck
 		opponent_goobs = opponent_deck_goobs if not opponent_deck_goobs.is_empty() else deck

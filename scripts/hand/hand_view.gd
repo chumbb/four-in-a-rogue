@@ -13,6 +13,11 @@ const FAN_SINK_PX := 4.0 ## edge cards sit lower (logical px per step²)
 const GAP_MIN := 16.0 ## logical px between Goobs
 const SIDE_INSET := 24.0 ## keep clear of the Android back swipe
 const LIFT_PX := 4 ## hand px a selected Goob rises (slice §2B)
+## More cards than this and the Goobs drop one whole pixel step (board size) so
+## a hand of up to Deck.HAND_MAX fits (Sean, M6f 2026-11-24).
+const FULL_SIZE_MAX := 5
+## Tap width floor (slice §2B): a fan step below it widens to the side insets.
+const TOUCH_MIN := 96.0
 const LAYOUT_SEC := 0.18
 ## Drawn Goob: pops in big at the screen centre, holds, flies to the fan.
 const REVEAL_POP_SEC := 0.15
@@ -42,6 +47,7 @@ var speed_scale := 1.0
 
 var _cards: Array[Node2D] = []
 var _px := 1.0 ## logical px per game px
+var _small_px := 0.0 ## the same, one whole step down (board size); 0 = never shrink
 var _fan_width := 0.0 ## logical px; 0 = whole zone (set_fan_width)
 var _selected := -1
 var _dragged := -1
@@ -111,12 +117,16 @@ func set_fan_width(width: float) -> void:
 	layout(false)
 
 
-func set_pixel_size(px: float) -> void:
+## `small_px`: the Goob size for hands over FULL_SIZE_MAX (0 = keep `px`).
+func set_pixel_size(px: float, small_px: float = 0.0) -> void:
 	_px = px
-	for card in _cards:
-		(card.get_node("Sprite") as Sprite2D).scale = Vector2(_px, _px)
-		_place_name(card)
+	_small_px = small_px
 	layout(false)
+
+
+## Logical px per game px of the hand Goobs now (smaller when the hand is big).
+func goob_px() -> float:
+	return _small_px if _cards.size() > FULL_SIZE_MAX and _small_px > 0.0 else _px
 
 
 ## Replaces all cards with `goobs` (no animation).
@@ -137,7 +147,7 @@ func count() -> int:
 
 ## Index of the hand Goob under a viewport position, or -1.
 func goob_at(pos: Vector2) -> int:
-	var half := GOOB_PX * _px * 0.5
+	var half := GOOB_PX * goob_px() * 0.5
 	# Last card wins: later cards draw on top.
 	for i in range(_cards.size() - 1, -1, -1):
 		var centre := get_global_transform() * _slot(i).origin
@@ -339,6 +349,11 @@ func goobs() -> Array[GoobDefinition]:
 
 ## Moves every card (except one being dragged) to its fan slot.
 func layout(animated: bool) -> void:
+	var px := goob_px()
+	for card in _cards:
+		(card.get_node("Sprite") as Sprite2D).scale = Vector2(px, px)
+		_place_name(card)
+	_stagger_names()
 	for i in _cards.size():
 		var card := _cards[i]
 		if i == _dragged or card == _revealing:
@@ -363,14 +378,18 @@ func layout(animated: bool) -> void:
 ## selected.
 func _slot(index: int) -> Transform2D:
 	var n := _cards.size()
-	var goob := GOOB_PX * _px
+	var goob := GOOB_PX * goob_px()
 	var mid := (n - 1) * 0.5
 	var step := goob + GAP_MIN * 2.0
 	if n > 1:
-		var span := size.x - SIDE_INSET * 2.0
+		var full_span := size.x - SIDE_INSET * 2.0
+		var span := full_span
 		if _fan_width > 0.0:
 			span = minf(span, _fan_width)
 		step = minf(step, (span - goob) / (n - 1))
+		if step < TOUCH_MIN:
+			# A big hand spreads past the hand prop to keep every Goob tappable.
+			step = minf(goob + GAP_MIN * 2.0, maxf(step, (full_span - goob) / (n - 1)))
 	var offset := index - mid
 	var x := size.x * 0.5 + offset * step
 	var y := LIFT_PX * _px + 8.0 + goob * 0.5 + offset * offset * FAN_SINK_PX
@@ -416,7 +435,26 @@ func _place_name(card: Node2D) -> void:
 		# under the card's Node2D).
 		label.add_theme_font_size_override("font_size", UiTheme.font_size(get_window(), 1) if is_inside_tree() else UiTheme.NATIVE_SIZE)
 		label.size = Vector2(NAME_WIDTH, 0.0)
-		label.position = Vector2(-NAME_WIDTH * 0.5, GOOB_PX * _px * 0.5 + NAME_GAP)
+		label.position = Vector2(-NAME_WIDTH * 0.5, GOOB_PX * goob_px() * 0.5 + NAME_GAP)
+
+
+## Names under neighbouring Goobs that would run into each other (a big hand,
+## long names): every second one drops a line (M6f).
+func _stagger_names() -> void:
+	if _cards.size() < 2:
+		return
+	var step := absf(_slot(1).origin.x - _slot(0).origin.x)
+	var widest := 0.0
+	for card in _cards:
+		var label := card.get_node_or_null("Name") as Label
+		if label != null:
+			widest = maxf(widest, label.get_combined_minimum_size().x)
+	if widest + NAME_GAP * 4.0 <= step:
+		return
+	for i in range(1, _cards.size(), 2):
+		var label := _cards[i].get_node_or_null("Name") as Label
+		if label != null:
+			label.position.y += label.get_combined_minimum_size().y
 
 
 func _kill_tween(card: Node2D) -> void:

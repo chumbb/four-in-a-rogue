@@ -59,4 +59,13 @@ func _run() -> void:
 	for i in 28:
 		await create_timer(0.1).timeout
 		await _shot(dir, "m6f_%d" % i)
+	# Hands of 6 and 7 (Goobs one pixel step smaller, fan widened if needed).
+	for n in [6, 7]:
+		var hand: Array[GoobDefinition] = []
+		for id in ["fat", "sinister", "fickle", "generous", "stalwart", "seismic", "bouncy"].slice(0, n):
+			hand.append(load(G % id))
+		loop.player_deck.hand.assign(hand)
+		scenario._hand.rebuild(hand)
+		await create_timer(0.3).timeout
+		await _shot(dir, "hand_%d" % n)
 	quit()

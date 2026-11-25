@@ -100,6 +100,7 @@ func _run() -> void:
 	await _test_debug_discard_opponent()
 	await _test_debug_no_stale_opponent_plan()
 	await _test_debug_panel_f4()
+	await _test_escape_closes_menus()
 	await _test_autoplay_plays_for_player()
 	await _test_autoplay_off_during_think()
 	await _test_autoplay_cancels_drag()
@@ -1275,7 +1276,22 @@ func _test_hand_full_toast() -> void:
 	_check(loop.last_draw_hand_full, "hand full: draw skipped")
 	_check(scenario._toast._label.text == "Hand full", "hand full: toast")
 	_check(_heard(scenario, &"hand_full"), "hand full: sound")
-	_check(_hand_view(scenario).count() == Deck.HAND_MAX, "hand full: fan holds 5")
+	_check(_hand_view(scenario).count() == Deck.HAND_MAX, "hand full: fan holds a full hand")
+	# M6f: past 5 the hand Goobs drop one pixel step and stay tappable.
+	var hand := _hand_view(scenario)
+	var board_view: BoardView2D = scenario.get_node("%BoardView")
+	_check(is_equal_approx(hand.goob_px(), board_view.board_px()) and hand.goob_px() < board_view.hand_px(), "hand full: 7 Goobs at board size (%.2f)" % hand.goob_px())
+	var ui := scenario.get_viewport_rect().size.x / 720.0
+	var gaps_ok := true
+	for i in hand.count() - 1:
+		var step := (hand.slot_center(i + 1).x - hand.slot_center(i).x) / ui
+		gaps_ok = gaps_ok and step >= HandView.TOUCH_MIN - 0.5 and step >= HandView.GOOB_PX * hand.goob_px() / ui - 0.5
+	_check(gaps_ok, "hand full: 7 Goobs, no overlap, each >= 96 px to tap")
+	var five: Array[GoobDefinition] = []
+	five.assign(loop.player_deck.hand.slice(0, 5))
+	hand.rebuild(five)
+	_check(is_equal_approx(hand.goob_px(), board_view.hand_px()), "hand: 5 Goobs at full hand size")
+	hand.rebuild(loop.player_deck.hand)
 	await process_frame
 	_check(scenario.position.x != 0.0, "hand full: screen shakes")
 	await create_timer(0.4).timeout
@@ -1664,15 +1680,17 @@ func _test_debug_give_full_hand_replaces_oldest() -> void:
 	var v: GoobDefinition = TurnLoop.VANILLA
 	var convincing: GoobDefinition = load("res://resources/goobs/convincing_goob.tres")
 	var fat: GoobDefinition = load("res://resources/goobs/fat_goob.tres")
-	var full: Array[GoobDefinition] = [convincing, v, v, v, v]
+	var full: Array[GoobDefinition] = [convincing]
+	while full.size() < Deck.HAND_MAX:
+		full.append(v)
 	loop.player_deck.hand.assign(full)
 	_hand_view(scenario).rebuild(loop.player_deck.hand)
 	scenario.debug_give(fat, P)
 	var hand := loop.player_deck.hand
-	_check(hand.size() == Deck.HAND_MAX, "debug give: hand stays at 5 (got %d)" % hand.size())
+	_check(hand.size() == Deck.HAND_MAX, "debug give: hand stays full (got %d)" % hand.size())
 	_check(hand.size() > 0 and hand[-1] == fat, "debug give: the given Goob is last")
 	_check(not hand.has(convincing), "debug give: the oldest Goob is gone")
-	_check(_hand_view(scenario).count() == 5, "debug give: the fan shows 5 (got %d)" % _hand_view(scenario).count())
+	_check(_hand_view(scenario).count() == Deck.HAND_MAX, "debug give: the fan shows a full hand (got %d)" % _hand_view(scenario).count())
 	await _free(scenario)
 
 
@@ -1725,6 +1743,44 @@ func _key(keycode: Key) -> void:
 
 ## F4 opens the panel (tree paused) and closes it; its buttons are ≥ 96 px and
 ## act on the chosen side; "New game with these" forces the categories.
+## M6f (Sean, 2026-11-24): desktop Esc closes the topmost menu; with nothing
+## open it toggles pause.
+func _test_escape_closes_menus() -> void:
+	var scenario := await _make(5.0)
+	var pause = scenario._pause # untyped: PauseMenu needs the autoloads
+	_key(KEY_ESCAPE)
+	await process_frame
+	_check(pause.is_open() and paused, "esc: nothing open = pause")
+	_key(KEY_ESCAPE)
+	await process_frame
+	_check(not pause.is_open() and not paused, "esc: again = resume")
+	pause.open()
+	pause.button("Options").pressed.emit()
+	_check(pause.options().is_open(), "esc: options open")
+	_key(KEY_ESCAPE)
+	await process_frame
+	_check(not pause.options().is_open() and pause.is_open(), "esc: options -> back to the pause menu")
+	pause.button("Quit").pressed.emit()
+	_check(pause.is_confirming(), "esc: quit confirm shown")
+	_key(KEY_ESCAPE)
+	await process_frame
+	_check(pause.is_open() and not pause.is_confirming(), "esc: quit confirm -> cancel")
+	_key(KEY_ESCAPE)
+	await process_frame
+	_check(not pause.is_open() and not paused, "esc: pause menu -> resume")
+	scenario._inspect.open(TurnLoop.VANILLA, P, 200.0)
+	_key(KEY_ESCAPE)
+	await process_frame
+	_check(not scenario._inspect.is_open() and not pause.is_open(), "esc: closes inspect (and doesn't pause)")
+	_key(KEY_F4)
+	await process_frame
+	_key(KEY_ESCAPE)
+	await process_frame
+	_check(not scenario._debug.is_open() and not paused and not pause.is_open(), "esc: closes the debug panel")
+	await _free(scenario)
+	_check(not paused, "esc: never left paused")
+
+
 func _test_debug_panel_f4() -> void:
 	var scenario := await _make(5.0)
 	var panel: DebugPanel = scenario._debug
@@ -1744,13 +1800,13 @@ func _test_debug_panel_f4() -> void:
 	await process_frame
 	_check(not panel.is_open() and not paused, "debug panel: F4 again closes it and unpauses")
 	panel.open()
-	panel.button("Tech").pressed.emit()
+	panel.button("14 + 7").pressed.emit()
 	panel.button("Move + Discard").pressed.emit()
 	var forced := panel.forced()
-	_check(forced.get("top", -1) == GoobDefinition.Category.TECH, "debug panel: top pool forced")
+	_check(forced.get("type", -1) == DeckBuilder.DeckType.LOADED, "debug panel: deck type forced")
 	var main: Array = forced.get("main", [])
 	_check(main.size() == 2 and main.has(GoobDefinition.Category.MOVE) and main.has(GoobDefinition.Category.DISCARD), "debug panel: main pair forced")
-	panel.button("Auto top").pressed.emit()
+	panel.button("Auto deck").pressed.emit()
 	panel.button("Auto main").pressed.emit()
 	_check(panel.forced().is_empty(), "debug panel: Auto clears the forcing")
 	panel.button("Close").pressed.emit()

@@ -4,7 +4,7 @@ extends Control
 ## release build). A plain panel over a scrim that pauses the tree like the
 ## pause menu: pick a side (You / Opponent), give that side any roster Goob,
 ## discard a random Goob from its hand, add a test status, or force the
-## category deck roll (top pool Auto / Unique / Tech, main pool Auto or a pair
+## category deck roll (deck type Auto / 10 + 11 / 14 + 7, main pool Auto or a pair
 ## of Move / Destroy / Discard) and start a new game with it. The scenario
 ## does the work through the signals.
 
@@ -20,7 +20,7 @@ const BUTTON_H := 96.0
 const GAP := 8
 const EDGE := 24
 const C := GoobDefinition.Category
-const TOP_CHOICES: Dictionary = {"Auto top": -1, "Unique": C.UNIQUE, "Tech": C.TECH}
+const TYPE_CHOICES: Dictionary = {"Auto deck": -1, "10 + 11": DeckBuilder.DeckType.CLASSIC, "14 + 7": DeckBuilder.DeckType.LOADED}
 const MAIN_CHOICES: Dictionary = {
 	"Auto main": [],
 	"Move + Destroy": [C.MOVE, C.DESTROY],
@@ -30,8 +30,8 @@ const MAIN_CHOICES: Dictionary = {
 
 var _buttons: Dictionary = {} ## label -> Button
 var _side := BoardState.CellOwner.PLAYER
-## The picked TOP_CHOICES / MAIN_CHOICES labels.
-var _top := "Auto top"
+## The picked TYPE_CHOICES / MAIN_CHOICES labels.
+var _type := "Auto deck"
 var _main := "Auto main"
 var _box: VBoxContainer
 
@@ -81,8 +81,8 @@ func _build() -> void:
 		close()
 		discard_requested.emit(_side))
 	_button("Add test status", grid).pressed.connect(func() -> void: status_requested.emit(_side))
-	_label("Deck top pool")
-	_choice_row(TOP_CHOICES.keys(), 3, func(label: String) -> void: _top = label)
+	_label("Deck type")
+	_choice_row(TYPE_CHOICES.keys(), 3, func(label: String) -> void: _type = label)
 	_label("Deck main pool")
 	_choice_row(MAIN_CHOICES.keys(), 2, func(label: String) -> void: _main = label)
 	grid = _grid(2)
@@ -173,8 +173,8 @@ func button(label: String) -> Button:
 ## The chosen categories as DeckBuilder's `forced` ({} = all Auto).
 func forced() -> Dictionary:
 	var result := {}
-	if TOP_CHOICES[_top] != -1:
-		result["top"] = TOP_CHOICES[_top]
+	if TYPE_CHOICES[_type] != -1:
+		result["type"] = TYPE_CHOICES[_type]
 	if not MAIN_CHOICES[_main].is_empty():
 		result["main"] = MAIN_CHOICES[_main].duplicate()
 	return result
@@ -182,17 +182,17 @@ func forced() -> Dictionary:
 
 ## Shows `categories` (GameFlow.debug_forced_categories) as the picked choices.
 func set_forced(categories: Dictionary) -> void:
-	_top = "Auto top"
+	_type = "Auto deck"
 	_main = "Auto main"
-	for label: String in TOP_CHOICES:
-		if categories.has("top") and TOP_CHOICES[label] == categories["top"]:
-			_top = label
+	for label: String in TYPE_CHOICES:
+		if categories.has("type") and TYPE_CHOICES[label] == categories["type"]:
+			_type = label
 	var main: Array = categories.get("main", [])
 	for label: String in MAIN_CHOICES:
 		var pair: Array = MAIN_CHOICES[label]
 		if main.size() == 2 and pair.size() == 2 and main.has(pair[0]) and main.has(pair[1]):
 			_main = label
-	_show_picked(_top)
+	_show_picked(_type)
 	_show_picked(_main)
 
 
