@@ -228,7 +228,11 @@ APIs the category sessions use:
 - **Debug (debug builds only):** F4 `DebugPanel` (`scripts/debug/debug_panel.gd`): give a Goob, discard random, add status, category deck + "New game with these". Scenario helpers `debug_give`, `debug_discard_random`, `debug_add_status`.
 - **Auto-play:** "»" button right of Pause; Settings row "Auto-play button" (`Settings.autoplay_button`, default On). Off at win/lose and on quit to title.
 
-### M6f Pre-M7 fixes ← **next** (fresh session; branch `m6f-fixes` from `main`)
+### M6f Pre-M7 fixes ← **next** (branch `m6f-fixes` from `main`; built 2026-11-24, playtest pending)
+
+- **Sean's list (2026-11-24), built:** surprised face on a destroy target while it blinks; specials tinted to 90 % + a family ring (option A colour band) replacing the D1 rim motifs; legendary glint and ring map; board sparkles by effect kind. Spec: vault `Design/Special Goobs.md` "Look on the board"; decisions in the Decision-Log "2026-11-24 — M6f list".
+- **Code:** `GoobLook.dress()` gives any Goob sprite its material (`pixel_outline.gdshader` `tint` / `glint` / `grow`) and a `Ring` child sprite; the board hides the ring while a token is `busy` (spin frames). `GoobDefinition.look()` (meta `look`, set by `TurnLoop._become`) drives ring / tint / glint; `sparkle()` the sparkle kind. Sparkles: `BoardView2D._update_sparkles` / `_draw_sparkles` on one `Sparkles` layer in `_fx`, from the view's own token Goobs (they lag the rules state during animations on purpose); Steadfast / Loyal check `status_lookup` (`TurnLoop.has_status`).
+- **Check:** `godot -s res://tests/capture_m6f.gd -- <dir>` stages every family on the board and takes 28 shots.
 
 - Sean, 2026-11-24: one more branch before M7 for last-minute fixes and changes. **He plans the list at the start of that session**: ask for it, don't pick items, build nothing before he has. Then the usual: small commits, playtest, code review, merge.
 - Art F / G are **deferred to after M7**, so the hand's name labels under Vanilla-art specials (`HandView._place_name`) and the text pills stay for now.

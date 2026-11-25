@@ -156,6 +156,7 @@ Card text = immediate effect only. Random targets: game picks the target first, 
 ### Tech
 
 - Red vs blue: **enemy red, player blue**.
+- **Special looks (M6f, Sean 2026-11-24):** specials at 90 % brightness + a family ring; legendary Goobs glint; ongoing effects sparkle on the board by kind (vault `Design/Special Goobs.md` "Look on the board").
 - Grid truth: `scripts/rules/board_state.gd`. View: `scenes/board/board_view_2d.tscn` / `scripts/board/board_view_2d.gd` (`BoardView2D`, upright **2D pixel board**, M3.6; replaced the 3D board). Outline shader: `shaders/pixel_outline.gdshader`.
 - **Presentation (all 2D, Sean 2026-11-09):** layers back to front: painted biome background → board back → Goobs → board front (hole mask) → effects → UI.
 - **Pixel layer:** board, Goobs and aim lane on a **270×480 game-pixel canvas**, **32 px Goobs/columns**, shown at the **largest whole-number scale that fits screen width in physical pixels** (4× at 1080 wide), nearest filtering; Goob positions snap to whole game pixels while moving. Background and Control UI stay on the 720 base.
@@ -374,7 +375,10 @@ Grill + decisions: vault Decision-Log 2026-11-23, spec `Design/Special Goobs.md`
 
 ### M6f — Pre-M7 fixes and changes (Sean, 2026-11-24; before M7)
 
-- [ ] One branch (`m6f-fixes` from `main`) of last-minute fixes and changes. **Sean plans the list at the start of the session**: don't pick items or build anything before he does. Same rules as other milestones: playtest, then merge.
+- [ ] One branch (`m6f-fixes` from `main`) of last-minute fixes and changes, listed by Sean (2026-11-24); playtest, then merge. Built, playtest pending:
+  - [x] A Goob marked for destruction shows its **surprised** face while it blinks
+  - [x] **Specials tinted to 90 %**; **family ring** over the rim in the family colour (Move teal, Destroy charcoal, Discard purple, Draw green, Tech steel), replacing the Art D1 rim motifs; **legendary** (Uniquely powerful) Goobs glint and wear another family's ring (Seismic, Rowdy Move; Sinking Destroy; Convincing, Nostalgic, Mocking Tech; Popular Draw; a copycat takes the copied Goob's look). `GoobLook` (`scripts/goobs/goob_look.gd`), rings `assets/goobs/rings/` (`art/goobs/make_family_rings.py final`)
+  - [x] **Sparkles** on the board by effect: embers (armed Spiteful / Smouldering), stars (Stalwart, Hoarding, active Steadfast / Loyal), motes (Generous, Plentiful), up-chevrons (Bouncy, Springy), crackle (Lopsided anticlockwise, Tipsy clockwise, Slippery both). Spec: vault `Design/Special Goobs.md` "Look on the board"
 
 ### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)
 
