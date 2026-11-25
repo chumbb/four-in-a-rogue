@@ -30,6 +30,8 @@ func _run() -> void:
 	_test_diagnostics_off(t, settings)
 	_test_perf(t)
 	_test_uuid(t)
+	_test_web_sentry(t, settings)
+	_test_web_error_logger()
 	_test_deck_held_turns()
 	_test_turn_loop_turns()
 
@@ -138,6 +140,44 @@ func _test_uuid(t: Node) -> void:
 	var id: String = t.new_uuid()
 	_check(id.length() == 36 and id[14] == "4" and id.count("-") == 4, "UUID v4 shape: %s" % id)
 	_check(t.new_uuid() != id, "UUIDs differ")
+
+
+## Web builds: Sentry's browser SDK through JavaScriptBridge (faked here).
+func _test_web_sentry(t: Node, settings: Node) -> void:
+	_reset(t)
+	t.force_enabled = false
+	var js: Array[String] = []
+	t.js_runner = func(code: String) -> void: js.append(code)
+	_check(not t.web_sentry_allowed(), "browser Sentry never starts from the editor")
+	t.report_error("x", "y", "z")
+	_check(js.is_empty(), "no error forwarded while browser Sentry is off")
+	var logger := WebErrorLogger.new()
+	logger.report = t.report_error
+	t.set("_web_logger", logger)
+	OS.add_logger(logger)
+	t.web_sentry_started = true
+	t.report_error('Bad "quote"', "res://a.gd:3 (f)", "")
+	_check(js.size() == 1 and js[0].contains("captureMessage") and js[0].contains(JSON.stringify('Bad "quote"')), "error forwarded, message escaped")
+	t.track(&"screen")
+	_check(js.size() == 2 and js[1].contains("addBreadcrumb") and js[1].contains("\"screen\""), "events are breadcrumbs")
+	settings.set_diagnostics(false)
+	_check(not t.web_sentry_started and js[js.size() - 1].contains("on = false"), "Send diagnostics Off stops browser Sentry")
+	settings.set_diagnostics(true)
+	t.js_runner = Callable()
+	_reset(t)
+
+
+func _test_web_error_logger() -> void:
+	var got: Array = []
+	var logger := WebErrorLogger.new()
+	logger.report = func(message: String, where: String, _stack: String) -> void: got.append([message, where])
+	var no_trace: Array[ScriptBacktrace] = []
+	logger._log_error("f", "res://a.gd", 3, "code", "why", false, Logger.ERROR_TYPE_SCRIPT, no_trace)
+	_check(got.size() == 1 and got[0][0] == "why" and got[0][1] == "res://a.gd:3 (f)", "script error reported with its place")
+	logger._log_error("f", "res://a.gd", 3, "code", "", false, Logger.ERROR_TYPE_ERROR, no_trace)
+	_check(got.size() == 2 and got[1][0] == "code", "no rationale = the error code")
+	logger._log_error("f", "res://a.gd", 3, "code", "w", false, Logger.ERROR_TYPE_WARNING, no_trace)
+	_check(got.size() == 2, "warnings skipped")
 
 
 func _test_deck_held_turns() -> void:
