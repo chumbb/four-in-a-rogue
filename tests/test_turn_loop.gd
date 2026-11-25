@@ -121,6 +121,7 @@ func _initialize() -> void:
 	_test_sinking()
 	_test_rowdy()
 	_test_nostalgic()
+	_test_m6f_looks()
 	_test_mocking()
 	_test_unique_simulated()
 
@@ -346,10 +347,10 @@ func _test_hand_cap_skips_draw() -> void:
 	var d := Deck.shuffled(StarterDeck.build(), _seeded(3))
 	d.draw(Deck.HAND_MAX)
 	var top: GoobDefinition = d.draw_pile.back()
-	_check(d.hand.size() == 5, "cap: hand 5")
+	_check(d.hand.size() == Deck.HAND_MAX, "cap: hand full")
 	_check(d.draw_blocked_by_hand(1), "cap: draw 1 blocked by hand")
 	_check(d.draw(1).is_empty(), "cap: draw skipped")
-	_check(d.hand.size() == 5 and d.draw_pile.size() == 16, "cap: nothing moved")
+	_check(d.hand.size() == Deck.HAND_MAX and d.draw_pile.size() == 21 - Deck.HAND_MAX, "cap: nothing moved")
 	_check(d.draw_pile.back() == top, "cap: Goob stays on top")
 	d.take(0)
 	_check(d.draw_blocked_by_hand(2), "cap: draw 2 with 1 room is blocked")
@@ -358,12 +359,13 @@ func _test_hand_cap_skips_draw() -> void:
 	var t := TurnLoop.new()
 	t.start(false, _seeded(4), _vanilla())
 	t.player_deck.draw(2) # player hand 4
-	t.player_deck.hand.append(t.player_deck.hand[0]) # 5 (as after Plentiful)
+	while t.player_deck.hand.size() < Deck.HAND_MAX:
+		t.player_deck.hand.append(t.player_deck.hand[0]) # full (as after Greedy)
 	var pile := t.player_deck.draw_pile.size()
 	t.play(0) # opponent plays; player's turn begins with a full hand
 	_check(t.phase == TurnLoop.Phase.PLAYER_TURN, "cap turn: player's turn")
 	_check(t.last_draw_hand_full and t.last_draw.is_empty(), "cap turn: hand full flagged, nothing drawn")
-	_check(t.player_deck.hand.size() == 5 and t.player_deck.draw_pile.size() == pile, "cap turn: hand and pile unchanged")
+	_check(t.player_deck.hand.size() == Deck.HAND_MAX and t.player_deck.draw_pile.size() == pile, "cap turn: hand and pile unchanged")
 
 
 func _test_empty_deck_no_draw() -> void:
@@ -524,12 +526,12 @@ func _test_greedy_draws_two() -> void:
 	_check(not t.last_effect["hand_full"] and not t.last_effect["fizzled"], "greedy: not full, not fizzled")
 	# Hand cap: room for 1 → draws 1 and flags hand full.
 	t = _with_special(GREEDY)
-	t.player_deck.hand.append(TurnLoop.VANILLA)
-	t.player_deck.hand.append(TurnLoop.VANILLA) # 5
-	t.play(0, 0) # 4 after playing
+	while t.player_deck.hand.size() < Deck.HAND_MAX:
+		t.player_deck.hand.append(TurnLoop.VANILLA) # full
+	t.play(0, 0) # one room after playing
 	drawn = t.last_effect["drawn"]
 	_check(drawn.size() == 1 and t.last_effect["hand_full"], "greedy: hand cap draws 1, flags full")
-	_check(t.player_deck.hand.size() == 5, "greedy: hand capped at 5")
+	_check(t.player_deck.hand.size() == Deck.HAND_MAX, "greedy: hand capped")
 	# Deck short: draws what remains; an empty deck fizzles.
 	t = _with_special(GREEDY)
 	t.player_deck.draw_pile.resize(1)
@@ -617,45 +619,77 @@ func _count_category(goobs: Array[GoobDefinition], category: GoobDefinition.Cate
 	return n
 
 
+func _count_family(goobs: Array[GoobDefinition], family: GoobDefinition.Category) -> int:
+	var n := 0
+	for g in goobs:
+		if g.category != GoobDefinition.Category.NONE and g.ring_family() == family:
+			n += 1
+	return n
+
+
+func _count_legendary(goobs: Array[GoobDefinition]) -> int:
+	var n := 0
+	for g in goobs:
+		if g.is_legendary():
+			n += 1
+	return n
+
+
+## M6f (Sean, 2026-11-24): CLASSIC 10 specials (top 1-2), LOADED 14 (top 2-3);
+## pools by family ring; DRAW 0-1 per main pool; <= 2 legendaries.
 func _test_deck_builder_shape() -> void:
 	var roster := GoobRoster.all()
-	var ok := true
-	for s in range(1, 201):
+	var T := GoobDefinition.Category.TECH
+	for type: DeckBuilder.DeckType in [DeckBuilder.DeckType.CLASSIC, DeckBuilder.DeckType.LOADED]:
+		var specials: int = DeckBuilder.SPECIALS[type]
+		var top_range: Vector2i = DeckBuilder.TOP_RANGE[type]
+		var ok := true
+		var saw_draw := false
+		var saw_legendary := false
+		for s in range(1, 201):
+			var goobs := DeckBuilder.roll(_seeded(s), {"type": type})
+			var top := _count_family(goobs, T)
+			var draws := _count_family(goobs, GoobDefinition.Category.DRAW)
+			var legendary := _count_legendary(goobs)
+			saw_draw = saw_draw or draws > 0
+			saw_legendary = saw_legendary or legendary > 0
+			var from_roster := true
+			for g in goobs:
+				from_roster = from_roster and roster.has(g)
+			ok = ok and goobs.size() == 21 and _count_category(goobs, GoobDefinition.Category.NONE) == 21 - specials
+			ok = ok and top >= top_range.x and top <= top_range.y and draws <= 2 and legendary <= DeckBuilder.LEGENDARY_MAX and from_roster
+		_check(ok, "deck builder %d: 21 Goobs, %d specials, top %d-%d, DRAW <= 2, legendaries <= 2 (seeds 1..200)" % [type, specials, top_range.x, top_range.y])
+		_check(saw_draw and saw_legendary, "deck builder %d: DRAW Goobs and legendaries do appear" % type)
+	var types := {}
+	for s in range(1, 101):
 		var goobs := DeckBuilder.roll(_seeded(s))
-		var top := _count_category(goobs, GoobDefinition.Category.UNIQUE) + _count_category(goobs, GoobDefinition.Category.TECH)
-		var specials_ok := true
-		for g in goobs:
-			specials_ok = specials_ok and roster.has(g)
-		ok = ok and goobs.size() == 21 and _count_category(goobs, GoobDefinition.Category.NONE) >= 11 and top >= 1 and top <= 2 and specials_ok
-	_check(ok, "deck builder: 21 Goobs, >= 11 plain, 1-2 UNIQUE/TECH, all from the roster (seeds 1..200)")
-	var has_top := true
-	for s in range(1, 201):
-		var goobs := DeckBuilder.roll(_seeded(s), {"top": GoobDefinition.Category.UNIQUE})
-		var n := _count_category(goobs, GoobDefinition.Category.UNIQUE)
-		has_top = has_top and n >= 1 and n <= 2
-	_check(has_top, "deck builder: forced UNIQUE gives 1-2 UNIQUE Goobs")
+		types[21 - _count_category(goobs, GoobDefinition.Category.NONE)] = true
+	_check(types.has(10) and types.has(14) and types.size() == 2, "deck builder: unforced rolls give both deck types")
 
 
 func _test_deck_builder_main_pools() -> void:
 	var D := GoobDefinition.Category.DESTROY
 	var X := GoobDefinition.Category.DISCARD
+	var M := GoobDefinition.Category.MOVE
 	var ok := true
-	var saw_draw := false
-	for s in range(1, 201):
-		var goobs := DeckBuilder.roll(_seeded(s), {"main": [D, X], "top": GoobDefinition.Category.UNIQUE})
-		var top := _count_category(goobs, GoobDefinition.Category.UNIQUE)
-		var draws := _count_category(goobs, GoobDefinition.Category.DRAW)
-		var fat := _count_category(goobs, D)
-		var discards := _count_category(goobs, X)
-		var plain := _count_category(goobs, GoobDefinition.Category.NONE)
-		saw_draw = saw_draw or draws > 0
-		# 10 specials: top (plain while UNIQUE has no Goobs) + DESTROY pool +
-		# DISCARD pool (filled in M6e Discard) + DRAW.
-		var top_slots := top + plain - 11
-		ok = ok and draws <= 3 and top_slots >= 1 and top_slots <= 2 and fat >= 2 and discards >= 2
-		ok = ok and top_slots + fat + draws + discards == 10
-	_check(ok, "deck builder: main pools + top = 10 slots, DRAW <= 3, DESTROY and DISCARD filled (seeds 1..200)")
-	_check(saw_draw, "deck builder: DRAW Goobs do appear in pools")
+	var families_ok := true
+	for type: DeckBuilder.DeckType in [DeckBuilder.DeckType.CLASSIC, DeckBuilder.DeckType.LOADED]:
+		for s in range(1, 201):
+			var goobs := DeckBuilder.roll(_seeded(s), {"main": [D, X], "type": type})
+			var top := _count_family(goobs, GoobDefinition.Category.TECH)
+			var draws := _count_family(goobs, GoobDefinition.Category.DRAW)
+			var destroys := _count_family(goobs, D)
+			var discards := _count_family(goobs, X)
+			ok = ok and destroys >= 3 and discards >= 3 and top + destroys + discards + draws == DeckBuilder.SPECIALS[type]
+			# Legendaries roll with their ring: no Move family here at all.
+			families_ok = families_ok and _count_family(goobs, M) == 0
+	_check(ok, "deck builder: top + DESTROY + DISCARD + DRAW pools fill the specials (seeds 1..200, both types)")
+	_check(families_ok, "deck builder: Seismic / Rowdy only roll with Move")
+	var sinking := false
+	for s in range(1, 401):
+		for g in DeckBuilder.roll(_seeded(s), {"main": [M, X], "type": DeckBuilder.DeckType.LOADED}):
+			sinking = sinking or g.id == "sinking"
+	_check(not sinking, "deck builder: Sinking only rolls with Destroy")
 
 
 func _test_deck_builder_no_dupes_when_enough() -> void:
@@ -687,6 +721,10 @@ func _test_start_rolls_per_side() -> void:
 	var t := TurnLoop.new()
 	t.start(true, _seeded(3))
 	_check(t.player_goobs.size() == 21 and t.opponent_goobs.size() == 21, "rolls: 21 Goobs per side")
+	for seed in range(1, 41):
+		var u := TurnLoop.new()
+		u.start(true, _seeded(seed))
+		_check(_count_category(u.player_goobs, GoobDefinition.Category.NONE) == _count_category(u.opponent_goobs, GoobDefinition.Category.NONE), "rolls: both sides use the same deck type (seed %d)" % seed)
 	_check(t.player_deck.draw_pile.size() + t.player_deck.hand.size() == 21, "rolls: player deck holds 21")
 	var differs := false
 	for s in range(1, 21):
@@ -1670,7 +1708,9 @@ func _test_reckless() -> void:
 	_check(e.player_deck.hand.size() == 3 and e.phase == TurnLoop.Phase.PLAYER_TURN, "reckless: no skip, 3 drawn")
 	var cap := _with_hand([RECKLESS] as Array[GoobDefinition])
 	cap.play(3, 0)
-	cap.player_deck.hand = [TurnLoop.VANILLA, TurnLoop.VANILLA, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition]
+	cap.player_deck.hand = [] as Array[GoobDefinition]
+	while cap.player_deck.hand.size() < Deck.HAND_MAX - 1:
+		cap.player_deck.hand.append(TurnLoop.VANILLA) # 1 + 2 bonus draws, room for 1
 	cap.play(0, 0)
 	_check(cap.player_deck.hand.size() == Deck.HAND_MAX and cap.last_draw_hand_full, "reckless: the hand cap still applies")
 
@@ -1812,11 +1852,13 @@ func _test_plentiful() -> void:
 	_check(t.has_status(&"plentiful", P), "plentiful: pill while on the board")
 	_check(t.turn_draw_steps.size() == 1 and t.turn_draw_steps[0]["side"] == P and t.turn_draw_steps[0]["drawn"].size() == 1, "plentiful: his turn draw gives you one")
 	_check(t.player_deck.hand.size() == 3, "plentiful: your hand 2 + 1")
+	while t.player_deck.hand.size() < Deck.HAND_MAX - 2:
+		t.player_deck.hand.append(TurnLoop.VANILLA) # his 2 echo in, then your turn draw hits the cap
 	t.play(0, 0) # his Greedy draws 2
 	var echo: Array = t.effect_steps.filter(func(st: Dictionary) -> bool: return st["kind"] == GoobDefinition.EffectType.DRAW_ECHO)
 	_check(echo.size() == 1 and echo[0]["drawn"].size() == 2, "plentiful: his Greedy gives you two")
 	_check(t.effect_steps.find(echo[0]) > t.effect_steps.find(t.last_effect), "plentiful: right after his draw")
-	_check(t.player_deck.hand.size() == Deck.HAND_MAX and t.last_draw_hand_full and t.turn_draw_steps.is_empty(), "plentiful: hand cap 5; your own draws don't trigger it")
+	_check(t.player_deck.hand.size() == Deck.HAND_MAX and t.last_draw_hand_full and t.turn_draw_steps.is_empty(), "plentiful: hand cap; your own draws don't trigger it")
 	var full := _with_hand([TurnLoop.VANILLA] as Array[GoobDefinition])
 	_place(full, 6, PLENTIFUL, P)
 	full.opponent_deck.hand[0] = GREEDY
@@ -2138,6 +2180,7 @@ func _test_nostalgic() -> void:
 	var t := _with_hand([NOSTALGIC, TurnLoop.VANILLA] as Array[GoobDefinition])
 	t.play(3, 0)
 	_check(t.last_effect["fizzled"] and t.goob_at(3, 0).effect_type == GoobDefinition.EffectType.NONE, "nostalgic: no earlier play = a plain Goob")
+	_check(not t.goob_at(3, 0).is_special() and t.goob_at(3, 0).ring_texture(P) == null, "nostalgic: copying a plain Goob looks plain (M6f)")
 	var f := _with_hand([FAT, TurnLoop.VANILLA, TurnLoop.VANILLA] as Array[GoobDefinition])
 	f.play(3, 0) # Fat at (3,0), no neighbour
 	f.play(0, 0) # his
@@ -2148,11 +2191,35 @@ func _test_nostalgic() -> void:
 	_check(f.board.is_empty(3, 0) and f.goob_at(3, 0) == null or f.board.get_owner(3, 0) == E, "nostalgic: the copied Fat destroys")
 	_check(f.goob_at(4, 0).effect_type == GoobDefinition.EffectType.DESTROY_ADJACENT and TurnLoop.base_of(f.goob_at(4, 0)) == NOSTALGIC, "nostalgic: becomes it, keeps its own type")
 	_check(f._last_played[P] == FAT, "nostalgic: counts as what it became")
+	var looks := f.goob_at(4, 0)
+	_check(looks.ring_family() == GoobDefinition.Category.DESTROY and looks.is_special() and not looks.is_legendary(), "nostalgic: wears the copied Fat's ring, no glint (M6f)")
 	f.play(1, 0) # his
 	f.player_deck.hand[0] = NOSTALGIC
 	f.play(6, 0)
 	var again := _steps_of(f.effect_steps, GoobDefinition.EffectType.COPY_OWN)
 	_check(again.size() == 1 and again[0]["copied"] == "Fat Goob", "nostalgic: copying a Nostalgic copies what it became")
+
+
+## M6f (Sean, 2026-11-24): family rings, legendary, sparkles.
+func _test_m6f_looks() -> void:
+	var g := func(id: String) -> GoobDefinition: return load("res://resources/goobs/%s_goob.tres" % id)
+	_check(not TurnLoop.VANILLA.is_special() and TurnLoop.VANILLA.ring_texture(P) == null, "looks: a plain Goob has no ring")
+	var rings := {"fickle": GoobDefinition.Category.DISCARD, "fat": GoobDefinition.Category.DESTROY, "greedy": GoobDefinition.Category.DRAW,
+		"sinister": GoobDefinition.Category.MOVE, "stalwart": GoobDefinition.Category.TECH, "seismic": GoobDefinition.Category.MOVE,
+		"rowdy": GoobDefinition.Category.MOVE, "sinking": GoobDefinition.Category.DESTROY, "convincing": GoobDefinition.Category.TECH,
+		"popular": GoobDefinition.Category.DRAW, "nostalgic": GoobDefinition.Category.TECH, "mocking": GoobDefinition.Category.TECH}
+	for id: String in rings:
+		var goob: GoobDefinition = g.call(id)
+		_check(goob.ring_family() == rings[id] and goob.ring_texture(O) != null, "looks: %s wears the %s ring" % [id, rings[id]])
+		_check(goob.is_legendary() == (goob.category == GoobDefinition.Category.UNIQUE), "looks: %s legendary only if Uniquely powerful" % id)
+	var sparkles := {"bouncy": &"chevrons", "springy": &"chevrons", "slippery": &"crackle", "lopsided": &"crackle_left", "tipsy": &"crackle_right",
+		"generous": &"motes", "plentiful": &"motes", "stalwart": &"stars", "hoarding": &"stars", "steadfast": &"steadfast", "loyal": &"loyal",
+		"spiteful": &"", "fat": &"", "defiant": &""}
+	for id: String in sparkles:
+		_check((g.call(id) as GoobDefinition).sparkle() == sparkles[id], "looks: %s sparkle %s" % [id, sparkles[id]])
+	var armed: GoobDefinition = (g.call("smouldering") as GoobDefinition).duplicate()
+	armed.set_meta(&"armed_by", P)
+	_check(armed.sparkle() == &"embers", "looks: an armed Smouldering has embers")
 
 
 func _test_mocking() -> void:

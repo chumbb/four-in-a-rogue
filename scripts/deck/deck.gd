@@ -3,7 +3,9 @@ extends RefCounted
 ## One side's Goobs in a scenario: a shuffled draw pile and a hand (slice §4
 ## Decks). Shuffled once when built; never reshuffled. No rendering.
 
-const HAND_MAX := 5
+## Hand max 7 (Sean, M6f 2026-11-24; was 5): every extra draw stays in the
+## hand for good (play 1 + draw 1 a turn), so 5 left room for only 2.
+const HAND_MAX := 7
 ## Starting hand; the first turn draw makes 3 (Sean, 2026-11-19; was 3).
 const START_HAND := 2
 

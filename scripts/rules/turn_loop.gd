@@ -153,8 +153,12 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	turn_draw_steps = []
 	result = Result.NONE
 	if deck.is_empty():
-		player_goobs = DeckBuilder.roll(rng, forced)
-		opponent_goobs = DeckBuilder.roll(rng, forced)
+		# One deck type for both sides (M6f, Sean 2026-11-24).
+		var both := forced.duplicate()
+		if not both.has("type"):
+			both["type"] = DeckBuilder.roll_type(rng)
+		player_goobs = DeckBuilder.roll(rng, both)
+		opponent_goobs = DeckBuilder.roll(rng, both)
 	else:
 		player_goobs = deck
 		opponent_goobs = opponent_deck_goobs if not opponent_deck_goobs.is_empty() else deck
@@ -815,7 +819,7 @@ func _owned_cells(kind: GoobDefinition.EffectType, side: BoardState.CellOwner) -
 
 
 ## Plentiful: `drawer` just drew `count` Goobs, so each Plentiful its opponent
-## owns draws that many for its owner (hand cap 5). These draws never set off
+## owns draws that many for its owner (hand cap Deck.HAND_MAX). These draws never set off
 ## another Plentiful (Sean, 2026-11-23). One step per Plentiful that drew; a
 ## full hand or empty deck draws nothing, silently (no "Hand full" shake on
 ## every opponent draw).
@@ -1498,6 +1502,8 @@ func _become(cell: Vector2i, source: GoobDefinition) -> void:
 	if copy == null:
 		return
 	copy.effect_type = source.effect_type
+	# It looks like what it became: that Goob's ring, tint and glint (M6f).
+	copy.set_meta(&"look", source.look())
 	if source.effect_type == GoobDefinition.EffectType.NONE:
 		copy.effect_description = "Copied a plain Goob: no effect."
 	else:

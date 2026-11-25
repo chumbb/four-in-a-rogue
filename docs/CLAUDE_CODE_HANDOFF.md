@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23), Draw, Tech and Uniquely powerful (2026-11-24): M6e is done. Next: M6f pre-M7 fixes (Sean plans it) → M7; Art F / G deferred to after M7 (Sean, 2026-11-24).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23), Draw, Tech and Uniquely powerful (2026-11-24): M6e is done. M6f pre-M7 fixes accepted and merged (2026-11-24). Next: M7; Art F / G deferred to after M7 (Sean, 2026-11-24).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -49,8 +49,8 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 7 | **M6c** — AI, play anims, reactions ✅ | Hand-aware AI; flip from hand / up from behind the board; Goob expressions; portrait reactions; low-time fuse; win/lose lead-ins | C, D2 |
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
 | 9 | **M6e** special Goobs (Sean 2026-11-23) ✅ | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ✅ → Tech ✅ → Uniquely powerful ✅ (M6e done) | all |
-| 10 | **M6f** pre-M7 fixes ← **next** | Last-minute fixes and changes; **Sean plans the list at the start of the session** | M6e |
-| 11 | **M7** (required) | Android build on Pixel 11 (both renderers), Pixel 8 if available | M6f |
+| 10 | **M6f** pre-M7 fixes ✅ | Last-minute fixes and changes; **Sean plans the list at the start of the session** | M6e |
+| 11 | **M7** (required) ← **next** | Android build on Pixel 11 (both renderers), Pixel 8 if available | M6f |
 | 12 | **Art F / Art G** (deferred to after M7, Sean 2026-11-24) | Special Goob faces; effect icons (starts with a grill) | M7 |
 
 After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placeholders).
@@ -228,13 +228,20 @@ APIs the category sessions use:
 - **Debug (debug builds only):** F4 `DebugPanel` (`scripts/debug/debug_panel.gd`): give a Goob, discard random, add status, category deck + "New game with these". Scenario helpers `debug_give`, `debug_discard_random`, `debug_add_status`.
 - **Auto-play:** "»" button right of Pause; Settings row "Auto-play button" (`Settings.autoplay_button`, default On). Off at win/lose and on quit to title.
 
-### M6f Pre-M7 fixes ← **next** (fresh session; branch `m6f-fixes` from `main`)
+### M6f Pre-M7 fixes ✅ (accepted by Sean and merged to `main` 2026-11-24)
+
+- **Code review fixes (2026-11-24):** `EscapeKey` now exists in release builds too (`handle_escape()` skips a missing debug panel; Esc pause keeps a selected hand Goob unless a finger is down); the glint streak is measured within the 32 px frame (`mod(texel, 32)`, expression sheets); `HandView.goob_at()` tap areas are ≥ 96 px wide (capped at the fan step, `_step()`); small hand Goobs keep their bottom on the stump seat and ease to the new size; sparkles skip `busy` tokens and Goobs still behind the board.
+
+- **Sean's list (2026-11-24), built:** surprised face on a destroy target while it blinks; specials tinted to 90 % + a family ring (option A colour band) replacing the D1 rim motifs; legendary glint and ring map; board sparkles by effect kind. Spec: vault `Design/Special Goobs.md` "Look on the board"; decisions in the Decision-Log "2026-11-24 — M6f list".
+- **Code:** `GoobLook.dress()` gives any Goob sprite its material (`pixel_outline.gdshader` `tint` / `glint` / `grow`) and a `Ring` child sprite; the board hides the ring while a token is `busy` (spin frames). `GoobDefinition.look()` (meta `look`, set by `TurnLoop._become`) drives ring / tint / glint; `sparkle()` the sparkle kind. Sparkles: `BoardView2D._update_sparkles` / `_draw_sparkles` on one `Sparkles` layer in `_fx`, from the view's own token Goobs (they lag the rules state during animations on purpose); Steadfast / Loyal check `status_lookup` (`TurnLoop.has_status`).
+- **Check:** `godot -s res://tests/capture_m6f.gd -- <dir>` stages every family on the board and takes 28 shots.
+- **Part 2 (Sean, 2026-11-24), built:** desktop **Esc** (`EscapeKey` node, `PROCESS_MODE_ALWAYS`, calls `scenario.handle_escape()`; title closes Options in its own `_input`); **deck types** `DeckBuilder.DeckType` CLASSIC 10 + 11 / LOADED 14 + 7, picked once in `TurnLoop.start` for both sides, pools by `ring_family()` (`GoobRoster.family()`), top 1–2 / 2–3, Draw 0–1 per main pool, ≤ 2 legendaries; F4 "Deck type" row replaces the old top-pool row (`forced["type"]`). **Hand max 7** (`Deck.HAND_MAX`): `HandView.goob_px()` drops to the board's `board_px()` past 5; `_slot()` widens to the side insets when a step would fall under 96 px; `_stagger_names()` drops every second name a line when they'd overlap. The capture script also shoots 6- and 7-Goob hands.
 
 - Sean, 2026-11-24: one more branch before M7 for last-minute fixes and changes. **He plans the list at the start of that session**: ask for it, don't pick items, build nothing before he has. Then the usual: small commits, playtest, code review, merge.
 - Art F / G are **deferred to after M7**, so the hand's name labels under Vanilla-art specials (`HandView._place_name`) and the text pills stay for now.
 - Open nits from earlier code reviews, in case Sean wants any: the AI's threat check ignores your Territorial-locked column; an Inspiring-triggered hit gets no portrait reaction; the AI's flat draw values ignore the hand cap and a forced draw after a skip; a jinx toast is lost when the jinx skips the turn. Uncommitted editor churn in `project.godot` (dropped default-valued settings) is still in Sean's working copy.
 
-### M7 — on-device check (required for v0.1; after M6f; CLAUDE.md §M7)
+### M7 — on-device check ← **next** (required for v0.1; after M6f; CLAUDE.md §M7)
 
 - **Goal:** an Android debug build on the **Pixel 11**, first with the Mobile renderer, then with Compatibility. Use the **Pixel 8** as the older phone if Sean has one. Check **A9** (portrait touch) on hardware, plus the rest of `docs/SMOKE_V0.1.md`. A true low-end check is a known gap. iOS waits for a Mac; the Retroid Pocket (4:3) is saved for the landscape version.
 - **Starting state on this PC (checked 2026-11-23):**

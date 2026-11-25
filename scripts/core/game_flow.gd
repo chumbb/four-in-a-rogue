@@ -36,7 +36,7 @@ var player_moves_first: bool = true
 ## The two rolled decks of this game ({"player": Array, "opponent": Array}),
 ## kept across draw replays; empty = roll new ones. Cleared on a new game.
 var rolled_decks: Dictionary = {}
-## Debug builds: forces the deck roll ({"top": Category, "main": [Category, Category]}).
+## Debug builds: forces the deck roll ({"type": DeckBuilder.DeckType, "main": [Category, Category]}).
 var debug_forced_categories: Dictionary = {}
 ## Tests force an auto-flip; players use Options "Auto-flip coin" (Settings).
 var auto_flip_coin := false

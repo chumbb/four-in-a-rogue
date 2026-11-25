@@ -1,19 +1,23 @@
 class_name HandView
 extends Control
-## The player's hand: up to 5 Goob faces in a shallow fan on the table (slice
+## The player's hand: up to 7 Goob faces (Deck.HAND_MAX) in a shallow fan on the table (slice
 ## §2B). Display only: the scenario owns the rules and the touch input, and
 ## hit-tests with goob_at().
 ##
 ## Cards are kept in the same order as Deck.hand. Hand Goobs are one whole
 ## pixel step bigger than board Goobs (set_pixel_size()).
 
-const OUTLINE_SHADER := preload("res://shaders/pixel_outline.gdshader")
 const GOOB_PX := 32 ## game px
 const FAN_STEP_DEG := 4.0 ## tilt per card away from the centre
 const FAN_SINK_PX := 4.0 ## edge cards sit lower (logical px per step²)
 const GAP_MIN := 16.0 ## logical px between Goobs
 const SIDE_INSET := 24.0 ## keep clear of the Android back swipe
 const LIFT_PX := 4 ## hand px a selected Goob rises (slice §2B)
+## More cards than this and the Goobs drop one whole pixel step (board size) so
+## a hand of up to Deck.HAND_MAX fits (Sean, M6f 2026-11-24).
+const FULL_SIZE_MAX := 5
+## Tap width floor (slice §2B): a fan step below it widens to the side insets.
+const TOUCH_MIN := 96.0
 const LAYOUT_SEC := 0.18
 ## Drawn Goob: pops in big at the screen centre, holds, flies to the fan.
 const REVEAL_POP_SEC := 0.15
@@ -43,12 +47,11 @@ var speed_scale := 1.0
 
 var _cards: Array[Node2D] = []
 var _px := 1.0 ## logical px per game px
+var _small_px := 0.0 ## the same, one whole step down (board size); 0 = never shrink
 var _fan_width := 0.0 ## logical px; 0 = whole zone (set_fan_width)
 var _selected := -1
 var _dragged := -1
 var _revealing: Node2D ## the drawn Goob still flying in (layout skips it)
-var _outline: ShaderMaterial
-var _outline_selected: ShaderMaterial
 ## M6c faces: giggle while selected or dragged, worried during the low-time
 ## fuse, idle (blinking) otherwise.
 var _worried := false
@@ -102,8 +105,6 @@ func face_of(index: int) -> StringName:
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_outline = _make_outline(COLOR_OUTLINE)
-	_outline_selected = _make_outline(COLOR_OUTLINE_SELECTED)
 	item_rect_changed.connect(layout.bind(false))
 
 
@@ -116,12 +117,16 @@ func set_fan_width(width: float) -> void:
 	layout(false)
 
 
-func set_pixel_size(px: float) -> void:
+## `small_px`: the Goob size for hands over FULL_SIZE_MAX (0 = keep `px`).
+func set_pixel_size(px: float, small_px: float = 0.0) -> void:
 	_px = px
-	for card in _cards:
-		(card.get_node("Sprite") as Sprite2D).scale = Vector2(_px, _px)
-		_place_name(card)
+	_small_px = small_px
 	layout(false)
+
+
+## Logical px per game px of the hand Goobs now (smaller when the hand is big).
+func goob_px() -> float:
+	return _small_px if _cards.size() > FULL_SIZE_MAX and _small_px > 0.0 else _px
 
 
 ## Replaces all cards with `goobs` (no animation).
@@ -142,11 +147,16 @@ func count() -> int:
 
 ## Index of the hand Goob under a viewport position, or -1.
 func goob_at(pos: Vector2) -> int:
-	var half := GOOB_PX * _px * 0.5
+	var goob := GOOB_PX * goob_px()
+	# Touch-target floor (slice §2B): at least 96 px wide even when the Goobs
+	# shrink, but never into the next Goob's share of the fan.
+	var half := Vector2(maxf(goob, TOUCH_MIN) * 0.5, goob * 0.5)
+	if _cards.size() > 1:
+		half.x = maxf(goob * 0.5, minf(half.x, _step() * 0.5))
 	# Last card wins: later cards draw on top.
 	for i in range(_cards.size() - 1, -1, -1):
 		var centre := get_global_transform() * _slot(i).origin
-		if Rect2(centre - Vector2(half, half), Vector2(half, half) * 2.0).has_point(pos):
+		if Rect2(centre - half, half * 2.0).has_point(pos):
 			return i
 	return -1
 
@@ -171,7 +181,7 @@ func select(index: int) -> void:
 	_selected = index
 	for i in _cards.size():
 		var sprite: Sprite2D = _cards[i].get_node("Sprite")
-		sprite.material = _outline_selected if i == index else _outline
+		GoobLook.dress(sprite, _cards[i].get_meta("goob"), _cards[i].get_meta("side"), COLOR_OUTLINE_SELECTED if i == index else COLOR_OUTLINE)
 	layout(true)
 
 
@@ -344,6 +354,15 @@ func goobs() -> Array[GoobDefinition]:
 
 ## Moves every card (except one being dragged) to its fan slot.
 func layout(animated: bool) -> void:
+	var px := Vector2(goob_px(), goob_px())
+	var tweened := animated and animate and is_inside_tree()
+	for i in _cards.size():
+		var card := _cards[i]
+		# Fanned Goobs ease into a new size (hand over / under 5) below.
+		if not tweened or i == _dragged or card == _revealing:
+			(card.get_node("Sprite") as Sprite2D).scale = px
+		_place_name(card)
+	_stagger_names()
 	for i in _cards.size():
 		var card := _cards[i]
 		if i == _dragged or card == _revealing:
@@ -351,10 +370,11 @@ func layout(animated: bool) -> void:
 		var slot := _slot(i)
 		_kill_tween(card)
 		card.scale = Vector2.ONE
-		if animated and animate and is_inside_tree():
+		if tweened:
 			var tween := card.create_tween().set_speed_scale(speed_scale).set_parallel()
 			tween.tween_property(card, "position", slot.origin, LAYOUT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			tween.tween_property(card, "rotation", slot.get_rotation(), LAYOUT_SEC)
+			tween.tween_property(card.get_node("Sprite"), "scale", px, LAYOUT_SEC)
 			card.set_meta("tween", tween)
 		else:
 			card.position = slot.origin
@@ -368,20 +388,33 @@ func layout(animated: bool) -> void:
 ## selected.
 func _slot(index: int) -> Transform2D:
 	var n := _cards.size()
-	var goob := GOOB_PX * _px
+	var goob := GOOB_PX * goob_px()
 	var mid := (n - 1) * 0.5
-	var step := goob + GAP_MIN * 2.0
-	if n > 1:
-		var span := size.x - SIDE_INSET * 2.0
-		if _fan_width > 0.0:
-			span = minf(span, _fan_width)
-		step = minf(step, (span - goob) / (n - 1))
+	var step := _step()
 	var offset := index - mid
 	var x := size.x * 0.5 + offset * step
-	var y := LIFT_PX * _px + 8.0 + goob * 0.5 + offset * offset * FAN_SINK_PX
+	# Bottom on the stump's seat line, also for the smaller Goobs of a big hand.
+	var y := LIFT_PX * _px + 8.0 + GOOB_PX * _px - goob * 0.5 + offset * offset * FAN_SINK_PX
 	if index == _selected:
 		y -= LIFT_PX * _px
 	return Transform2D(deg_to_rad(offset * FAN_STEP_DEG), Vector2(x, y))
+
+
+## Distance between neighbouring Goob centres in the fan.
+func _step() -> float:
+	var n := _cards.size()
+	var goob := GOOB_PX * goob_px()
+	var step := goob + GAP_MIN * 2.0
+	if n > 1:
+		var full_span := size.x - SIDE_INSET * 2.0
+		var span := full_span
+		if _fan_width > 0.0:
+			span = minf(span, _fan_width)
+		step = minf(step, (span - goob) / (n - 1))
+		if step < TOUCH_MIN:
+			# A big hand spreads past the hand prop to keep every Goob tappable.
+			step = minf(goob + GAP_MIN * 2.0, maxf(step, (full_span - goob) / (n - 1)))
+	return step
 
 
 # --- Cards -------------------------------------------------------------------
@@ -390,10 +423,11 @@ func _make_card(goob: GoobDefinition, side := BoardState.CellOwner.PLAYER) -> No
 	var card := Node2D.new()
 	card.name = "Goob"
 	card.set_meta("goob", goob)
+	card.set_meta("side", side)
 	var sprite := Sprite2D.new()
 	sprite.name = "Sprite"
 	sprite.texture = goob.still(side)
-	sprite.material = _outline
+	GoobLook.dress(sprite, goob, side, COLOR_OUTLINE)
 	sprite.scale = Vector2(_px, _px)
 	card.add_child(sprite)
 	if goob.art_id == "vanilla" and goob.effect_type != GoobDefinition.EffectType.NONE:
@@ -420,7 +454,26 @@ func _place_name(card: Node2D) -> void:
 		# under the card's Node2D).
 		label.add_theme_font_size_override("font_size", UiTheme.font_size(get_window(), 1) if is_inside_tree() else UiTheme.NATIVE_SIZE)
 		label.size = Vector2(NAME_WIDTH, 0.0)
-		label.position = Vector2(-NAME_WIDTH * 0.5, GOOB_PX * _px * 0.5 + NAME_GAP)
+		label.position = Vector2(-NAME_WIDTH * 0.5, GOOB_PX * goob_px() * 0.5 + NAME_GAP)
+
+
+## Names under neighbouring Goobs that would run into each other (a big hand,
+## long names): every second one drops a line (M6f).
+func _stagger_names() -> void:
+	if _cards.size() < 2:
+		return
+	var step := absf(_slot(1).origin.x - _slot(0).origin.x)
+	var widest := 0.0
+	for card in _cards:
+		var label := card.get_node_or_null("Name") as Label
+		if label != null:
+			widest = maxf(widest, label.get_combined_minimum_size().x)
+	if widest + NAME_GAP * 4.0 <= step:
+		return
+	for i in range(1, _cards.size(), 2):
+		var label := _cards[i].get_node_or_null("Name") as Label
+		if label != null:
+			label.position.y += label.get_combined_minimum_size().y
 
 
 func _kill_tween(card: Node2D) -> void:
@@ -429,9 +482,3 @@ func _kill_tween(card: Node2D) -> void:
 		if tween and tween.is_valid():
 			tween.kill()
 
-
-func _make_outline(color: Color) -> ShaderMaterial:
-	var material := ShaderMaterial.new()
-	material.shader = OUTLINE_SHADER
-	material.set_shader_parameter("outline_color", color)
-	return material

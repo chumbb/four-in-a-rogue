@@ -143,6 +143,18 @@ const RECOGNISE_HOP_PX := 6
 ## blinking now and then); reactions (surprised) last REACTION_SEC.
 const REACTION_SEC := 1.2
 
+## M6f sparkles (Sean, 2026-11-24): Goobs with an ongoing effect on the board
+## sparkle by what it does (GoobDefinition.sparkle()). Idle loops: not sped up
+## by Fast. Game px from the Goob's centre; times in seconds.
+const SPARK_EVERY := {&"motes": 0.38, &"stars": 0.5, &"embers": 0.13, &"chevrons": 0.5}
+const SPARK_MOTES: Array[Color] = [Color("fbff86"), Color("f9c22b"), Color("fbb954")]
+const SPARK_EMBERS: Array[Color] = [Color("f9c22b"), Color("fb6b1d"), Color("e83b3b"), Color("b33831"), Color("6e2727")]
+const SPARK_UP: Array[Color] = [Color("ffffff"), Color("8ff8e2"), Color("30e1b9")]
+const SPARK_FPS := 12.0 ## frame rate of the flicker / twinkle steps
+const CRACKLE_RADIUS := 14.0
+const CRACKLE_REV_SEC := 1.0
+const CRACKLE_TRAIL_SEC := 0.03
+
 ## Sound cues during play_drop(): &"rest" (on top of the board), &"roll" (each
 ## column rolled over), &"bounce" (off the edge), &"fall". The landing itself
 ## is the caller's (play_drop() returns then). Effects (M5) add &"flip",
@@ -172,7 +184,6 @@ var _tokens: Dictionary = {} ## Vector2i(column, row) -> Sprite2D
 var _token_owner: Dictionary = {} ## Vector2i -> BoardState.CellOwner
 var _highlight_tweens: Dictionary = {} ## Vector2i -> Tween
 var _outline: ShaderMaterial
-var _outline_gold: ShaderMaterial
 var _preview: Sprite2D
 var _preview_tween: Tween
 var _preview_flight: Tween
@@ -180,21 +191,24 @@ var _preview_frames: Tween
 ## Clips the opponent's Goob rising from behind the board to above its top edge.
 var _behind: Control
 var _token_goob: Dictionary = {} ## Vector2i -> GoobDefinition (its art)
+## Whether a status is on (TurnLoop.has_status(id, side)): Steadfast / Loyal
+## Goobs sparkle only while their protection lasts.
+var status_lookup: Callable
 ## Which Goob sits in a cell, for sync_from_board: (column, row) -> GoobDefinition
 ## or null (Vanilla). The scenario sets TurnLoop.goob_at.
 var goob_lookup: Callable
 ## SpriteFrames per "art_id/team" (expression loops).
 var _face_frames: Dictionary = {}
 var _face_clock := 0.0
+var _sparkle_layer: Node2D
+## Live sparkle particles: {token, kind, t, life, …spawn values}.
+var _sparks: Array[Dictionary] = []
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_outline = ShaderMaterial.new()
 	_outline.shader = OUTLINE_SHADER
-	_outline_gold = ShaderMaterial.new()
-	_outline_gold.shader = OUTLINE_SHADER
-	_outline_gold.set_shader_parameter("outline_color", COLOR_GOLD)
 	_pixel = Node2D.new()
 	_pixel.name = "PixelLayer"
 	_pixel.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -219,6 +233,10 @@ func _ready() -> void:
 	_fx = Node2D.new()
 	_fx.name = "Effects"
 	_pixel.add_child(_fx)
+	_sparkle_layer = Node2D.new()
+	_sparkle_layer.name = "Sparkles"
+	_sparkle_layer.draw.connect(_draw_sparkles)
+	_fx.add_child(_sparkle_layer)
 	get_viewport().size_changed.connect(_update_scale)
 	item_rect_changed.connect(_place_layer)
 	_update_scale()
@@ -234,6 +252,138 @@ func _process(delta: float) -> void:
 			_show_face(token, _token_goob.get(cell, VANILLA), _token_owner[cell])
 	if _preview.visible:
 		_show_face(_preview, _preview.get_meta(&"goob", VANILLA), BoardState.CellOwner.PLAYER)
+	_update_sparkles(delta)
+
+
+# --- Sparkles (M6f) --------------------------------------------------------
+
+## The sparkle the Goob in `cell` shows now (&"" = none).
+func sparkle_at(cell: Vector2i) -> StringName:
+	if not _tokens.has(cell):
+		return &""
+	var kind: StringName = (_token_goob.get(cell, VANILLA) as GoobDefinition).sparkle()
+	if kind == &"steadfast" or kind == &"loyal":
+		var on: bool = status_lookup.is_valid() and status_lookup.call(kind, _token_owner[cell])
+		return &"stars" if on else &""
+	return kind
+
+
+func _update_sparkles(delta: float) -> void:
+	if not animate:
+		return
+	for cell: Vector2i in _tokens:
+		var token: Sprite2D = _tokens[cell]
+		if not is_instance_valid(token):
+			continue
+		var kind := &"" if _sparkle_hidden(token) else sparkle_at(cell)
+		token.set_meta(&"sparkle", kind)
+		if not SPARK_EVERY.has(kind):
+			continue # none, or crackle (drawn straight from the token)
+		var every: float = SPARK_EVERY[kind]
+		if token.get_meta(&"spark_kind", &"") != kind:
+			token.set_meta(&"spark_kind", kind)
+			token.set_meta(&"spark_next", _face_clock + randf() * every)
+		if _face_clock >= token.get_meta(&"spark_next"):
+			token.set_meta(&"spark_next", _face_clock + every)
+			_sparks.append(_new_spark(token, kind))
+	var live: Array[Dictionary] = []
+	for spark in _sparks:
+		spark["t"] += delta
+		if spark["t"] < spark["life"] and is_instance_valid(spark["token"]):
+			live.append(spark)
+	_sparks = live
+	_sparkle_layer.queue_redraw()
+
+
+## No sparkles while the Goob is still rising from behind the board or its
+## texture is busy (spins, the scoring back).
+func _sparkle_hidden(token: Sprite2D) -> bool:
+	return token.get_meta(&"busy", false) or token.get_parent() == _behind
+
+
+func _new_spark(token: Sprite2D, kind: StringName) -> Dictionary:
+	var spark := {"token": token, "kind": kind, "t": 0.0}
+	match kind:
+		&"motes": # gold motes drifting up, twinkling out
+			spark.merge({"life": 1.4, "x": randf_range(-10, 10), "y": randf_range(-2, 9)})
+		&"stars": # a star twinkling on the rim
+			spark.merge({"life": 5.0 / SPARK_FPS, "a": randf() * TAU})
+		&"embers": # embers rising fast, flickering
+			spark.merge({"life": randf_range(0.45, 0.7), "x": randf_range(-11, 11), "y": randf_range(4, 12), "drift": randf_range(-4, 4)})
+		&"chevrons": # ^ springing up off the top
+			spark.merge({"life": 0.6, "x": randf_range(-6, 6)})
+	return spark
+
+
+## The Goob's centre on the sparkle layer (follows it wherever it moves).
+func _spark_centre(token: Sprite2D) -> Vector2:
+	return _sparkle_layer.to_local(token.global_position) + Vector2(CELL, CELL) * 0.5
+
+
+func _dot(at: Vector2, color: Color) -> void:
+	_sparkle_layer.draw_rect(Rect2(at.round(), Vector2.ONE), color)
+
+
+func _draw_sparkles() -> void:
+	for spark in _sparks:
+		var token: Sprite2D = spark["token"]
+		if not is_instance_valid(token) or not token.is_visible_in_tree() or _sparkle_hidden(token):
+			continue
+		var c := _spark_centre(token)
+		var t: float = spark["t"]
+		var u: float = t / spark["life"]
+		var step := int(t * SPARK_FPS)
+		match spark["kind"]:
+			&"motes":
+				if u > 0.75 and step % 2:
+					continue
+				_dot(c + Vector2(spark["x"] + sin(u * 5.0 + spark["x"]) * 1.2, spark["y"] - 12.0 * u), SPARK_MOTES[mini(2, int(u * 3))])
+			&"stars":
+				var at: Vector2 = c + Vector2.from_angle(spark["a"]) * 13.0
+				var phase := mini(4, step) # dot, plus, big, plus, dot
+				_dot(at, Color.WHITE if phase == 2 else SPARK_MOTES[0])
+				if phase >= 1 and phase <= 3:
+					for d: Vector2 in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
+						_dot(at + d, SPARK_MOTES[1])
+						if phase == 2:
+							_dot(at + d * 2, SPARK_MOTES[2])
+			&"embers":
+				if fposmod(sin(t * 97.0 + spark["x"] * 13.0) * 43758.5, 1.0) < 0.2:
+					continue # flicker
+				_dot(c + Vector2(spark["x"] + spark["drift"] * u, spark["y"] - 22.0 * u), SPARK_EMBERS[mini(4, int(u * 5))])
+			&"chevrons":
+				if u > 0.7 and step % 2:
+					continue
+				var tip := Vector2(c.x + spark["x"], c.y - 13.0 - 11.0 * (1.0 - (1.0 - u) * (1.0 - u)))
+				var color := SPARK_UP[mini(2, int(u * 3))]
+				for d in 3:
+					_dot(tip + Vector2(-d, d), color)
+					_dot(tip + Vector2(d, d), color)
+	# Crackle: three sparks racing round the rim the way the Goob rolls.
+	for cell: Vector2i in _tokens:
+		var token: Sprite2D = _tokens[cell]
+		if not is_instance_valid(token):
+			continue
+		var kind: StringName = token.get_meta(&"sparkle", &"")
+		if not kind.begins_with("crackle") or not token.is_visible_in_tree():
+			continue
+		if not token.has_meta(&"crackle"):
+			token.set_meta(&"crackle", [randf() * TAU, randf() * TAU, randf() * TAU])
+		var dirs := [1.0, -1.0, 1.0] # Slippery: both ways
+		if kind == &"crackle_left":
+			dirs = [-1.0, -1.0, -1.0] # Lopsided rolls left: anticlockwise
+		elif kind == &"crackle_right":
+			dirs = [1.0, 1.0, 1.0] # Tipsy rolls right: clockwise
+		var c := _spark_centre(token)
+		var starts: Array = token.get_meta(&"crackle")
+		for i in 3:
+			for trail in 3:
+				if trail == 0 and randf() < 0.15:
+					continue
+				var a: float = starts[i] + dirs[i] * (_face_clock - trail * CRACKLE_TRAIL_SEC) * TAU / CRACKLE_REV_SEC
+				_dot(c + Vector2.from_angle(a) * CRACKLE_RADIUS, SPARK_EMBERS[trail * 2])
+		if randf() < 0.25: # a stray crackle
+			_dot(c + Vector2.from_angle(randf() * TAU) * (CRACKLE_RADIUS + 1.0), Color.WHITE)
 
 
 ## Sets the face of the Goob in `cell` (&"idle", &"happy", &"sad",
@@ -287,7 +437,9 @@ func _current_face(token: Sprite2D) -> StringName:
 
 
 func _show_face(token: Sprite2D, goob: GoobDefinition, side: BoardState.CellOwner) -> void:
-	if token.get_meta(&"busy", false):
+	var busy: bool = token.get_meta(&"busy", false)
+	GoobLook.show_ring(token, not busy) # spin frames own the texture: no ring
+	if busy:
 		return
 	var face := _current_face(token)
 	if not token.has_meta(&"face_t0"):
@@ -376,6 +528,7 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	if not animate:
 		_token_owner[target] = side
 		token.texture = goob.still(side)
+		GoobLook.dress(token, goob, side)
 		drop_sound.emit(&"flip", side)
 		set_face(target, &"surprised", REACTION_SEC)
 		return
@@ -410,6 +563,7 @@ func play_flip(source: Vector2i, target: Vector2i, side: BoardState.CellOwner) -
 	token.position = cell_position(target.x, target.y)
 	drop_sound.emit(&"rest", side)
 	token.texture = goob.still(side)
+	GoobLook.dress(token, goob, side) # its ring in the new team's colour
 	token.set_meta(&"busy", false)
 	set_face(target, &"surprised", REACTION_SEC)
 	shake(SHAKE_SMALL)
@@ -435,6 +589,8 @@ func play_destroy(source: Vector2i, target: Vector2i) -> void:
 		source_token = null
 	if animate:
 		await _charge(source, FAT_CHARGE_PX, FAT_CHARGE_SEC)
+		# Marked for destruction: it sees it coming (Sean, M6f).
+		set_face(target, &"surprised")
 		await _telegraph(target)
 		if not self_hit:
 			_lunge(source, target, FAT_LUNGE_PX)
@@ -507,7 +663,7 @@ func play_summon(source: Vector2i, column: int, side: BoardState.CellOwner, goob
 	_settle(source)
 	# The new Goob pops out of it and arcs over the board.
 	var ghost := _make_sprite(goob.still(side) if goob != null else _tex(side), "Summoned")
-	ghost.material = _outline
+	GoobLook.dress(ghost, goob, side)
 	ghost.position = base
 	_fx.add_child(ghost)
 	_burst(_centre_px(source), COLOR_DEBRIS[side], SPARKLE_COUNT, SPARKLE_SPEED, SPARKLE_GRAVITY)
@@ -825,6 +981,7 @@ func _rise_from_behind(token: Sprite2D, goob: GoobDefinition, side: BoardState.C
 func show_preview(column: int, side: BoardState.CellOwner, goob: GoobDefinition = null, from_global: Vector2 = Vector2.INF) -> void:
 	var art: GoobDefinition = goob if goob else VANILLA
 	_preview.texture = art.still(side)
+	GoobLook.dress(_preview, art, side)
 	# Giggles while it floats (aim and timeout reveal), until it drops.
 	_preview.set_meta(&"goob", art)
 	_preview.set_meta(&"face", &"giggle")
@@ -917,7 +1074,7 @@ func recognise_cells(cells: Array[Vector2i]) -> void:
 		var token: Sprite2D = _tokens.get(cell)
 		if token == null:
 			continue
-		token.material = _outline_gold
+		token.material = GoobLook.material(_token_goob.get(cell, VANILLA), COLOR_GOLD)
 		if not animate:
 			continue
 		var base_y := cell_position(cell.x, cell.y).y
@@ -931,7 +1088,7 @@ func recognise_cells(cells: Array[Vector2i]) -> void:
 
 
 func has_gold_outline(cell: Vector2i) -> bool:
-	return _tokens.has(cell) and _tokens[cell].material == _outline_gold
+	return _tokens.has(cell) and _tokens[cell].material.get_shader_parameter("outline_color") == COLOR_GOLD
 
 
 func is_highlighted(cell: Vector2i) -> bool:
@@ -973,6 +1130,11 @@ func cell_at(pos: Vector2) -> Vector2i:
 	if column < 0 or column >= COLUMNS or row < 0 or row >= ROWS:
 		return Vector2i(-1, -1)
 	return Vector2i(column, row)
+
+
+## Logical px per game px of the board (hand Goobs shrink to it past 5).
+func board_px() -> float:
+	return _k
 
 
 ## Logical px per game px for hand Goobs: one whole physical step bigger than
@@ -1032,7 +1194,7 @@ func _add_token(cell: Vector2i, side: BoardState.CellOwner, goob: GoobDefinition
 	if goob == null:
 		goob = VANILLA
 	var token := _make_sprite(goob.still(side), "Goob")
-	token.material = _outline
+	GoobLook.dress(token, goob, side)
 	_goobs.add_child(token)
 	_tokens[cell] = token
 	_token_owner[cell] = side

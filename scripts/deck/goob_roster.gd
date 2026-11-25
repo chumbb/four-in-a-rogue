@@ -70,5 +70,15 @@ static func specials(category: GoobDefinition.Category, roster: Array[GoobDefini
 	return found
 
 
+## The special types wearing `family`'s ring (M6f): a category's own types
+## plus the legendaries mapped to it (GoobDefinition.ring_family()).
+static func family(family_category: GoobDefinition.Category, roster: Array[GoobDefinition] = []) -> Array[GoobDefinition]:
+	var found: Array[GoobDefinition] = []
+	for goob in (roster if not roster.is_empty() else all()):
+		if goob.category != GoobDefinition.Category.NONE and goob.ring_family() == family_category:
+			found.append(goob)
+	return found
+
+
 static func plain() -> GoobDefinition:
 	return load(PATHS[0]) as GoobDefinition

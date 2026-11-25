@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Shift every Goob one column left or right."
 effect_type = 38
 category = 1
+ring = 3
 art_id = "vanilla"
 flips_vertically = true
