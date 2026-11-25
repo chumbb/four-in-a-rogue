@@ -91,6 +91,14 @@ func _build() -> void:
 		close()
 		new_game_requested.emit(picked))
 	_button("Close", grid).pressed.connect(close)
+	# M6g: check Sentry from an exported debug build (nothing is sent from F5).
+	_label("Diagnostics")
+	grid = _grid(2)
+	_button("Test error", grid).pressed.connect(func() -> void:
+		push_error("Debug panel: test error (M6g)"))
+	_button("Test crash", grid).pressed.connect(func() -> void:
+		if Engine.has_singleton("SentrySDK"):
+			Engine.get_singleton("SentrySDK").call("get_bad_code").call("crash_with_abort"))
 
 
 func _label(text: String, variation: StringName = &"") -> void:

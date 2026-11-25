@@ -16,6 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Four in a Rogue"
 config/description="Deck-driven Connect 4 roguelike — vertical slice scaffold."
+config/version="0.1.0"
 run/main_scene="res://scenes/app/boot.tscn"
 run/max_fps=60
 config/features=PackedStringArray("4.7", "Mobile")
@@ -29,7 +30,12 @@ general/ios/mix_with_others=true
 [autoload]
 
 Settings="*res://scripts/core/settings.gd"
+Telemetry="*res://scripts/core/telemetry.gd"
 GameFlow="*res://scripts/core/game_flow.gd"
+
+[debug]
+
+settings/gdscript/always_track_call_stacks=true
 
 [display]
 
@@ -75,3 +81,8 @@ pointing/emulate_mouse_from_touch=true
 
 renderer/rendering_method="mobile"
 textures/canvas_textures/default_texture_filter=0
+
+[sentry]
+
+schema_version=5
+options/auto_init=false

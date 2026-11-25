@@ -2,9 +2,10 @@ class_name OptionsPanel
 extends Control
 ## Options (slice §2B; Art B mock 5), opened from the title and the pause menu:
 ## one window over a scrim. Rows are 38 game px (≥ 96 px at the 720 base):
-## Speed Normal / Fast · Haptics · Screen shake · Auto-flip coin (tap
-## anywhere on an On/Off row) · Auto-play button (debug builds only) · Master / Music / SFX (slider in 5 % steps + a
-## speaker mute button) · Back. Every change applies and saves at once
+## Speed Normal / Fast · Haptics · Screen shake · Auto-flip coin · Send
+## diagnostics (M6g) (tap anywhere on an On/Off row) · Auto-play button (debug
+## builds only) · Master / Music / SFX (slider in 5 % steps + a speaker mute
+## button) · Back. Every change applies and saves at once
 ## (Settings). Works while the tree is paused.
 
 signal closed
@@ -15,7 +16,7 @@ const FIRST_ROW_Y := 40.0
 const LABEL_X := 12.0
 const SPEEDS := [["Normal", 72.0], ["Fast", 72.0]] ## Skip removed (Sean, 2026-11-22)
 const SPEED_X := 84.0
-const TOGGLES := [[&"haptics", "Haptics"], [&"screen_shake", "Screen shake"], [&"auto_flip", "Auto-flip coin"]]
+const TOGGLES := [[&"haptics", "Haptics"], [&"screen_shake", "Screen shake"], [&"auto_flip", "Auto-flip coin"], [&"diagnostics", "Send diagnostics"]]
 ## Debug builds add this row after TOGGLES (M6e auto-play).
 const DEBUG_TOGGLE := [&"autoplay_button", "Auto-play button"]
 const BUSES := [[&"Master", "Master"], [&"Music", "Music"], [&"SFX", "SFX"]]
@@ -249,6 +250,8 @@ func _on_toggle(key: StringName) -> void:
 			Settings.set_auto_flip(not Settings.auto_flip)
 		&"autoplay_button":
 			Settings.set_autoplay_button(not Settings.autoplay_button)
+		&"diagnostics":
+			Settings.set_diagnostics(not Settings.diagnostics)
 	_sync()
 
 
