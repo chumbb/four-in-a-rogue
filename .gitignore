@@ -7,6 +7,9 @@
 # Export
 export/
 export_credentials.cfg
+# Android Gradle build template (M7): 206 MB incl. a 107 MB .aar, over GitHub's limit.
+# Regenerated from the 4.7.2 export templates: export with --install-android-build-template.
+/android/
 
 # Telemetry keys (M6g; copy config/telemetry_keys.example.gd)
 config/telemetry_keys.gd
