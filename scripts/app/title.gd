@@ -22,6 +22,7 @@ var _started := false
 
 
 func _ready() -> void:
+	Telemetry.mark_load_time() # boot → first title (M6g)
 	add_child(GameFlow.make_vignette())
 	_stage = PixelStage.new()
 	add_child(_stage)

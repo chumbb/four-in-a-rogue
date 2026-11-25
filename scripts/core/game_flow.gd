@@ -97,6 +97,7 @@ func go_to(key: SceneKey, transition := Transition.BLACK, sec := -1.0) -> void:
 		return
 	if _fading:
 		return
+	Telemetry.track(&"screen", {"name": str(SceneKey.find_key(key)).to_lower()})
 	if fade_sec <= 0.0:
 		get_tree().change_scene_to_file(path)
 		return
