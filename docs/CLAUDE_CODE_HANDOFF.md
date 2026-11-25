@@ -468,7 +468,7 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 ### Tests (all pass on 4.7.2, 1700 checks, 2026-11-25; counts below are current on `m6g-telemetry`)
 
 ```powershell
-$g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
+$g = "godot"   # C:\Users\Sean\Apps\Godot-4.7.2\godot.cmd (4.7.2 console exe)
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
 & $g --headless -s res://tests/test_scenario.gd    # 707 checks
 & $g --headless -s res://tests/test_turn_loop.gd   # 618
@@ -480,7 +480,7 @@ $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_
 
 Known: `test_git_sync` "temp repos cleaned up" fails on this machine — pre-existing.
 
-The Godot on PATH (`godot`) is **4.6.3**; always test with the 4.7.2 console exe above.
+The Godot on PATH (`godot`) is **4.7.2** (`C:\Users\Sean\Apps\Godot-4.7.2`, since 2026-11-25; 4.6.3 is retired).
 
 ### Gotchas
 

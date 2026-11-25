@@ -6,12 +6,12 @@ Design references live in the project docs (`four-in-a-rogue-vertical-slice.md`,
 
 ## Requirements
 
-- **Godot 4.6.3** (Forward+ renderer).
+- **Godot 4.7.2** (Mobile renderer).
 - Windows / Linux / macOS for development; target is **1920×1080**, **mouse** input for v0.1.
 
 ## Open in Godot
 
-1. Install [Godot 4.6.3](https://godotengine.org/download).
+1. Install [Godot 4.7.2](https://godotengine.org/download/archive/4.7.2-stable/).
 2. Clone this repo and open the folder containing `project.godot`.
 3. In the Project Manager, **Import** → select `project.godot` (or double-click it).
 4. Press **F5** (Run). Flow: **title (Press Start)** → **Strange Man** dialogue → **coin flip stub** → **scenario**. A left click on the title is Press Start. Pressing **Flip** locks the choice (Heads and Tails can be changed until then) and the scenario loads after 1.5 s. In the scenario, left click drops blue (player) and red (opponent AI) answers after 0.6 s; the end overlay shows Win / Lose / Draw with **Back to title** or **Replay** (draw, goes to the coin flip).

@@ -32,7 +32,7 @@ if ([string]::IsNullOrWhiteSpace($butler) -or -not (Test-Path $butler)) {
 
 $godot = $env:GODOT
 if ([string]::IsNullOrWhiteSpace($godot)) {
-	$godot = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
+	$godot = "godot"
 }
 if (-not (Test-Path "config/telemetry_keys.gd")) {
 	Write-Warning "config/telemetry_keys.gd is missing: this build will send no telemetry."

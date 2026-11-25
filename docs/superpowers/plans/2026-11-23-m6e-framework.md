@@ -6,7 +6,7 @@
 
 **Architecture:** Rules stay headless in `TurnLoop` / `Deck` / `BoardState` plus a new `DeckBuilder` + `GoobRoster`; the scenario replays `TurnLoop.effect_steps` and draws `TurnLoop.statuses` as pills. Debug tools hang off `OS.is_debug_build()`.
 
-**Tech Stack:** Godot 4.7 GDScript; headless tests via `G="/c/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"; "$G" --headless -s res://tests/<file>.gd` (prints `N checks, 0 failures`).
+**Tech Stack:** Godot 4.7 GDScript; headless tests via `godot --headless -s res://tests/<file>.gd` (prints `N checks, 0 failures`).
 
 **Spec:** `docs/superpowers/specs/2026-11-23-m6e-framework-design.md`
 

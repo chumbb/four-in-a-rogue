@@ -1,5 +1,5 @@
 
-Status: v0.1 rules locked for implementation (see §4–§5). Scope: **one playable scenario**, standard **7×6** board, **upright 3D board** (like the real game) in Godot **4.6.3**.
+Status: v0.1 rules locked for implementation (see §4–§5). Scope: **one playable scenario**, standard **7×6** board, **upright 3D board** (like the real game) in Godot **4.7.2**.
 
 Reference: [four-in-a-rogue-design.md](./four-in-a-rogue-design.md)
 
@@ -34,7 +34,7 @@ Multi-scenario runs, shop, encounters, money persistence across scenarios, meta 
 
 | Topic | Recommendation | Notes |
 |-------|----------------|-------|
-| **Engine version** | **Godot 4.6.3** (pinned). | Sean, 2026-11-01: develop and test on 4.6.3 only. `project.godot` declares 4.6. |
+| **Engine version** | **Godot 4.7.2**. | Sean, 2026-11-09: Godot 4.7 (supersedes 4.6.3 pinned 2026-11-01). `project.godot` declares 4.7. |
 | **2D vs 3D** | **Upright 3D board** in 3D space, like a real Connect 4 board. | Sean, 2026-11-01 (supersedes the earlier isometric + 2D-sprites-only direction). Goobs get physics, 3D effects and play animations (see Presentation below). UI (hand, HUD) is a Control-based 2D overlay. Logic remains grid-based 7×6. |
 | **Rendering** | Forward+ or Compatibility per target GPU; default PC Forward+. | Accessibility toggles (reduce flash/shake) can stub in v0.1. |
 | **Input** | **Mouse only** for v0.1. | Keyboard/controller deferred. |

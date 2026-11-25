@@ -8,13 +8,13 @@
 
 **Architecture:** Turn rules live in a pure `TurnLoop` (RefCounted) over `BoardState`, so they test headless with no scene. `OpponentAI` is a static, stateless function that takes an injected `RandomNumberGenerator`. The scenario scene only routes clicks to `TurnLoop`, runs the opponent after a short delay, syncs the 3D view and shows the end overlay. `GameFlow` keeps owning every scene change.
 
-**Tech Stack:** Godot 4.6.3, GDScript, headless `SceneTree` test scripts (`_check(cond, msg)` harness, exit 1 on any failure; copy the pattern from `tests/test_board_state.gd`).
+**Tech Stack:** Godot 4.7.2, GDScript, headless `SceneTree` test scripts (`_check(cond, msg)` harness, exit 1 on any failure; copy the pattern from `tests/test_board_state.gd`).
 
 **Spec:** GameDev vault `Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md` (§4 Scenario & flow, Turn and win/lose, Opponent AI; §6 M3). Repo `CLAUDE.md` §Locked rules mirrors it; the vault wins on conflict.
 
 ## Global Constraints
 
-- Godot **4.6.3** only. Run tests with `godot --headless -s res://tests/<file>.gd` (Godot 4.6.3 binary).
+- Godot **4.7.2** only. Run tests with `godot --headless -s res://tests/<file>.gd`.
 - **Mouse only.** No new keyboard requirement (keeping `ui_accept` as an extra on the title is fine).
 - **Enemy red, player blue.** `BoardState.CellOwner.PLAYER` = blue, `OPPONENT` = red.
 - Scene changes go through the **`GameFlow`** autoload only.
@@ -165,7 +165,7 @@
 **Files:** `CLAUDE.md`; vault session log + Decision-Log (via Obsidian / folder access).
 
 - [ ] **Step 1:** In `CLAUDE.md`: tick both M3 boxes; change the M3 marker to M4 "← you are here" only after Sean's playtest passes; Flow line → "Draw → `GameFlow.replay_after_draw()` → coin flip (no Strange Man)"; replace the `skip_strange_man_on_next_run` mention; Now/Next F5 expectation → "click → Strange Man → flip → turn loop vs opponent"; add the new tests to any test list.
-- [ ] **Step 2:** Run all suites on 4.6.3: `for t in tests/test_*.gd; do godot --headless -s res://$t; done` → every suite prints `0 failures`, exit 0. Paste the counts into the session log.
+- [ ] **Step 2:** Run all suites on 4.7.2: `for t in tests/test_*.gd; do godot --headless -s res://$t; done` → every suite prints `0 failures`, exit 0. Paste the counts into the session log.
 - [ ] **Step 3: Commit and push** `M3: docs`.
 - [ ] **Step 4:** Give Sean the F5 playtest list and stop:
   1. Click on the title → Strange Man.
