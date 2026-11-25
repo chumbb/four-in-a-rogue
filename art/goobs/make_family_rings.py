@@ -341,9 +341,136 @@ def mock_sparkles():
                 duration=int(1000 / FPS), loop=0, disposal=1)
 
 
+# ---------------------------------------------------------------- round 2
+# Sean's picks (2026-11-24): ring A, specials 90 %, legendaries not darker but
+# something extra; sparkles by what the effect does; a new upward one for bounce.
+SPECIAL_TINT = 0.90
+GOLD = (rgb("e6904e"), rgb("f9c22b"), rgb("fbff86"))
+UP = [rgb("ffffff"), rgb("8ff8e2"), rgb("30e1b9")]
+
+
+def legendary(im, kind, team, t):
+    """L1 glint sweep, L2 gold inner line, L3 gold gem on the ring (in place)."""
+    px = im.load()
+    if kind == "L1":
+        cycle, sweep = 2.5, 0.45
+        u = (t % cycle) / sweep
+        if u <= 1.0:
+            c = -12 + u * 76  # the streak's x + y
+            for y in range(32):
+                for x in range(32):
+                    p = px[x, y]
+                    if p[3] and abs((x + y) - c) < 2.0:
+                        k = 0.75 if abs((x + y) - c) < 1.0 else 0.4
+                        px[x, y] = tuple(int(p[i] + (255 - p[i]) * k) for i in range(3)) + (255,)
+    elif kind == "L2":
+        ink = rgb(TEAM[team]["K"])
+        rim = band(team)
+        for y in range(32):
+            for x in range(32):
+                d = math.hypot(x - CX, y - CY)
+                if (x, y) not in rim and px[x, y][3] and px[x, y] != ink and 9.5 <= d < 10.6:
+                    sh = shade(math.atan2(y - CY, x - CX))
+                    px[x, y] = GOLD[2] if sh > 0.55 else GOLD[0] if sh < -0.55 else GOLD[1]
+    elif kind == "L3":
+        gem = ["..Y..", ".YWY.", "YYWYY", ".YYD.", "..D.."]
+        col = {"Y": GOLD[1], "W": rgb("ffffff"), "D": GOLD[0]}
+        for dy, row in enumerate(gem):
+            for dx, ch in enumerate(row):
+                if ch != ".":
+                    px[13 + dx, 3 + dy] = col[ch]
+    return im
+
+
+def up_frames(kind, n_frames, cx, cy, seed):
+    rnd = random.Random(seed)
+    frames = [[] for _ in range(n_frames)]
+    dt = 1.0 / FPS
+
+    def put(f, x, y, c):
+        frames[f % n_frames].append((int(round(x)), int(round(y)), c))
+
+    top = cy - 13
+    if kind == "U1":  # up-chevrons springing off the top
+        t = 0.0
+        while t < SEC:
+            x0 = cx + rnd.uniform(-6, 6)
+            life = 0.6
+            for k in range(int(life * FPS)):
+                u = k / (life * FPS)
+                if u > 0.7 and k % 2:
+                    continue
+                y = top - 11 * (1 - (1 - u) ** 2)
+                c = UP[min(2, int(u * 3))]
+                f = int((t + k * dt) * FPS)
+                for d in range(3):
+                    put(f, x0 - d, y + d, c)
+                    put(f, x0 + d, y + d, c)
+            t += 0.5
+    elif kind == "U2":  # pellets hopping up and back down
+        t = 0.0
+        while t < SEC:
+            x0 = cx + rnd.uniform(-9, 9)
+            h = rnd.uniform(7, 12)
+            life = 0.55
+            dx = rnd.uniform(-3, 3)
+            for k in range(int(life * FPS) + 1):
+                u = k / (life * FPS)
+                put(int((t + k * dt) * FPS), x0 + dx * u, top - 4 * h * u * (1 - u) + 1, UP[0] if u < 0.5 else UP[1])
+            t += 0.22
+    return frames
+
+
+def mock_round2():
+    titles = ["L1", "L2", "L3", "U1", "U2"]
+    n_frames = int(SEC * FPS)
+    rows_up = 16
+    head = 48
+    cy = None
+    ups = None
+    out = []
+    for f in range(n_frames):
+        t = f / FPS
+        goobs = [legendary(goob("blue", "move", "A", SPECIAL_TINT), "L1", "blue", t),
+                 legendary(goob("red", "move", "A", SPECIAL_TINT), "L2", "red", t),
+                 legendary(goob("blue", "move", "A", SPECIAL_TINT), "L3", "blue", t),
+                 goob("red", "move", "A", SPECIAL_TINT), goob("blue", "move", "A", SPECIAL_TINT)]
+        fr = board_strip(goobs, extra_top=rows_up)
+        if cy is None:
+            cy = fr.height - 8 - 32 + 16 - 1
+            ups = [up_frames(k, n_frames, 8 + 32 * (3 + i) + 15.5, cy, 11 + i) for i, k in enumerate(["U1", "U2"])]
+        px = fr.load()
+        for u in ups:
+            for x, y, c in u[f]:
+                if 0 <= x < fr.width and 0 <= y < fr.height:
+                    px[x, y] = c
+        big = up(fr, S)
+        canvas = Image.new("RGBA", (big.width, big.height + head), BG)
+        for i, ti in enumerate(titles):
+            text(canvas, (8 * S + i * 32 * S, 10), ti, 2)
+        canvas.alpha_composite(big, (0, head))
+        out.append(canvas.convert("RGB"))
+    base_pal = out[0].quantize(colors=200, method=Image.MEDIANCUT, dither=Image.NONE).getpalette()[:200 * 3]
+    colours = [tuple(base_pal[i:i + 3]) for i in range(0, len(base_pal), 3)]
+    extra = {c for fr in out for _n, c in fr.getcolors(1 << 16)} - set(colours)
+    # keep the glint / gold / up colours exact (the frames' rare colours)
+    colours += [c[:3] for c in list(GOLD) + UP] + sorted(extra)[:50]
+    colours = list(dict.fromkeys(colours))[:256]
+    pal = Image.new("P", (1, 1))
+    pal.putpalette([v for c in colours for v in c] + [0] * 3 * (256 - len(colours)))
+    out = [fr.quantize(palette=pal, dither=Image.NONE) for fr in out]
+    out[0].save(os.path.join(OUT, "mock_round2.gif"), save_all=True, append_images=out[1:],
+                duration=int(1000 / FPS), loop=0, disposal=1)
+    # a still of the legendary options for a quick look
+    still_strip = Image.new("RGBA", (out[0].width, out[0].height))
+    still_strip.paste(out[int(0.2 * FPS)].convert("RGBA"))
+    still_strip.save(os.path.join(OUT, "mock_round2_still.png"))
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     mock_rings()
     mock_tints()
     mock_sparkles()
+    mock_round2()
     print("wrote", OUT)
