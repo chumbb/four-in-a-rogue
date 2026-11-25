@@ -241,11 +241,27 @@ APIs the category sessions use:
 - Art F / G are **deferred to after M7**, so the hand's name labels under Vanilla-art specials (`HandView._place_name`) and the text pills stay for now.
 - Open nits from earlier code reviews, in case Sean wants any: the AI's threat check ignores your Territorial-locked column; an Inspiring-triggered hit gets no portrait reaction; the AI's flat draw values ignore the hand cap and a forced draw after a skip; a jinx toast is lost when the jinx skips the turn. Uncommitted editor churn in `project.godot` (dropped default-valued settings) is still in Sean's working copy.
 
-### M7 — on-device check ← **next** (required for v0.1; after M6f; CLAUDE.md §M7)
+### M6g Diagnostics & play data ← **built on `m6g-telemetry`, playtest pending** (Sean, 2026-11-25; before M7)
+
+- **Decisions (Sean, 2026-11-25; vault Decision-Log):** testers he knows only, so it's kept light (no store privacy forms yet). **Sentry** handles crashes and script errors, **PostHog** handles play and performance events. "Send diagnostics" in Options is **on by default**, with no prompt. Only **exported builds** send (debug + release, tagged by `environment`); F5 and the editor's headless runs never do. Sean wants **every Goob's win rate, win rates of Goob combinations, and held in hand vs played at once**.
+- **Code:**
+  - Autoload **`Telemetry`** (`scripts/core/telemetry.gd`, after `Settings`). `track(event, props)` adds a Sentry breadcrumb and queues a PostHog event (anonymous `install_id` in `user://telemetry.cfg`, `$process_person_profile: false`). Batches of 20 or every 30 s go to `/batch/`. The queue is saved to `user://telemetry_queue.jsonl` on background, quit and failed sends, capped at 1000. A per-scenario perf sample (`perf_begin` / `perf_end`) covers avg and p5 fps, frames under 30 fps, the worst frame, and peak static memory.
+  - Sentry: the vendored **sentry-godot 2.5.1** addon (`addons/sentry/`, trimmed to Windows x86_64 + Android; .NET, web, Linux, macOS and iOS removed). `options/auto_init=false`; `Telemetry._start_sentry()` starts it, reaching the classes by name so the script parses where the library is missing. `debug/settings/gdscript/always_track_call_stacks=true` is set because Sentry needs it for GDScript stack traces.
+  - Keys: `config/telemetry_keys.gd` is **gitignored**; copy `config/telemetry_keys.example.gd` and fill in `SENTRY_DSN`, `POSTHOG_KEY` and `POSTHOG_HOST`. A `.gd` file is always exported, so it needs no include filter. Empty keys = that service stays off.
+  - Goob play data: `Deck.turns` (bumped in `TurnLoop._begin_turn`) and `Deck.hand_drawn_at`, kept in step by `draw` / `take` / `add`, give `Deck.held_turns(i)` (0 = played at once; the starting hand counts as drawn on turn 1). Debug Give Goob now goes through `Deck.take` / `add`. The scenario's `_track_start` / `_track_play` / `_track_end` / `_exit_tree` send `scenario_start`, `goob_played` (goob, column, turn, `turns_held`, hand size, timeout, auto-play, effects + fizzles) and `scenario_end`. Per side, `scenario_end` carries the deck, plays in order, held turns, what was left in hand, discarded and destroyed, the winning line, plus result, score and perf. `scenario_quit` is sent on a quit. Other events: `app_start` (device, GPU, renderer, screen), `screen`, `load_time`, `strange_man_skipped`, `turn_timeout`, `hand_full`, `turn_skipped`, `column_full_attempt`, `app_background`. F4-touched games are flagged `debug`.
+  - Options row **Send diagnostics** (`Settings.diagnostics`, `[privacy]` in settings.cfg). Off drops the queue and closes Sentry.
+  - F4 panel: **Test error** (`push_error`) and **Test crash** (`SentrySDK.get_bad_code().crash_with_abort()`) for checking Sentry from an export.
+  - `export_presets.cfg` is now in git (credentials stay in the gitignored `export_credentials.cfg`): Windows Desktop and Android (Gradle build, which Sentry needs; arm64; INTERNET + VIBRATE; package `com.example.$genname` until Sean picks one).
+- **Stats:** `tools/telemetry/goob_stats.py` reads `scenario_end` from PostHog (`--project <id>`, personal key in env `POSTHOG_PERSONAL_KEY`, `--host https://us|eu.posthog.com`) or from a file (`--file events.jsonl`). It writes a Markdown report: per Goob win rate in deck / when played / in the winning four; pairs played together (win rate + lift, `--min-pair`); played at once, average held, never played. All rates have Wilson 95 % intervals. Human games only for your side (auto-play and debug games left out; `--include-autoplay` for soak runs); the opponent is reported separately.
+- **Tests:** `tests/test_telemetry.gd` (34 checks: off in the editor, batching, failed send kept + reloaded, cap, Off toggle, perf, UUID, Deck held turns, TurnLoop turn counts); `test_flow_m3` now expects 14 / 13 Options targets. All suites pass on 4.7.2: board 78, turn loop 618, AI 77, flow 186, scenario 707. End to end: `godot --headless -s res://tests/telemetry_dump.gd -- out.jsonl 30` plays 30 rolled-deck games and writes their events, then `goob_stats.py --file out.jsonl` reports on them.
+- **Known:** with F3 insets at 1080×1920, the debug build's Options window (with the Auto-play row) reaches into the home strip. It fits on the Pixel 11's taller screen, and release builds have one row fewer. Repo +25 MB for the Sentry binaries.
+- **Sean to do before checking it:** create the Sentry (Godot platform) + PostHog projects, fill `config/telemetry_keys.gd`, install the Godot 4.7.2 export templates, export Windows Desktop (debug), play one game, check PostHog → Activity / Live events, press F4 → Test error / Test crash and check Sentry. Android waits for M7 (Gradle template, SDK).
+
+### M7 — on-device check (required for v0.1; after M6g; CLAUDE.md §M7)
 
 - **Goal:** an Android debug build on the **Pixel 11**, first with the Mobile renderer, then with Compatibility. Use the **Pixel 8** as the older phone if Sean has one. Check **A9** (portrait touch) on hardware, plus the rest of `docs/SMOKE_V0.1.md`. A true low-end check is a known gap. iOS waits for a Mac; the Retroid Pocket (4:3) is saved for the landscape version.
 - **Starting state on this PC (checked 2026-11-23):**
-  - no `export_presets.cfg` in the repo
+  - `export_presets.cfg` exists since M6g (Windows + Android with Gradle build, INTERNET, VIBRATE); Android still needs the Gradle template (Project → Install Android Build Template) for Sentry
   - `%APPDATA%\Godot\export_templates` is empty
   - no JDK, Android SDK or `adb` on PATH
   - so the session starts with setup:
@@ -254,7 +270,7 @@ APIs the category sessions use:
     - Android SDK (command-line tools, platform-tools, build-tools)
     - set the paths in Editor Settings → Export → Android
     - the debug keystore
-    - an Android export preset
+    - the Android preset's package name (still `com.example.$genname`)
   - Sean has to do the installs and the USB debugging on the phone himself. Give him exact steps and `!` commands.
 - **Things to check on the phone** (desktop smoke already passes):
   - safe area on a real notch / home strip
@@ -264,6 +280,7 @@ APIs the category sessions use:
   - steady 60 fps
   - the whole-number pixel scale at the phone's width
   - both renderers (the shader baker at export)
+  - M6g telemetry from the phone: events in PostHog, F4 Test error / Test crash in Sentry
 - **Don't change rules or art in M7.** Fixes from the device go on short branches for Sean to check.
 - The M7 Android build is a debug export, so the » auto-play button and F4 panel exist on the phone; turn Options → Auto-play button off for the A9 check.
 
