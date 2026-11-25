@@ -339,6 +339,7 @@ func _build_hud() -> void:
 	add_child(_pause)
 	if OS.is_debug_build():
 		_build_debug_panel()
+	add_child(EscapeKey.new(handle_escape))
 
 
 ## F4 debug picker (M6e): debug builds only.
@@ -354,7 +355,6 @@ func _build_debug_panel() -> void:
 		GameFlow.rolled_decks = {}
 		GameFlow.replay_after_draw())
 	add_child(_debug)
-	add_child(EscapeKey.new(handle_escape))
 
 
 func _on_debug_toggle() -> void:
@@ -529,7 +529,7 @@ func _place_banner_band() -> void:
 ## Options, Quit confirm, pause, inspect) like its own button; with nothing
 ## open it pauses, when the Pause button could. True when it used the key.
 func handle_escape() -> bool:
-	if _debug.is_open():
+	if _debug != null and _debug.is_open():
 		_on_debug_toggle()
 		return true
 	if _pause.is_open():
@@ -546,7 +546,8 @@ func handle_escape() -> bool:
 		return true
 	if _end_overlay.visible or _reviewing or GameFlow.is_fading():
 		return false
-	_end_touch() # a gesture can't finish while the tree is paused
+	if _touch_index != -1:
+		_end_touch() # a gesture can't finish while the tree is paused
 	_on_pause_pressed()
 	return true
 

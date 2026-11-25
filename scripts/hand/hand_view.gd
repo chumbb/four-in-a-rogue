@@ -1,6 +1,6 @@
 class_name HandView
 extends Control
-## The player's hand: up to 5 Goob faces in a shallow fan on the table (slice
+## The player's hand: up to 7 Goob faces (Deck.HAND_MAX) in a shallow fan on the table (slice
 ## §2B). Display only: the scenario owns the rules and the touch input, and
 ## hit-tests with goob_at().
 ##
@@ -147,11 +147,16 @@ func count() -> int:
 
 ## Index of the hand Goob under a viewport position, or -1.
 func goob_at(pos: Vector2) -> int:
-	var half := GOOB_PX * goob_px() * 0.5
+	var goob := GOOB_PX * goob_px()
+	# Touch-target floor (slice §2B): at least 96 px wide even when the Goobs
+	# shrink, but never into the next Goob's share of the fan.
+	var half := Vector2(maxf(goob, TOUCH_MIN) * 0.5, goob * 0.5)
+	if _cards.size() > 1:
+		half.x = maxf(goob * 0.5, minf(half.x, _step() * 0.5))
 	# Last card wins: later cards draw on top.
 	for i in range(_cards.size() - 1, -1, -1):
 		var centre := get_global_transform() * _slot(i).origin
-		if Rect2(centre - Vector2(half, half), Vector2(half, half) * 2.0).has_point(pos):
+		if Rect2(centre - half, half * 2.0).has_point(pos):
 			return i
 	return -1
 
@@ -349,9 +354,13 @@ func goobs() -> Array[GoobDefinition]:
 
 ## Moves every card (except one being dragged) to its fan slot.
 func layout(animated: bool) -> void:
-	var px := goob_px()
-	for card in _cards:
-		(card.get_node("Sprite") as Sprite2D).scale = Vector2(px, px)
+	var px := Vector2(goob_px(), goob_px())
+	var tweened := animated and animate and is_inside_tree()
+	for i in _cards.size():
+		var card := _cards[i]
+		# Fanned Goobs ease into a new size (hand over / under 5) below.
+		if not tweened or i == _dragged or card == _revealing:
+			(card.get_node("Sprite") as Sprite2D).scale = px
 		_place_name(card)
 	_stagger_names()
 	for i in _cards.size():
@@ -361,10 +370,11 @@ func layout(animated: bool) -> void:
 		var slot := _slot(i)
 		_kill_tween(card)
 		card.scale = Vector2.ONE
-		if animated and animate and is_inside_tree():
+		if tweened:
 			var tween := card.create_tween().set_speed_scale(speed_scale).set_parallel()
 			tween.tween_property(card, "position", slot.origin, LAYOUT_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			tween.tween_property(card, "rotation", slot.get_rotation(), LAYOUT_SEC)
+			tween.tween_property(card.get_node("Sprite"), "scale", px, LAYOUT_SEC)
 			card.set_meta("tween", tween)
 		else:
 			card.position = slot.origin
@@ -380,6 +390,20 @@ func _slot(index: int) -> Transform2D:
 	var n := _cards.size()
 	var goob := GOOB_PX * goob_px()
 	var mid := (n - 1) * 0.5
+	var step := _step()
+	var offset := index - mid
+	var x := size.x * 0.5 + offset * step
+	# Bottom on the stump's seat line, also for the smaller Goobs of a big hand.
+	var y := LIFT_PX * _px + 8.0 + GOOB_PX * _px - goob * 0.5 + offset * offset * FAN_SINK_PX
+	if index == _selected:
+		y -= LIFT_PX * _px
+	return Transform2D(deg_to_rad(offset * FAN_STEP_DEG), Vector2(x, y))
+
+
+## Distance between neighbouring Goob centres in the fan.
+func _step() -> float:
+	var n := _cards.size()
+	var goob := GOOB_PX * goob_px()
 	var step := goob + GAP_MIN * 2.0
 	if n > 1:
 		var full_span := size.x - SIDE_INSET * 2.0
@@ -390,12 +414,7 @@ func _slot(index: int) -> Transform2D:
 		if step < TOUCH_MIN:
 			# A big hand spreads past the hand prop to keep every Goob tappable.
 			step = minf(goob + GAP_MIN * 2.0, maxf(step, (full_span - goob) / (n - 1)))
-	var offset := index - mid
-	var x := size.x * 0.5 + offset * step
-	var y := LIFT_PX * _px + 8.0 + goob * 0.5 + offset * offset * FAN_SINK_PX
-	if index == _selected:
-		y -= LIFT_PX * _px
-	return Transform2D(deg_to_rad(offset * FAN_STEP_DEG), Vector2(x, y))
+	return step
 
 
 # --- Cards -------------------------------------------------------------------

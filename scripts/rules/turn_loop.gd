@@ -819,7 +819,7 @@ func _owned_cells(kind: GoobDefinition.EffectType, side: BoardState.CellOwner) -
 
 
 ## Plentiful: `drawer` just drew `count` Goobs, so each Plentiful its opponent
-## owns draws that many for its owner (hand cap 5). These draws never set off
+## owns draws that many for its owner (hand cap Deck.HAND_MAX). These draws never set off
 ## another Plentiful (Sean, 2026-11-23). One step per Plentiful that drew; a
 ## full hand or empty deck draws nothing, silently (no "Hand full" shake on
 ## every opponent draw).

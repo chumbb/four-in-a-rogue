@@ -275,7 +275,7 @@ func _update_sparkles(delta: float) -> void:
 		var token: Sprite2D = _tokens[cell]
 		if not is_instance_valid(token):
 			continue
-		var kind := sparkle_at(cell)
+		var kind := &"" if _sparkle_hidden(token) else sparkle_at(cell)
 		token.set_meta(&"sparkle", kind)
 		if not SPARK_EVERY.has(kind):
 			continue # none, or crackle (drawn straight from the token)
@@ -293,6 +293,12 @@ func _update_sparkles(delta: float) -> void:
 			live.append(spark)
 	_sparks = live
 	_sparkle_layer.queue_redraw()
+
+
+## No sparkles while the Goob is still rising from behind the board or its
+## texture is busy (spins, the scoring back).
+func _sparkle_hidden(token: Sprite2D) -> bool:
+	return token.get_meta(&"busy", false) or token.get_parent() == _behind
 
 
 func _new_spark(token: Sprite2D, kind: StringName) -> Dictionary:
@@ -321,7 +327,7 @@ func _dot(at: Vector2, color: Color) -> void:
 func _draw_sparkles() -> void:
 	for spark in _sparks:
 		var token: Sprite2D = spark["token"]
-		if not is_instance_valid(token) or not token.is_visible_in_tree():
+		if not is_instance_valid(token) or not token.is_visible_in_tree() or _sparkle_hidden(token):
 			continue
 		var c := _spark_centre(token)
 		var t: float = spark["t"]
@@ -1126,13 +1132,13 @@ func cell_at(pos: Vector2) -> Vector2i:
 	return Vector2i(column, row)
 
 
-## Logical px per game px for hand Goobs: one whole physical step bigger than
-## the board (5× when the board is 4×; GDD Art direction).
 ## Logical px per game px of the board (hand Goobs shrink to it past 5).
 func board_px() -> float:
 	return _k
 
 
+## Logical px per game px for hand Goobs: one whole physical step bigger than
+## the board (5× when the board is 4×; GDD Art direction).
 func hand_px() -> float:
 	return _k * (pixel_scale + 1) / pixel_scale
 

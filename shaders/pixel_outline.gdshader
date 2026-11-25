@@ -45,8 +45,9 @@ void fragment() {
 			c.rgb *= tint;
 		}
 		if (glint) {
-			// A diagonal streak (texel x + y) crossing the 32 px Goob.
-			vec2 texel = floor(UV / TEXTURE_PIXEL_SIZE);
+			// A diagonal streak (texel x + y) crossing the 32 px Goob. Frames
+			// come from 32 px grids (expression sheets), so measure within one.
+			vec2 texel = mod(floor(UV / TEXTURE_PIXEL_SIZE), 32.0);
 			float u = mod(TIME, GLINT_CYCLE) / GLINT_SWEEP;
 			float d = abs(texel.x + texel.y - (-12.0 + u * 76.0));
 			float k = u > 1.0 ? 0.0 : (d < 1.0 ? 0.75 : (d < 2.0 ? 0.4 : 0.0));
