@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="GoobDefinition" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="GoobDefinition" format=3 uid="uid://b53u1m3v2ajij"]
 
-[ext_resource type="Script" path="res://scripts/goobs/goob_definition.gd" id="1"]
+[ext_resource type="Script" uid="uid://c1takk6rcprwn" path="res://scripts/goobs/goob_definition.gd" id="1"]
 
 [resource]
 script = ExtResource("1")
@@ -11,5 +11,5 @@ effect_description = "Flip a random adjacent enemy Goob to your side."
 effect_type = 1
 category = 1
 ring = 2
-art_id = "convincing"
 flavour_text = "Gooberius called this persuasion. Its neighbours call it rude."
+art_id = "convincing"

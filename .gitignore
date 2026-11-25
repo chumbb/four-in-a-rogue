@@ -6,8 +6,11 @@
 
 # Export
 export/
-export_presets.cfg
 export_credentials.cfg
+
+# Telemetry keys (M6g; copy config/telemetry_keys.example.gd)
+config/telemetry_keys.gd
+config/telemetry_keys.gd.uid
 
 # Translations
 *.translation

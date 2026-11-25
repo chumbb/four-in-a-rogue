@@ -195,6 +195,7 @@ func _pop_goobs() -> void:
 
 
 func _on_skip_pressed() -> void:
+	Telemetry.track(&"strange_man_skipped", {"page": page + 1})
 	GameFlow.sfx.play(&"ui_tap")
 	finish()
 

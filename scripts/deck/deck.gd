@@ -17,6 +17,11 @@ var hand: Array[GoobDefinition] = []
 var discard_pile: Array[GoobDefinition] = []
 ## This side's Goobs destroyed on the board (M6e).
 var destroyed_pile: Array[GoobDefinition] = []
+## Play data (M6g): this side's turn count (TurnLoop bumps it at each turn
+## start) and, in step with `hand`, the turn each hand Goob was drawn on.
+## Starting-hand Goobs count as drawn on turn 1. Bookkeeping only.
+var turns := 0
+var hand_drawn_at: Array[int] = []
 
 
 ## A shuffled copy of `goobs` as the draw pile, empty hand.
@@ -41,7 +46,7 @@ func draw(count: int) -> Array[GoobDefinition]:
 		if draw_pile.is_empty() or hand.size() >= HAND_MAX:
 			break
 		var goob: GoobDefinition = draw_pile.pop_back()
-		hand.append(goob)
+		add(goob)
 		drawn.append(goob)
 	return drawn
 
@@ -56,7 +61,24 @@ func draw_blocked_by_hand(count: int) -> bool:
 func take(index: int) -> GoobDefinition:
 	if index < 0 or index >= hand.size():
 		return null
+	if index < hand_drawn_at.size():
+		hand_drawn_at.remove_at(index)
 	return hand.pop_at(index)
+
+
+## Puts `goob` at the end of the hand, drawn this turn (no hand cap check).
+func add(goob: GoobDefinition) -> void:
+	hand.append(goob)
+	hand_drawn_at.append(maxi(turns, 1))
+
+
+## How many of this side's turns the hand Goob at `index` has waited (0 =
+## drawn this turn: played at once), or -1 if unknown (an AI simulation's
+## hand).
+func held_turns(index: int) -> int:
+	if hand_drawn_at.size() != hand.size() or index < 0 or index >= hand.size():
+		return -1
+	return turns - hand_drawn_at[index]
 
 
 ## Moves the hand Goob at `index` to the discard pile and returns it, or null

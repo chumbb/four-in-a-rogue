@@ -124,6 +124,14 @@ var _pills: StatusPills
 var _pause: PauseMenu
 ## F4 debug picker (debug builds only; null in a release build).
 var _debug: DebugPanel
+## Play data (M6g): each side's plays this scenario ({"played", "held"}),
+## sent to Telemetry at the end (or on a quit).
+var _stats: Dictionary = {}
+var _stats_sent := false
+var _started_msec := 0
+var _autoplay_used := false
+## The F4 panel changed this game (its data is left out of the Goob stats).
+var _debug_used := false
 ## Set when the turn timer ran out (the HUD reads 0 until the Goob is played).
 var _timed_out := false
 var _loop := TurnLoop.new()
@@ -216,6 +224,7 @@ func _ready() -> void:
 		for goob in _loop.last_draw:
 			start_hand.remove_at(start_hand.rfind(goob))
 	_hand.rebuild(start_hand)
+	_track_start()
 	_start_game()
 
 
@@ -373,14 +382,16 @@ func debug_give(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
 	if side == BoardState.CellOwner.PLAYER and not _hand_stable():
 		_show_not_now()
 		return
-	var hand := _loop.deck_of(side).hand
+	_debug_used = true
+	var deck := _loop.deck_of(side)
+	var hand := deck.hand
 	if hand.size() >= Deck.HAND_MAX:
-		hand.remove_at(0)
+		deck.take(0)
 		if side == BoardState.CellOwner.OPPONENT and _opponent_planned():
 			# His chosen Goob shifts down; if it was the dropped one, he plays
 			# the given one instead (same column).
 			_opponent_hand_index = _opponent_hand_index - 1 if _opponent_hand_index > 0 else hand.size()
-	hand.append(goob)
+	deck.add(goob)
 	if side == BoardState.CellOwner.PLAYER:
 		_end_touch()
 		_hand.rebuild(hand)
@@ -394,6 +405,7 @@ func debug_give(goob: GoobDefinition, side: BoardState.CellOwner) -> void:
 ## one; else a "Not now" toast); his any time (never the Goob he has chosen to
 ## play).
 func debug_discard_random(side: BoardState.CellOwner) -> void:
+	_debug_used = true
 	var replan := false
 	if side == BoardState.CellOwner.PLAYER:
 		# Taking your last Goob skips this turn, unless your last turn was
@@ -453,6 +465,7 @@ func _show_not_now() -> void:
 
 ## Debug: a two-turn test status on `side`.
 func debug_add_status(side: BoardState.CellOwner) -> void:
+	_debug_used = true
 	_loop.add_status(&"debug", side, "Test", "A test status from the debug panel.", 2)
 	_refresh_hud()
 
@@ -947,7 +960,10 @@ func _play_player(column: int, hand_index: int, roll_path: Array[int] = [], in_f
 		_hand.remove(hand_index)
 	var goob: GoobDefinition = _loop.player_deck.hand[hand_index]
 	_board_before = _loop.board.copy()
+	var before := _play_snapshot(BoardState.CellOwner.PLAYER, hand_index)
 	var row := _loop.play(column, hand_index, roll_dir(roll_path))
+	if row != -1:
+		_track_play(BoardState.CellOwner.PLAYER, goob, column, before)
 	_land_then_continue(column, row, BoardState.CellOwner.PLAYER, roll_path, goob, from_behind)
 	return row
 
@@ -1181,6 +1197,7 @@ func _on_turn_timeout() -> void:
 		_timeout_hand_index = _rng.randi_range(0, _loop.player_deck.hand.size() - 1)
 	_set_input_enabled(false)
 	_timed_out = true
+	Telemetry.track(&"turn_timeout", {"turn": _loop.player_deck.turns, "dragging": _touch_index != -1})
 	var from := _hand.card_center(_timeout_hand_index)
 	_hand.remove(_timeout_hand_index)
 	_toast.show_message(MSG_TIMES_UP)
@@ -1230,6 +1247,7 @@ func _roll_path(column: int, rightward: bool) -> Array[int]:
 func _after_play() -> void:
 	for side in _loop.last_skipped:
 		_toast.show_message(MSG_TURN_SKIPPED if side == BoardState.CellOwner.PLAYER else MSG_OPPONENT_SKIPPED)
+		Telemetry.track(&"turn_skipped", {"side": _side_name(side)})
 	match _loop.phase:
 		TurnLoop.Phase.OVER:
 			_show_end()
@@ -1321,6 +1339,7 @@ func _show_discard(goob: GoobDefinition, side: BoardState.CellOwner, index: int 
 
 ## A draw skipped by the hand cap (turn draw or Plentiful): toast + shake.
 func _show_hand_full() -> void:
+	Telemetry.track(&"hand_full")
 	_toast.show_message(MSG_HAND_FULL)
 	_sfx.play(&"hand_full")
 	_place_toast()
@@ -1378,14 +1397,17 @@ func _play_opponent_move() -> void:
 	var goob: GoobDefinition = _loop.opponent_deck.hand[hand_index]
 	_hud.set_base_face(&"idle")
 	_board_before = _loop.board.copy()
+	var before := _play_snapshot(BoardState.CellOwner.OPPONENT, hand_index)
 	var row := _loop.play(_opponent_column, hand_index)
 	if row == -1:
 		push_error("Scenario: opponent chose illegal column %d" % _opponent_column)
 		return
+	_track_play(BoardState.CellOwner.OPPONENT, goob, _opponent_column, before)
 	_land_then_continue(_opponent_column, row, BoardState.CellOwner.OPPONENT, [], goob, true)
 
 
 func _show_end() -> void:
+	_track_end()
 	_set_input_enabled(false)
 	_hud.set_pause_visible(false)
 	_autoplay_timer.stop()
@@ -1557,6 +1579,7 @@ func _wait(sec: float) -> void:
 
 ## §4.6 feedback: shake + error sound + toast.
 func _reject_placement(message: String) -> void:
+	Telemetry.track(&"column_full_attempt", {"message": message})
 	_board_view.shake()
 	_sfx.play(&"error")
 	Settings.vibrate()
@@ -1623,3 +1646,132 @@ func _on_end_pressed() -> void:
 	else:
 		GameFlow.return_to_title()
 
+
+# --- Play data (M6g) ---------------------------------------------------------
+
+## A quit (pause → Quit, or the app closing) before the end: what was played.
+func _exit_tree() -> void:
+	if _stats.is_empty() or _stats_sent:
+		return
+	_stats_sent = true
+	var props := {
+		"turns": _loop.player_deck.turns + _loop.opponent_deck.turns,
+		"duration_sec": (Time.get_ticks_msec() - _started_msec) / 1000.0,
+		"debug": _debug_game(),
+	}
+	props.merge(Telemetry.perf_end())
+	Telemetry.track(&"scenario_quit", props)
+
+
+func _track_start() -> void:
+	_started_msec = Time.get_ticks_msec()
+	_stats = {}
+	for side: BoardState.CellOwner in [BoardState.CellOwner.PLAYER, BoardState.CellOwner.OPPONENT]:
+		_stats[side] = {"played": [], "held": []}
+	Telemetry.perf_begin()
+	Telemetry.track(&"scenario_start", {
+		"player_first": GameFlow.player_moves_first,
+		"specials": _loop.player_goobs.filter(func(g: GoobDefinition) -> bool: return g.id != "vanilla").size(),
+		"player_deck": _goob_ids(_loop.player_goobs),
+		"opponent_deck": _goob_ids(_loop.opponent_goobs),
+		"auto_flip": Settings.auto_flip,
+		"autoplay": GameFlow.autoplay,
+		"speed": "fast" if Settings.speed == Settings.Speed.FAST else "normal",
+		"debug": _debug_game(),
+	})
+
+
+## Before `side` plays its hand Goob at `hand_index`: how long it waited, the
+## turn and the hand size.
+func _play_snapshot(side: BoardState.CellOwner, hand_index: int) -> Dictionary:
+	var hand_deck := _loop.deck_of(side)
+	return {"held": hand_deck.held_turns(hand_index), "turn": hand_deck.turns, "hand_size": hand_deck.hand.size()}
+
+
+## One play: the Goob, how many turns it waited in hand (0 = played at once)
+## and its effects (fizzled or not).
+func _track_play(side: BoardState.CellOwner, goob: GoobDefinition, column: int, before: Dictionary) -> void:
+	var stats: Dictionary = _stats.get(side, {})
+	if stats.is_empty() or goob == null:
+		return
+	stats["played"].append(goob.id)
+	stats["held"].append(before["held"])
+	var mine := side == BoardState.CellOwner.PLAYER
+	if mine and GameFlow.autoplay:
+		_autoplay_used = true
+	var effects: Array = []
+	for step in _loop.effect_steps:
+		var kind: int = step.get("kind", GoobDefinition.EffectType.NONE)
+		if kind == GoobDefinition.EffectType.NONE:
+			continue
+		effects.append({"kind": str(GoobDefinition.EffectType.find_key(kind)).to_lower(), "fizzled": step.get("fizzled", false)})
+	Telemetry.track(&"goob_played", {
+		"side": _side_name(side),
+		"goob": goob.id,
+		"column": column,
+		"turn": before["turn"],
+		"turns_held": before["held"],
+		"hand_size": before["hand_size"],
+		"timeout": mine and _timed_out,
+		"autoplay": mine and GameFlow.autoplay,
+		"effects": effects,
+	})
+
+
+## The end of the scenario: the result, then per side its deck, what it played
+## (in order, with turns held), what was left in hand, discarded and
+## destroyed, and the Goobs in its winning four; plus the performance sample.
+## Goob win rates and combinations come from these (tools/telemetry/goob_stats.py).
+func _track_end() -> void:
+	if _stats.is_empty() or _stats_sent:
+		return
+	_stats_sent = true
+	var result := "draw"
+	var winner := BoardState.CellOwner.EMPTY
+	match _loop.result:
+		TurnLoop.Result.PLAYER_WIN:
+			result = "win"
+			winner = BoardState.CellOwner.PLAYER
+		TurnLoop.Result.OPPONENT_WIN:
+			result = "lose"
+			winner = BoardState.CellOwner.OPPONENT
+	var props := {
+		"result": result,
+		"turns": _loop.player_deck.turns + _loop.opponent_deck.turns,
+		"duration_sec": (Time.get_ticks_msec() - _started_msec) / 1000.0,
+		"autoplay_used": _autoplay_used,
+		"debug": _debug_game(),
+		"score": 0.0,
+	}
+	for side: BoardState.CellOwner in _stats:
+		var prefix := _side_name(side) + "_"
+		var side_deck := _loop.deck_of(side)
+		props[prefix + "deck"] = _goob_ids(_loop.player_goobs if side == BoardState.CellOwner.PLAYER else _loop.opponent_goobs)
+		props[prefix + "played"] = _stats[side]["played"]
+		props[prefix + "held"] = _stats[side]["held"]
+		props[prefix + "left_in_hand"] = _goob_ids(side_deck.hand)
+		props[prefix + "discarded"] = _goob_ids(side_deck.discard_pile)
+		props[prefix + "destroyed"] = _goob_ids(side_deck.destroyed_pile)
+		var line: Array = []
+		if side == winner:
+			var score := 0.0
+			for cell in _loop.scoring_cells(side):
+				var goob := _loop.goob_at(cell.x, cell.y)
+				line.append(goob.id if goob != null else "vanilla")
+				score += goob.multiplier if goob != null else TurnLoop.VANILLA.multiplier
+			props["score"] = score
+		props[prefix + "winning_line"] = line
+	props.merge(Telemetry.perf_end())
+	Telemetry.track(&"scenario_end", props)
+
+
+func _debug_game() -> bool:
+	return _debug_used or not GameFlow.debug_forced_categories.is_empty() or not deck.is_empty()
+
+
+static func _goob_ids(goobs: Array) -> Array:
+	return goobs.map(func(g: GoobDefinition) -> String: return g.id if g != null else "")
+
+
+static func _side_name(side: BoardState.CellOwner) -> String:
+	return "player" if side == BoardState.CellOwner.PLAYER else "opponent"

@@ -36,7 +36,7 @@ claude
 
 ## Remaining plan to v0.1 (APPROVED by Sean, 2026-11-20 grill)
 
-Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23), Draw, Tech and Uniquely powerful (2026-11-24): M6e is done. M6f pre-M7 fixes accepted and merged (2026-11-24). Next: M7; Art F / G deferred to after M7 (Sean, 2026-11-24).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
+Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Design/Roadmap v0.1 - remaining art and code.md`**. `CLAUDE.md` §Milestones mirrors it (checklists + Strange Man brief). **Everything through M6d is accepted and merged (M6d on 2026-11-23). Sean then added M6e (special Goobs) before M7; the M6e framework is accepted and merged (2026-11-23). M6e Move, Destroy and Discard accepted and merged (2026-11-23), Draw, Tech and Uniquely powerful (2026-11-24): M6e is done. M6f pre-M7 fixes accepted and merged (2026-11-24). Sean then added **M6g diagnostics & play data** before M7 (2026-11-25): accepted and merged 2026-11-25. Next: M7; Art F / G deferred to after M7 (Sean, 2026-11-24).** Key decisions: v0.1 art is *real but rough*; worried = 7th expression; title idle Goobs Vanilla only; vignette in Art B; Art E after v0.1; M7 required (Pixel 11; Pixel 8 if available); M6b-2 split if M6b overflows; D1 opens with a per-type interview; M6c opens with an AI grill.
 
 | # | Session | Delivers | Needs |
 |---|---------|----------|-------|
@@ -50,8 +50,9 @@ Full plan, gap table and open questions: vault **`Projects/Four-in-a-Rogue/Desig
 | 8 | **M6d** — Sound + smoke ✅ | Remaining sounds, audio rules; A1–A10 smoke, known gaps (ambience built then removed) | all |
 | 9 | **M6e** special Goobs (Sean 2026-11-23) ✅ | Framework ✅ → Move ✅ → Destroy ✅ → Discard ✅ → Draw ✅ → Tech ✅ → Uniquely powerful ✅ (M6e done) | all |
 | 10 | **M6f** pre-M7 fixes ✅ | Last-minute fixes and changes; **Sean plans the list at the start of the session** | M6e |
-| 11 | **M7** (required) ← **next** | Android build on Pixel 11 (both renderers), Pixel 8 if available | M6f |
-| 12 | **Art F / Art G** (deferred to after M7, Sean 2026-11-24) | Special Goob faces; effect icons (starts with a grill) | M7 |
+| 11 | **M6g** diagnostics & play data (Sean 2026-11-25) ✅ | Sentry crashes/errors + PostHog play/perf events from exports; Send diagnostics option; Goob win rate / pair / held stats tool | M6f |
+| 12 | **M7** (required) ← **next** | Android build on Pixel 11 (both renderers), Pixel 8 if available; telemetry from the phone | M6g |
+| 13 | **Art F / Art G** (deferred to after M7, Sean 2026-11-24) | Special Goob faces; effect icons (starts with a grill) | M7 |
 
 After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placeholders).
 
@@ -77,6 +78,10 @@ After v0.1: **Art pass E** (per-type pixel impact VFX replacing the M5 placehold
 | **M6e Destroy** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Discard** | ✅ Accepted and merged 2026-11-23 |
 | **M6e Draw** | ✅ Accepted and merged 2026-11-24 |
+| **M6e Tech** | ✅ Accepted and merged 2026-11-24 |
+| **M6e Uniquely powerful** | ✅ Accepted and merged 2026-11-24 |
+| **M6f** Pre-M7 fixes | ✅ Accepted and merged 2026-11-24 |
+| **M6g** Diagnostics & play data | ✅ Accepted and merged 2026-11-25 |
 
 ### M6e Discard category (accepted and merged 2026-11-23)
 
@@ -241,11 +246,27 @@ APIs the category sessions use:
 - Art F / G are **deferred to after M7**, so the hand's name labels under Vanilla-art specials (`HandView._place_name`) and the text pills stay for now.
 - Open nits from earlier code reviews, in case Sean wants any: the AI's threat check ignores your Territorial-locked column; an Inspiring-triggered hit gets no portrait reaction; the AI's flat draw values ignore the hand cap and a forced draw after a skip; a jinx toast is lost when the jinx skips the turn. Uncommitted editor churn in `project.godot` (dropped default-valued settings) is still in Sean's working copy.
 
-### M7 — on-device check ← **next** (required for v0.1; after M6f; CLAUDE.md §M7)
+### M6g Diagnostics & play data ✅ (accepted by Sean and merged to `main` 2026-11-25)
+
+- **Decisions (Sean, 2026-11-25; vault Decision-Log):** testers he knows only, so it's kept light (no store privacy forms yet). **Sentry** handles crashes and script errors, **PostHog** handles play and performance events. "Send diagnostics" in Options is **on by default**, with no prompt. Only **exported builds** send (debug + release, tagged by `environment`); F5 and the editor's headless runs never do. Sean wants **every Goob's win rate, win rates of Goob combinations, and held in hand vs played at once**.
+- **Code:**
+  - Autoload **`Telemetry`** (`scripts/core/telemetry.gd`, after `Settings`). `track(event, props)` adds a Sentry breadcrumb and queues a PostHog event (anonymous `install_id` in `user://telemetry.cfg`, `$process_person_profile: false`). Batches of 20 or every 30 s go to `/batch/`. The queue is saved to `user://telemetry_queue.jsonl` on background, quit and failed sends, capped at 1000. A per-scenario perf sample (`perf_begin` / `perf_end`) covers avg and p5 fps, frames under 30 fps, the worst frame, and peak static memory.
+  - Sentry: the vendored **sentry-godot 2.5.1** addon (`addons/sentry/`, trimmed to Windows x86_64 + Android; .NET, web, Linux, macOS and iOS removed). `options/auto_init=false`; `Telemetry._start_sentry()` starts it, reaching the classes by name so the script parses where the library is missing. `debug/settings/gdscript/always_track_call_stacks=true` is set because Sentry needs it for GDScript stack traces.
+  - Keys: `config/telemetry_keys.gd` is **gitignored**; copy `config/telemetry_keys.example.gd` and fill in `SENTRY_DSN`, `POSTHOG_KEY` and `POSTHOG_HOST`. A `.gd` file is always exported, so it needs no include filter. Empty keys = that service stays off.
+  - Goob play data: `Deck.turns` (bumped in `TurnLoop._begin_turn`) and `Deck.hand_drawn_at`, kept in step by `draw` / `take` / `add`, give `Deck.held_turns(i)` (0 = played at once; the starting hand counts as drawn on turn 1). Debug Give Goob now goes through `Deck.take` / `add`. The scenario's `_track_start` / `_track_play` / `_track_end` / `_exit_tree` send `scenario_start`, `goob_played` (goob, column, turn, `turns_held`, hand size, timeout, auto-play, effects + fizzles) and `scenario_end`. Per side, `scenario_end` carries the deck, plays in order, held turns, what was left in hand, discarded and destroyed, the winning line, plus result, score and perf. `scenario_quit` is sent on a quit. Other events: `app_start` (device, GPU, renderer, screen), `screen`, `load_time`, `strange_man_skipped`, `turn_timeout`, `hand_full`, `turn_skipped`, `column_full_attempt`, `app_background`. F4-touched games are flagged `debug`.
+  - Options row **Send diagnostics** (`Settings.diagnostics`, `[privacy]` in settings.cfg). Off drops the queue and closes Sentry.
+  - F4 panel: **Test error** (`push_error`) and **Test crash** (`SentrySDK.get_bad_code().crash_with_abort()`) for checking Sentry from an export.
+  - `export_presets.cfg` is now in git (credentials stay in the gitignored `export_credentials.cfg`): Windows Desktop and Android (Gradle build, which Sentry needs; arm64; INTERNET + VIBRATE; package `com.example.$genname` until Sean picks one).
+- **Stats:** `tools/telemetry/goob_stats.py` reads `scenario_end` from PostHog (`--project <id>`, personal key in env `POSTHOG_PERSONAL_KEY`, `--host https://us|eu.posthog.com`) or from a file (`--file events.jsonl`). It writes a Markdown report: per Goob win rate in deck / when played / in the winning four; pairs played together (win rate + lift, `--min-pair`); played at once, average held, never played. All rates have Wilson 95 % intervals. Human games only for your side (auto-play and debug games left out; `--include-autoplay` for soak runs); the opponent is reported separately.
+- **Tests:** `tests/test_telemetry.gd` (34 checks: off in the editor, batching, failed send kept + reloaded, cap, Off toggle, perf, UUID, Deck held turns, TurnLoop turn counts); `test_flow_m3` now expects 14 / 13 Options targets. All suites pass on 4.7.2: board 78, turn loop 618, AI 77, flow 186, scenario 707. End to end: `godot --headless -s res://tests/telemetry_dump.gd -- out.jsonl 30` plays 30 rolled-deck games and writes their events, then `goob_stats.py --file out.jsonl` reports on them.
+- **Known:** with F3 insets at 1080×1920, the debug build's Options window (with the Auto-play row) reaches into the home strip. It fits on the Pixel 11's taller screen, and release builds have one row fewer. Repo +25 MB for the Sentry binaries.
+- **Sean to do before checking it:** create the Sentry (Godot platform) + PostHog projects, fill `config/telemetry_keys.gd`, install the Godot 4.7.2 export templates, export Windows Desktop (debug), play one game, check PostHog → Activity / Live events, press F4 → Test error / Test crash and check Sentry. Android waits for M7 (Gradle template, SDK).
+
+### M7 — on-device check (required for v0.1; after M6g; CLAUDE.md §M7)
 
 - **Goal:** an Android debug build on the **Pixel 11**, first with the Mobile renderer, then with Compatibility. Use the **Pixel 8** as the older phone if Sean has one. Check **A9** (portrait touch) on hardware, plus the rest of `docs/SMOKE_V0.1.md`. A true low-end check is a known gap. iOS waits for a Mac; the Retroid Pocket (4:3) is saved for the landscape version.
 - **Starting state on this PC (checked 2026-11-23):**
-  - no `export_presets.cfg` in the repo
+  - `export_presets.cfg` exists since M6g (Windows + Android with Gradle build, INTERNET, VIBRATE); Android still needs the Gradle template (Project → Install Android Build Template) for Sentry
   - `%APPDATA%\Godot\export_templates` is empty
   - no JDK, Android SDK or `adb` on PATH
   - so the session starts with setup:
@@ -254,7 +275,7 @@ APIs the category sessions use:
     - Android SDK (command-line tools, platform-tools, build-tools)
     - set the paths in Editor Settings → Export → Android
     - the debug keystore
-    - an Android export preset
+    - the Android preset's package name (still `com.example.$genname`)
   - Sean has to do the installs and the USB debugging on the phone himself. Give him exact steps and `!` commands.
 - **Things to check on the phone** (desktop smoke already passes):
   - safe area on a real notch / home strip
@@ -264,6 +285,7 @@ APIs the category sessions use:
   - steady 60 fps
   - the whole-number pixel scale at the phone's width
   - both renderers (the shader baker at export)
+  - M6g telemetry from the phone: events in PostHog, F4 Test error / Test crash in Sentry
 - **Don't change rules or art in M7.** Fixes from the device go on short branches for Sean to check.
 - The M7 Android build is a debug export, so the » auto-play button and F4 panel exist on the phone; turn Options → Auto-play button off for the A9 check.
 
@@ -435,19 +457,22 @@ Sean approved the bust, the 7 expressions and the crack/explode frames (2026-11-
 - Claude's M4 choices stood (Sean accepted the build): tap-aimed column counts at timeout; cancelling a drag deselects; fuse strip left for M6.
 - Where things live: `scripts/deck/` (Deck, StarterDeck), `scripts/rules/turn_loop.gd`, `scripts/hand/hand_view.gd`, `scripts/scenario/scenario_placeholder.gd` (input), `scripts/ui/inspect_panel.gd`, `scripts/audio/sfx.gd`.
 
-### Tests (all pass, 1080 checks, 2026-11-23; counts below are current on `m6e-framework`)
+### Tests (all pass on 4.7.2, 1700 checks, 2026-11-25; counts below are current on `m6g-telemetry`)
 
 ```powershell
 $g = "C:/Users/Sean/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
 & $g --headless --editor --quit            # refresh class cache / reimport (may segfault on quit; harmless)
-& $g --headless -s res://tests/test_scenario.gd    # 547 checks
-& $g --headless -s res://tests/test_turn_loop.gd   # 192
+& $g --headless -s res://tests/test_scenario.gd    # 707 checks
+& $g --headless -s res://tests/test_turn_loop.gd   # 618
 & $g --headless -s res://tests/test_board_state.gd # 78
-& $g --headless -s res://tests/test_flow_m3.gd     # 186
+& $g --headless -s res://tests/test_flow_m3.gd     # 186 (expects 14 Options targets in debug, 13 in release)
 & $g --headless -s res://tests/test_opponent_ai.gd # 77
+& $g --headless -s res://tests/test_telemetry.gd   # 34 (M6g; never sends)
 ```
 
 Known: `test_git_sync` "temp repos cleaned up" fails on this machine — pre-existing.
+
+The Godot on PATH (`godot`) is **4.6.3**; always test with the 4.7.2 console exe above.
 
 ### Gotchas
 
@@ -461,6 +486,8 @@ Known: `test_git_sync` "temp repos cleaned up" fails on this machine — pre-exi
 - **Art versions are Sean's pick:** show the comparison sheet and wait. Never wire in, commit or push your own choice.
 - **A looping sound** (the fuse) still playing when a test quits can print "resources still in use at exit". Stop it and wait a moment before `quit()`.
 - **Fixes after a merge** go on a short branch (e.g. `m6c-chain-loss-angry`) for Sean to check, then get merged.
+- **Telemetry (M6g):** nothing sends from the editor (`OS.has_feature("editor")`), so tests and F5 are safe. To see events without accounts, set `Telemetry.force_enabled` + a `sender` (see `tests/telemetry_dump.gd`). Never commit `config/telemetry_keys.gd` or a PostHog personal key. Reach Sentry by name (`Engine.get_singleton("SentrySDK")`, `ClassDB.instantiate`), never as a type, so scripts still parse where the addon has no library (Linux cloud sessions).
+- **New play events:** call `Telemetry.track(&"name", {...})` from the scenario; hand changes must go through `Deck.draw` / `take` / `add` so `held_turns()` stays right.
 
 ---
 
@@ -471,7 +498,7 @@ You are coding Four in a Rogue (Godot 4.7) in this repo.
 
 1. Read CLAUDE.md and docs/CLAUDE_CODE_HANDOFF.md.
 2. Read v0.1 rules from Obsidian: Projects/Four-in-a-Rogue/Design/vertical-slice-v0.1.md, plus the latest session log and decision log.
-3. Do the next item in CLAUDE.md §Milestones (currently **M6e Tech**: propose each tech Goob's rules for Sean's approval first, see "M6e Tech category" above) on a new branch (`m6e-tech`); push it for Sean's check.
+3. Do the next item in CLAUDE.md §Milestones (currently: **M7** on-device check, see "M7" above).
 4. One milestone only; small commits, push each; match existing GDScript style.
 5. Do not invent mechanics or add scope (no shop, runs, Goobs beyond the M6e roster).
 6. When done: exact F5 playtest steps for Sean, then stop.
@@ -503,4 +530,4 @@ MCP setup notes: `docs/CLAUDE_CODE_MCP.md`
 
 ---
 
-*Last updated: 2026-11-24 (M6e Draw accepted and merged with code review fixes; next = M6e Tech. Earlier: M6e Discard accepted and merged; next = M6e Draw. Earlier: M6e Destroy accepted and merged with code review fixes and the resurrect sound. Earlier: M6e Move and framework accepted and merged; M6d accepted and merged after the sound grill)*
+*Last updated: 2026-11-25 (M6g accepted and merged; next = M7. Earlier: M6g diagnostics & play data built on `m6g-telemetry`: Sentry + PostHog, Send diagnostics option, Goob stats tool, export presets; Sean's check pending, then M7. Earlier: M6f accepted and merged 2026-11-24. Earlier: M6e Draw accepted and merged with code review fixes; next = M6e Tech. Earlier: M6e Discard accepted and merged; next = M6e Draw. Earlier: M6e Destroy accepted and merged with code review fixes and the resurrect sound. Earlier: M6e Move and framework accepted and merged; M6d accepted and merged after the sound grill)*

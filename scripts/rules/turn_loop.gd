@@ -1785,6 +1785,7 @@ func _begin_turn(next: Phase, chained := false) -> void:
 	last_effect = play_effect
 	var deck := current_deck()
 	var side := current_side()
+	deck.turns += 1 # play data (M6g): Deck.held_turns()
 	var unjinxed := _turn_draw_count(side, false)
 	var count := _turn_draw_count(side)
 	_bonus_draws.erase(side) # Reckless: used up by this draw
