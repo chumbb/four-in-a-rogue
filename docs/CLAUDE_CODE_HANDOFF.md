@@ -262,6 +262,13 @@ APIs the category sessions use:
 - **Known:** with F3 insets at 1080×1920, the debug build's Options window (with the Auto-play row) reaches into the home strip. It fits on the Pixel 11's taller screen, and release builds have one row fewer. Repo +25 MB for the Sentry binaries.
 - **Sean to do before checking it:** create the Sentry (Godot platform) + PostHog projects, fill `config/telemetry_keys.gd`, install the Godot 4.7.2 export templates, export Windows Desktop (debug), play one game, check PostHog → Activity / Live events, press F4 → Test error / Test crash and check Sentry. Android waits for M7 (Gradle template, SDK).
 
+### Web build for iPhone testers (Sean, 2026-11-25; branch `web-ios-test`)
+- Why: iOS testing without a Mac or Apple Developer account. Xogot was rejected (an editor app: each tester needs the project, no GDExtension = no Sentry, `OS.has_feature("editor")` = no telemetry, may lag Godot 4.7). TestFlight via CI needs the $99/yr Apple account; Sean declined for now.
+- Export: Project → Export → **Web** (release for testers, debug for Sentry tests) → `export/web/index.html`; or `& $g --headless --export-release "Web" export/web/index.html`. Zip the folder's contents, upload to itch.io as an HTML game (restricted / password, viewport 720×1280, mobile friendly, portrait, fullscreen button). Local check: `python -m http.server` in `export/web`.
+- The export prints `ERROR: Sentry: Failed to open directory "res://addons/sentry/web/"`: harmless (the vendored addon was trimmed to Windows + Android; the official addon's web build needs the dlink/extensions template, which we avoid).
+- Telemetry on web: PostHog unchanged, `device_info()` adds `user_agent`; `Telemetry._start_web_sentry()` loads Sentry's browser SDK 11.18.0 (pinned + SRI) with the DSN from `config/telemetry_keys.gd`, and `WebErrorLogger` (`OS.add_logger`) forwards Godot errors as `captureMessage`; events are breadcrumbs; `NOTIFICATION_APPLICATION_FOCUS_OUT` saves + flushes on web. Tests: `test_telemetry.gd` 42 checks.
+- Limits: Compatibility renderer, no haptics on iOS Safari, first tap unlocks audio, Safari bars unless added to the Home Screen.
+
 ### M7 — on-device check (required for v0.1; after M6g; CLAUDE.md §M7)
 
 - **Goal:** an Android debug build on the **Pixel 11**, first with the Mobile renderer, then with Compatibility. Use the **Pixel 8** as the older phone if Sean has one. Check **A9** (portrait touch) on hardware, plus the rest of `docs/SMOKE_V0.1.md`. A true low-end check is a known gap. iOS waits for a Mac; the Retroid Pocket (4:3) is saved for the landscape version.

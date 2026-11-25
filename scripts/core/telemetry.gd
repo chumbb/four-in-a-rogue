@@ -17,6 +17,12 @@ extends Node
 ## Sentry's own auto-init is off (project setting); `_start_sentry()` starts
 ## it. Its classes are reached by name so this script still parses where the
 ## addon has no library (e.g. Linux).
+##
+## Web builds (itch.io test page for iPhones; Sean 2026-11-25): the addon has
+## no web library, so `_start_web_sentry()` loads Sentry's browser SDK (pinned,
+## SRI-checked) with the same DSN, and `WebErrorLogger` forwards Godot errors
+## to it. Events become breadcrumbs there too. A hidden tab saves and sends
+## the queue (iOS Safari never sends paused or close).
 
 const KEYS_PATH := "res://config/telemetry_keys.gd"
 const ID_PATH := "user://telemetry.cfg"
@@ -30,6 +36,8 @@ const SLOW_FRAME_SEC := 1.0 / 30.0
 ## Longer frames are the app in the background, not a hitch: left out.
 const MAX_FRAME_SEC := 5.0
 const APP_NAME := "four-in-a-rogue"
+const SENTRY_JS_URL := "https://browser.sentry-cdn.com/11.18.0/bundle.min.js"
+const SENTRY_JS_SRI := "sha384-Cwj8RRLJltjNFXNgSSvKNM0ejeR8dcYIRnlP1vLwHCbNvBYfd2O2UUg2WZSalGgs"
 
 var install_id := ""
 var session_id := ""
@@ -42,11 +50,16 @@ var id_path := ID_PATH
 var force_enabled := false
 var sender: Callable
 var sentry_started := false
+## Web: Sentry's browser SDK is on (`_start_web_sentry`).
+var web_sentry_started := false
+## Tests: replaces JavaScriptBridge.eval (gets the JS code).
+var js_runner: Callable
 
 var _posthog_key := ""
 var _posthog_host := ""
 var _sentry_dsn := ""
 var _http: HTTPRequest
+var _web_logger: WebErrorLogger
 ## Events being sent now (the first N of the queue), 0 = none.
 var _sending := 0
 var _flush_left := FLUSH_SEC
@@ -70,6 +83,7 @@ func _ready() -> void:
 		return
 	_load_queue()
 	_start_sentry()
+	_start_web_sentry()
 	track(&"app_start", device_info())
 
 
@@ -85,6 +99,19 @@ func sentry_allowed() -> bool:
 	return Settings.diagnostics and _exported() and not _sentry_dsn.is_empty() and Engine.has_singleton("SentrySDK")
 
 
+## Whether Sentry's browser SDK may start (web builds only).
+func web_sentry_allowed() -> bool:
+	return Settings.diagnostics and _exported() and OS.has_feature("web") and not _sentry_dsn.is_empty()
+
+
+## A Godot error on web (from WebErrorLogger) → Sentry's browser SDK.
+func report_error(message: String, where: String, stack: String) -> void:
+	if not web_sentry_started:
+		return
+	_js("goobSentry.run(function(S){S.captureMessage(%s,{level:'error',extra:{where:%s,stack:%s}})})" % [
+		JSON.stringify(message), JSON.stringify(where), JSON.stringify(stack)])
+
+
 ## Records `event` (snake_case) with `props`: a Sentry breadcrumb and a queued
 ## PostHog event. Does nothing while diagnostics are off.
 func track(event: StringName, props := {}) -> void:
@@ -95,6 +122,8 @@ func track(event: StringName, props := {}) -> void:
 			crumb.set("category", "game")
 			crumb.set("data", props)
 			Engine.get_singleton("SentrySDK").call("add_breadcrumb", crumb)
+	if web_sentry_started:
+		_js("goobSentry.run(function(S){S.addBreadcrumb({category:'game',message:%s})})" % JSON.stringify(String(event)))
 	if not posthog_enabled():
 		return
 	var properties := base_properties()
@@ -126,7 +155,7 @@ func base_properties() -> Dictionary:
 ## Device and renderer, sent once per launch (app_start) and as Sentry context.
 func device_info() -> Dictionary:
 	var screen := DisplayServer.screen_get_size()
-	return {
+	var info := {
 		"model": OS.get_model_name(),
 		"os_version": OS.get_version(),
 		"gpu": RenderingServer.get_video_adapter_name(),
@@ -136,6 +165,10 @@ func device_info() -> Dictionary:
 		"window": "%dx%d" % [get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y],
 		"cpu_cores": OS.get_processor_count(),
 	}
+	# The model is generic on web; the browser's user agent tells phones apart.
+	if OS.has_feature("web"):
+		info["user_agent"] = str(JavaScriptBridge.eval("navigator.userAgent", true))
+	return info
 
 
 ## "0.1.0" from project setting application/config/version.
@@ -255,6 +288,11 @@ func _notification(what: int) -> void:
 			flush()
 		NOTIFICATION_WM_CLOSE_REQUEST:
 			save_queue()
+		NOTIFICATION_APPLICATION_FOCUS_OUT:
+			if OS.has_feature("web"):
+				track(&"app_background")
+				save_queue()
+				flush()
 
 
 ## Exported builds only: F5 and the editor's headless runs never send.
@@ -317,11 +355,65 @@ func _start_sentry() -> void:
 	sdk.call("set_context", "device_game", device_info())
 
 
+## Web: loads Sentry's browser SDK once (`window.goobSentry` queues calls
+## until it has loaded), then forwards Godot errors to it.
+func _start_web_sentry() -> void:
+	if web_sentry_started or not web_sentry_allowed():
+		return
+	var cfg := {
+		"dsn": _sentry_dsn, "environment": environment(), "release": "%s@%s" % [APP_NAME, build_name()],
+		"user": install_id, "device": device_info(), "url": SENTRY_JS_URL, "sri": SENTRY_JS_SRI,
+	}
+	_js("""(function(cfg){
+	var g = window.goobSentry;
+	if (!g) {
+		g = window.goobSentry = {q: [], ready: false, on: true, run: function(f) {
+			if (!g.on) return;
+			if (g.ready) { try { f(window.Sentry); } catch (e) {} }
+			else if (g.q.length < 100) g.q.push(f);
+		}};
+		var s = document.createElement('script');
+		s.src = cfg.url; s.integrity = cfg.sri; s.crossOrigin = 'anonymous';
+		s.onload = function() {
+			Sentry.init({dsn: cfg.dsn, environment: cfg.environment, release: cfg.release});
+			Sentry.setUser({id: cfg.user});
+			Sentry.setContext('device_game', cfg.device);
+			g.ready = true;
+			var q = g.q; g.q = [];
+			q.forEach(g.run);
+		};
+		document.head.appendChild(s);
+	}
+	g.on = true;
+})(%s)""" % JSON.stringify(cfg))
+	if _web_logger == null:
+		_web_logger = WebErrorLogger.new()
+		_web_logger.report = report_error
+	OS.add_logger(_web_logger)
+	web_sentry_started = true
+
+
+func _stop_web_sentry() -> void:
+	if not web_sentry_started:
+		return
+	OS.remove_logger(_web_logger)
+	_js("if (window.goobSentry) goobSentry.on = false;")
+	web_sentry_started = false
+
+
+func _js(code: String) -> void:
+	if js_runner.is_valid():
+		js_runner.call(code)
+	elif OS.has_feature("web"):
+		JavaScriptBridge.eval(code, true)
+
+
 ## Options "Send diagnostics": Off drops the queue and stops Sentry; On
 ## starts them again.
 func _on_settings_changed() -> void:
 	if Settings.diagnostics:
 		_start_sentry()
+		_start_web_sentry()
 		return
 	queue.clear()
 	_sending = 0
@@ -329,6 +421,7 @@ func _on_settings_changed() -> void:
 	if sentry_started:
 		Engine.get_singleton("SentrySDK").call("close")
 		sentry_started = false
+	_stop_web_sentry()
 
 
 func _on_request_completed(result: int, code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
