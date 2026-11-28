@@ -157,6 +157,19 @@ func _test_fade() -> void:
 	_check(not flow.is_fading(), "fade finishes")
 	_check(current_scene != null and current_scene.name == "StrangeMan", "fade ends on the new scene")
 	await _clear(title)
+	# Options "Strange Man intro" Off (Sean, 2026-11-27): Press Start goes to the coin flip.
+	var st := _settings()
+	st.set_strange_man(false)
+	var title2 := _add(TITLE_SCENE)
+	await _frames(2)
+	flow.begin_play_flow_from_title()
+	waited = 0
+	while flow.is_fading() and waited < 120:
+		await process_frame
+		waited += 1
+	_check(current_scene != null and current_scene.name != "StrangeMan" and current_scene.scene_file_path == flow.SCENE_PATHS[flow.SceneKey.COIN_FLIP], "Strange Man intro off: Press Start goes straight to the coin flip (%s)" % (current_scene.name if current_scene else "none"))
+	st.set_strange_man(true)
+	await _clear(title2)
 	flow.fade_sec = 0.0
 	_check(flow.FADE_SEC <= 0.35, "fades ~0.3 s")
 
@@ -268,7 +281,7 @@ func _test_coin_toss() -> void:
 func _test_settings_saved() -> void:
 	var st := _settings()
 	st.reset()
-	_check(st.speed == 0 and st.haptics and st.screen_shake and not st.auto_flip and st.turn_timer, "settings: defaults Normal, haptics on, shake on, auto-flip off, turn timer on")
+	_check(st.speed == 0 and st.haptics and st.screen_shake and not st.auto_flip and st.turn_timer and st.strange_man, "settings: defaults Normal, haptics on, shake on, auto-flip off, turn timer and Strange Man on")
 	_check(is_equal_approx(st.volume[&"Master"], 0.8) and is_equal_approx(st.volume[&"Music"], 0.7) and is_equal_approx(st.volume[&"SFX"], 0.8), "settings: volume defaults 80 / 70 / 80 %")
 	for bus: StringName in [&"Master", &"Music", &"SFX"]:
 		_check(AudioServer.get_bus_index(bus) != -1, "settings: %s bus exists" % bus)
@@ -281,6 +294,7 @@ func _test_settings_saved() -> void:
 	st.set_screen_shake(false)
 	st.set_auto_flip(true)
 	st.set_turn_timer(false)
+	st.set_strange_man(false)
 	st.set_volume(&"Music", 0.35)
 	st.set_muted(&"SFX", true)
 	var music := AudioServer.get_bus_index(&"Music")
@@ -288,7 +302,7 @@ func _test_settings_saved() -> void:
 	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index(&"SFX")), "settings: SFX mute mutes the bus")
 	st.reset()
 	st.load_file()
-	_check(st.speed == 1 and not st.haptics and not st.screen_shake and st.auto_flip and not st.turn_timer, "settings: options saved and loaded")
+	_check(st.speed == 1 and not st.haptics and not st.screen_shake and st.auto_flip and not st.turn_timer and not st.strange_man, "settings: options saved and loaded")
 	_check(is_equal_approx(st.volume[&"Music"], 0.35) and st.muted[&"SFX"], "settings: volume and mute saved and loaded")
 	st.reset()
 	st.save_file()
@@ -316,7 +330,7 @@ func _test_title_options() -> void:
 		targets.append(panel._window.get_node("Mute" + String(bus)))
 	targets.append(panel._back)
 	var small := targets.filter(func(c: Control) -> bool: return c.get_global_rect().size.y < 96.0 - 0.5)
-	var want := 15 if OS.is_debug_build() else 14 # + the debug Auto-play button row (Send diagnostics: M6g; Turn timer: 2026-11-27)
+	var want := 16 if OS.is_debug_build() else 15 # + the debug Auto-play button row (Send diagnostics: M6g; Turn timer: 2026-11-27)
 	_check(targets.size() == want and small.is_empty(), "options: all %d targets ≥ 96 px tall (small: %s)" % [want, str(small)])
 	var window: Rect2 = panel._window.get_global_rect()
 	_check(window.position.y >= 0.0 and window.end.y <= 1280.0 and window.position.x >= 0.0 and window.end.x <= 720.0, "options: window on screen (%s)" % window)
@@ -332,6 +346,8 @@ func _test_title_options() -> void:
 	_check(not st.screen_shake, "options: Screen shake row turns it Off")
 	panel._window.get_node("turn_timer").pressed.emit()
 	_check(not st.turn_timer and panel._toggles[&"turn_timer"][1].text == "Off", "options: Turn timer row turns it Off")
+	panel._window.get_node("strange_man").pressed.emit()
+	_check(not st.strange_man and panel._toggles[&"strange_man"][1].text == "Off", "options: Strange Man intro row turns it Off")
 	panel._sliders[&"Master"].value = 0.5
 	_check(is_equal_approx(st.volume[&"Master"], 0.5), "options: Master slider sets the volume")
 	panel._window.get_node("MuteMusic").pressed.emit()

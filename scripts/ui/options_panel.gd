@@ -1,9 +1,9 @@
 class_name OptionsPanel
 extends Control
 ## Options (slice §2B; Art B mock 5), opened from the title and the pause menu:
-## one window over a scrim. Rows are 38 game px (≥ 96 px at the 720 base):
+## one window over a scrim. Rows are 36 game px (= 96 px at the 720 base):
 ## Speed Normal / Fast · Haptics · Screen shake · Auto-flip coin · Turn timer
-## (testing option, removed in the full game) · Send
+## · Strange Man intro (testing options, removed in the full game) · Send
 ## diagnostics (M6g) (tap anywhere on an On/Off row) · Auto-play button (debug
 ## builds only) · Master / Music / SFX (slider in 5 % steps + a speaker mute
 ## button) · Back. Every change applies and saves at once
@@ -11,13 +11,13 @@ extends Control
 
 signal closed
 
-const ROW_H := 38.0
+const ROW_H := 36.0 ## 96 px at the 720 base (was 38 before the testing rows)
 const WIDTH := 254.0
-const FIRST_ROW_Y := 40.0
+const FIRST_ROW_Y := 36.0
 const LABEL_X := 12.0
 const SPEEDS := [["Normal", 72.0], ["Fast", 72.0]] ## Skip removed (Sean, 2026-11-22)
 const SPEED_X := 84.0
-const TOGGLES := [[&"haptics", "Haptics"], [&"screen_shake", "Screen shake"], [&"auto_flip", "Auto-flip coin"], [&"turn_timer", "Turn timer"], [&"diagnostics", "Send diagnostics"]]
+const TOGGLES := [[&"haptics", "Haptics"], [&"screen_shake", "Screen shake"], [&"auto_flip", "Auto-flip coin"], [&"turn_timer", "Turn timer"], [&"strange_man", "Strange Man intro"], [&"diagnostics", "Send diagnostics"]]
 ## Debug builds add this row after TOGGLES (M6e auto-play).
 const DEBUG_TOGGLE := [&"autoplay_button", "Auto-play button"]
 const BUSES := [[&"Master", "Master"], [&"Music", "Music"], [&"SFX", "SFX"]]
@@ -94,7 +94,7 @@ func _build() -> void:
 	_window.patch_margin_right = m[2]
 	_window.patch_margin_bottom = m[3]
 	var toggles := _toggle_rows()
-	_window.size = Vector2(WIDTH, FIRST_ROW_Y + ROW_H * (1 + toggles.size() + BUSES.size()) + 52.0)
+	_window.size = Vector2(WIDTH, FIRST_ROW_Y + ROW_H * (1 + toggles.size() + BUSES.size()) + 46.0)
 	_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage.canvas.add_child(_window)
 	var title := _shadowed(_stage.add_label("Options", GOLD_HI, &"Mono2", _window), 2)
@@ -111,12 +111,12 @@ func _build() -> void:
 		seg.pressed.connect(_on_speed.bind(i))
 		_window.add_child(seg)
 		seg.size = Vector2(SPEEDS[i][1], 36)
-		seg.position = Vector2(x, y + 1)
+		seg.position = Vector2(x, y)
 		_segments.append(seg)
 		x += SPEEDS[i][1] - 1.0
 	y += ROW_H
 	for entry: Array in toggles:
-		var row := _flat_button(Vector2(6, y + 1), Vector2(WIDTH - 12, 36))
+		var row := _flat_button(Vector2(6, y), Vector2(WIDTH - 12, 36))
 		row.name = String(entry[0])
 		row.pressed.connect(_on_toggle.bind(entry[0]))
 		_shadowed(_stage.add_label(entry[1], PixelStage.CREAM, &"", row)).position = Vector2(LABEL_X - 6, 9)
@@ -135,12 +135,12 @@ func _build() -> void:
 		slider.max_value = 1.0
 		slider.step = SLIDER_STEP
 		slider.focus_mode = Control.FOCUS_NONE
-		slider.position = Vector2(SLIDER_X, y + 1)
+		slider.position = Vector2(SLIDER_X, y)
 		slider.size = Vector2(SLIDER_W, 36)
 		slider.value_changed.connect(_on_volume.bind(bus))
 		_window.add_child(slider)
 		_sliders[bus] = slider
-		var mute := _flat_button(Vector2(WIDTH - 12 - MUTE_VISUAL.x * 0.5 - MUTE_HIT * 0.5, y + 1), Vector2(MUTE_HIT, MUTE_HIT))
+		var mute := _flat_button(Vector2(WIDTH - 12 - MUTE_VISUAL.x * 0.5 - MUTE_HIT * 0.5, y), Vector2(MUTE_HIT, MUTE_HIT))
 		mute.name = "Mute" + String(bus)
 		mute.pressed.connect(_on_mute.bind(bus))
 		var plate := NinePatchRect.new()
@@ -170,7 +170,7 @@ static func _toggle_rows() -> Array:
 
 
 func _row_label(text: String, y: float) -> void:
-	_shadowed(_stage.add_label(text, PixelStage.CREAM, &"", _window)).position = Vector2(LABEL_X, y + 10)
+	_shadowed(_stage.add_label(text, PixelStage.CREAM, &"", _window)).position = Vector2(LABEL_X, y + 9)
 
 
 func _shadowed(label: Label, drop := 1) -> Label:
@@ -251,6 +251,8 @@ func _on_toggle(key: StringName) -> void:
 			Settings.set_auto_flip(not Settings.auto_flip)
 		&"turn_timer":
 			Settings.set_turn_timer(not Settings.turn_timer)
+		&"strange_man":
+			Settings.set_strange_man(not Settings.strange_man)
 		&"autoplay_button":
 			Settings.set_autoplay_button(not Settings.autoplay_button)
 		&"diagnostics":

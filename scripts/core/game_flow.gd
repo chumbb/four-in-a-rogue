@@ -142,9 +142,11 @@ func _cut_under_forest(path: String) -> void:
 	_fading = false
 
 
+## Press Start: the Strange Man, or straight to the coin flip with Options
+## "Strange Man intro" Off (testing option; Sean, 2026-11-27).
 func begin_play_flow_from_title() -> void:
 	rolled_decks = {}
-	go_to(SceneKey.STRANGE_MAN)
+	go_to(SceneKey.STRANGE_MAN if Settings.strange_man else SceneKey.COIN_FLIP)
 
 
 ## Draw replay skips Title and Strange Man: the board fades out leaving the
