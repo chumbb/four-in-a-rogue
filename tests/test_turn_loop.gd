@@ -1048,7 +1048,7 @@ func _test_bouncy() -> void:
 	var right := t.board.get_owner(4, 0) == P
 	_check(left != right, "bouncy: bounced to (2,0) or (4,0)")
 	_check(t.board.is_empty(3, 1), "bouncy: nothing stays on Bouncy")
-	_check(t.effect_steps[0]["kind"] == GoobDefinition.EffectType.BOUNCY and t.effect_steps[0].get("instant", false), "bouncy: an instant Bouncy step first")
+	_check(t.effect_steps[0]["kind"] == GoobDefinition.EffectType.NONE and t.effect_steps[1]["kind"] == GoobDefinition.EffectType.BOUNCY and t.effect_steps[1].get("instant", false), "bouncy: the played Goob's own step first, then an instant Bouncy step (2026-11-27)")
 	# Regardless of height: onto a taller column.
 	t = _with_special(TurnLoop.VANILLA)
 	_place(t, 3, BOUNCY)
@@ -1057,11 +1057,18 @@ func _test_bouncy() -> void:
 			_place(t, c)
 	t.play(3, 0)
 	_check(t.board.get_owner(2, 3) == P or t.board.get_owner(4, 3) == P, "bouncy: lands on top of a taller column")
-	# The played Goob's effect fires where it ends up.
+	# The played Goob has priority (Sean, 2026-11-27): Fat's effect fires where
+	# it landed, destroys the Bouncy (its only neighbour) and Fat falls: no bounce.
 	t = _with_special(FAT)
 	_place(t, 3, BOUNCY)
 	t.play(3, 0)
-	_check(t.last_effect["kind"] == GoobDefinition.EffectType.DESTROY_ADJACENT and t.last_effect["cell"] != Vector2i(3, 1), "bouncy: Fat's effect at its final cell")
+	_check(t.effect_steps[0]["kind"] == GoobDefinition.EffectType.DESTROY_ADJACENT and t.effect_steps[0]["cell"] == Vector2i(3, 1), "bouncy: Fat's effect fires first, where it landed")
+	_check(t.goob_at(3, 0) == FAT and t.board.is_empty(3, 1) and _goob_count(t, O) == 0, "bouncy: Fat destroyed the Bouncy and fell into its cell, no bounce")
+	# Thieving on an enemy Bouncy steals its bounce before it can bounce.
+	t = _with_special(THIEVING)
+	_place(t, 3, BOUNCY)
+	t.play(3, 0)
+	_check(t.board.get_owner(3, 1) == P and t.goob_at(3, 1).effect_type == GoobDefinition.EffectType.BOUNCY and t.goob_at(3, 0).effect_type != GoobDefinition.EffectType.BOUNCY, "bouncy: Thieving steals the bounce first and stays on top (2026-11-27)")
 	# Effect drops don't bounce: Popular's extra Goob lands on Bouncy and stays.
 	t = _with_special(POPULAR)
 	for c in BoardState.COLUMNS:
@@ -1108,10 +1115,17 @@ func _test_slippery() -> void:
 	_place(t, 3, SLIPPERY)
 	t.play(3, 0)
 	_check((t.board.get_owner(0, 0) == P) != (t.board.get_owner(6, 0) == P), "slippery: played Goob rolled to an edge")
+	# The played Goob has priority (Sean, 2026-11-27): Fat destroys the
+	# Slippery under it (its only neighbour) and falls, so nothing rolls.
 	t = _with_special(FAT)
 	_place(t, 3, SLIPPERY)
 	t.play(3, 0)
-	_check(t.last_effect["cell"].y == 0 and t.last_effect["cell"].x != 3, "slippery: the effect fires after the roll")
+	_check(t.effect_steps[0]["cell"] == Vector2i(3, 1) and t.goob_at(3, 0) == FAT and _goob_count(t, O) == 0, "slippery: the played Goob's effect fires first, where it landed")
+	# A plain Goob still rolls after its (empty) effect.
+	t = _with_special(TurnLoop.VANILLA)
+	_place(t, 3, SLIPPERY)
+	t.play(3, 0)
+	_check(t.effect_steps[0]["kind"] == GoobDefinition.EffectType.NONE and t.board.is_empty(3, 1), "slippery: a plain Goob rolls after its own step")
 	# Can't move either way: it stays.
 	t = _with_special(TurnLoop.VANILLA)
 	_place(t, 3, SLIPPERY)

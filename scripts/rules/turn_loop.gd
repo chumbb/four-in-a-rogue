@@ -49,6 +49,8 @@ var player_goobs: Array[GoobDefinition] = []
 var opponent_goobs: Array[GoobDefinition] = []
 ## Their decklist names (DeckBuilder: a decklist or "Random"; "" when given).
 var player_deck_name := ""
+## _land_and_resolve: tags the landing Goob to find it after its own effect.
+var _landing_token := 0
 var opponent_deck_name := ""
 
 ## The start-of-turn draw of the turn now in progress (empty if nothing was
@@ -274,17 +276,39 @@ func _play_goob(goob: GoobDefinition, column: int, side: BoardState.CellOwner, r
 	return row
 
 
-## Drops `goob` for `side` into `column`; a Bouncy or Slippery Goob under it
-## moves it first (M6e), then its effect resolves where it ended up. Returns
-## the row it first landed in. `stifled`: its effect is cancelled (Stifling).
+## Drops `goob` for `side` into `column`. Its own effect resolves first, from
+## where it landed: the played Goob has priority over board Goobs' on-land
+## effects (Sean, 2026-11-27; was Bouncy / Slippery first). Then, if it is
+## still in that cell on a Bouncy or Slippery, that one moves it (its own
+## effect may have moved it away, or taken the Bouncy's effect). Returns the
+## row it first landed in. `stifled`: its effect is cancelled (Stifling).
 func _land_and_resolve(goob: GoobDefinition, column: int, side: BoardState.CellOwner, rolled_dir: int = 0, stifled := false) -> int:
 	var row := board.drop(column, side)
 	var cell := Vector2i(column, row)
 	_cell_goobs[cell] = goob
 	_check_landing(cell)
-	cell = _landing_step(cell, rolled_dir)
+	_landing_token += 1 # unique: an Occult's returned Goob lands inside this one
+	var token := _landing_token
+	_mark(cell, &"landing", token)
 	_resolve_effect(goob, cell, side, stifled)
+	var at := _find_cell(func(c: Vector2i) -> bool:
+		var g: GoobDefinition = _cell_goobs.get(c)
+		return g != null and g.get_meta(&"landing", 0) == token)
+	if at.x >= 0:
+		_unmark_landing(at)
+		if at == cell:
+			_landing_step(at, rolled_dir)
 	return row
+
+
+## Takes the landing tag off; a copy made only for it goes back to its plain
+## definition (so the board keeps the shared resource, as before the tag).
+func _unmark_landing(cell: Vector2i) -> void:
+	_mark(cell, &"landing", null)
+	var goob: GoobDefinition = _cell_goobs.get(cell)
+	var base := base_of(goob)
+	if goob != base and goob.get_meta_list() == [&"base"] and goob.effect_type == base.effect_type and goob.effect_description == base.effect_description:
+		_cell_goobs[cell] = base
 
 
 ## A Goob that just landed in `cell` on a Bouncy or Slippery is moved by it
