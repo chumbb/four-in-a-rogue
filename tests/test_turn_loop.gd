@@ -38,9 +38,10 @@ func _initialize() -> void:
 	_test_effect_before_win_check()
 	_test_scoring_cells()
 	_test_m6e_multipliers_and_names()
-	_test_deck_builder_shape()
-	_test_deck_builder_main_pools()
-	_test_deck_builder_no_dupes_when_enough()
+	_test_rarities()
+	_test_decklists()
+	_test_random_deck()
+	_test_roll_pair()
 	_test_start_rolls_per_side()
 	_test_fat_fills_destroyed_pile()
 	_test_discard()
@@ -619,95 +620,85 @@ func _count_category(goobs: Array[GoobDefinition], category: GoobDefinition.Cate
 	return n
 
 
-func _count_family(goobs: Array[GoobDefinition], family: GoobDefinition.Category) -> int:
-	var n := 0
-	for g in goobs:
-		if g.category != GoobDefinition.Category.NONE and g.ring_family() == family:
-			n += 1
-	return n
-
-
-func _count_legendary(goobs: Array[GoobDefinition]) -> int:
-	var n := 0
-	for g in goobs:
-		if g.is_legendary():
-			n += 1
-	return n
-
-
-## M6f (Sean, 2026-11-24): CLASSIC 10 specials (top 1-2), LOADED 14 (top 2-3);
-## pools by family ring; DRAW 0-1 per main pool; <= 2 legendaries.
-func _test_deck_builder_shape() -> void:
+## Sean, Special Goobs.xlsx 2026-11-27: 1 legendary + 4 very rare + 7 rare
+## + 9 plain Goobs, built by rarity.
+func _check_shape(goobs: Array[GoobDefinition], label: String) -> void:
+	var R := GoobDefinition.Rarity
+	var counts := {}
 	var roster := GoobRoster.all()
-	var T := GoobDefinition.Category.TECH
-	for type: DeckBuilder.DeckType in [DeckBuilder.DeckType.CLASSIC, DeckBuilder.DeckType.LOADED]:
-		var specials: int = DeckBuilder.SPECIALS[type]
-		var top_range: Vector2i = DeckBuilder.TOP_RANGE[type]
-		var ok := true
-		var saw_draw := false
-		var saw_legendary := false
-		for s in range(1, 201):
-			var goobs := DeckBuilder.roll(_seeded(s), {"type": type})
-			var top := _count_family(goobs, T)
-			var draws := _count_family(goobs, GoobDefinition.Category.DRAW)
-			var legendary := _count_legendary(goobs)
-			saw_draw = saw_draw or draws > 0
-			saw_legendary = saw_legendary or legendary > 0
-			var from_roster := true
-			for g in goobs:
-				from_roster = from_roster and roster.has(g)
-			ok = ok and goobs.size() == 21 and _count_category(goobs, GoobDefinition.Category.NONE) == 21 - specials
-			ok = ok and top >= top_range.x and top <= top_range.y and draws <= 2 and legendary <= DeckBuilder.LEGENDARY_MAX and from_roster
-		_check(ok, "deck builder %d: 21 Goobs, %d specials, top %d-%d, DRAW <= 2, legendaries <= 2 (seeds 1..200)" % [type, specials, top_range.x, top_range.y])
-		_check(saw_draw and saw_legendary, "deck builder %d: DRAW Goobs and legendaries do appear" % type)
-	var types := {}
+	var from_roster := true
+	for g in goobs:
+		counts[g.rarity] = int(counts.get(g.rarity, 0)) + 1
+		from_roster = from_roster and roster.has(g)
+	_check(goobs.size() == 21 and counts.get(R.LEGENDARY, 0) == 1 and counts.get(R.VERY_RARE, 0) == 4 and counts.get(R.RARE, 0) == 7
+		and _count_category(goobs, GoobDefinition.Category.NONE) == 9 and from_roster, "%s: 1 L + 4 VR + 7 R + 9 Goobs (got %s)" % [label, counts])
+
+
+func _test_rarities() -> void:
+	var R := GoobDefinition.Rarity
+	var expected := {
+		R.LEGENDARY: ["convincing", "popular", "seismic", "nostalgic", "territorial", "crushing", "generous", "plentiful"],
+		R.VERY_RARE: ["sinking", "rowdy", "mocking", "loyal", "stalwart", "hoarding", "sinister", "dexterous", "bouncy", "slippery", "blustery", "spiteful", "brawling", "reckless", "desperate", "greedy"],
+	}
+	for goob in GoobRoster.all():
+		var want: int = R.COMMON if goob.id == "vanilla" else R.RARE
+		for rarity: int in expected:
+			if goob.id in expected[rarity]:
+				want = rarity
+		_check(goob.rarity == want, "rarity: %s is %d (got %d)" % [goob.id, want, goob.rarity])
+		_check(goob.is_legendary() == (want == R.LEGENDARY), "rarity: %s glints only if legendary" % goob.id)
+	_check(DeckBuilder.of_rarity(R.RARE).size() == 18, "rarity: 18 rares")
+
+
+func _test_decklists() -> void:
+	var names := DeckBuilder.decklist_names()
+	_check(names.size() >= 8, "decklists: at least 8 (got %d)" % names.size())
+	for deck_name in names:
+		var goobs := DeckBuilder.decklist(deck_name)
+		_check_shape(goobs, "decklist %s" % deck_name)
+		var seen := {}
+		var dupes := false
+		for g in goobs:
+			if g.id != "vanilla":
+				dupes = dupes or seen.has(g.id)
+				seen[g.id] = true
+		_check(not dupes, "decklist %s: no repeated special" % deck_name)
+
+
+func _test_random_deck() -> void:
+	var ok := true
 	for s in range(1, 101):
-		var goobs := DeckBuilder.roll(_seeded(s))
-		types[21 - _count_category(goobs, GoobDefinition.Category.NONE)] = true
-	_check(types.has(10) and types.has(14) and types.size() == 2, "deck builder: unforced rolls give both deck types")
-
-
-func _test_deck_builder_main_pools() -> void:
-	var D := GoobDefinition.Category.DESTROY
-	var X := GoobDefinition.Category.DISCARD
-	var M := GoobDefinition.Category.MOVE
-	var ok := true
-	var families_ok := true
-	for type: DeckBuilder.DeckType in [DeckBuilder.DeckType.CLASSIC, DeckBuilder.DeckType.LOADED]:
-		for s in range(1, 201):
-			var goobs := DeckBuilder.roll(_seeded(s), {"main": [D, X], "type": type})
-			var top := _count_family(goobs, GoobDefinition.Category.TECH)
-			var draws := _count_family(goobs, GoobDefinition.Category.DRAW)
-			var destroys := _count_family(goobs, D)
-			var discards := _count_family(goobs, X)
-			ok = ok and destroys >= 3 and discards >= 3 and top + destroys + discards + draws == DeckBuilder.SPECIALS[type]
-			# Legendaries roll with their ring: no Move family here at all.
-			families_ok = families_ok and _count_family(goobs, M) == 0
-	_check(ok, "deck builder: top + DESTROY + DISCARD + DRAW pools fill the specials (seeds 1..200, both types)")
-	_check(families_ok, "deck builder: Seismic / Rowdy only roll with Move")
-	var sinking := false
-	for s in range(1, 401):
-		for g in DeckBuilder.roll(_seeded(s), {"main": [M, X], "type": DeckBuilder.DeckType.LOADED}):
-			sinking = sinking or g.id == "sinking"
-	_check(not sinking, "deck builder: Sinking only rolls with Destroy")
-
-
-func _test_deck_builder_no_dupes_when_enough() -> void:
-	var roster: Array[GoobDefinition] = []
-	for i in 6:
-		var g := GoobDefinition.new()
-		g.id = "stub_destroy_%d" % i
-		g.category = GoobDefinition.Category.DESTROY
-		roster.append(g)
-	var ok := true
-	for s in range(1, 201):
-		var goobs := DeckBuilder.roll_from(_seeded(s), roster, {"main": [GoobDefinition.Category.DESTROY, GoobDefinition.Category.MOVE]})
+		var goobs := DeckBuilder.random_deck(_seeded(s))
 		var seen := {}
 		for g in goobs:
-			if g.category == GoobDefinition.Category.DESTROY:
+			if g.id != "vanilla":
 				ok = ok and not seen.has(g.id)
 				seen[g.id] = true
-	_check(ok, "deck builder: no repeated type inside a pool when the roster has enough")
+		if s <= 20:
+			_check_shape(goobs, "random deck seed %d" % s)
+	_check(ok, "random deck: no repeated special (seeds 1..100)")
+
+
+func _test_roll_pair() -> void:
+	var randoms := 0
+	var lists := {}
+	var ok := true
+	for s in range(1, 401):
+		var pair := DeckBuilder.roll_pair(_seeded(s))
+		var mine: String = pair["player"]["name"]
+		var his: String = pair["opponent"]["name"]
+		ok = ok and (mine != his or mine == DeckBuilder.RANDOM)
+		for key in ["player", "opponent"]:
+			var deck_name: String = pair[key]["name"]
+			if deck_name == DeckBuilder.RANDOM:
+				randoms += 1
+			else:
+				lists[deck_name] = true
+	_check(ok, "roll pair: the two sides never share a decklist")
+	_check(randoms > 100 and randoms < 300, "roll pair: about a quarter random decks (got %d of 800)" % randoms)
+	_check(lists.size() == DeckBuilder.decklist_names().size(), "roll pair: every decklist comes up")
+	var forced := DeckBuilder.roll_pair(_seeded(5), {"player": "Tremors", "opponent": DeckBuilder.RANDOM})
+	_check(forced["player"]["name"] == "Tremors" and forced["opponent"]["name"] == DeckBuilder.RANDOM, "roll pair: forced decks")
 
 
 func _composition(goobs: Array[GoobDefinition]) -> Dictionary:
@@ -721,10 +712,8 @@ func _test_start_rolls_per_side() -> void:
 	var t := TurnLoop.new()
 	t.start(true, _seeded(3))
 	_check(t.player_goobs.size() == 21 and t.opponent_goobs.size() == 21, "rolls: 21 Goobs per side")
-	for seed in range(1, 41):
-		var u := TurnLoop.new()
-		u.start(true, _seeded(seed))
-		_check(_count_category(u.player_goobs, GoobDefinition.Category.NONE) == _count_category(u.opponent_goobs, GoobDefinition.Category.NONE), "rolls: both sides use the same deck type (seed %d)" % seed)
+	_check(t.player_deck_name != "" and t.opponent_deck_name != "", "rolls: both decks are named")
+	_check_shape(t.player_goobs, "rolls: player deck")
 	_check(t.player_deck.draw_pile.size() + t.player_deck.hand.size() == 21, "rolls: player deck holds 21")
 	var differs := false
 	for s in range(1, 21):
@@ -1919,7 +1908,9 @@ func _test_steadfast() -> void:
 	t.opponent_deck.hand[0] = SINISTER
 	t.play(4, 0) # his Sinister at (4,0) pushes your row left
 	_check(t.board.get_owner(2, 0) == P and t.board.get_owner(3, 0) == P and t.last_effect["fizzled"], "steadfast: your Goobs can't be pushed on his turn")
-	_check(not t.has_status(&"steadfast", P), "steadfast: the window ends with his turn")
+	_check(t.has_status(&"steadfast", P), "steadfast: still on during your next turn (2026-11-27)")
+	t.play(0, 0) # your next turn
+	_check(not t.has_status(&"steadfast", P), "steadfast: the window ends with your next turn")
 	var b := _with_hand([STEADFAST, TurnLoop.VANILLA] as Array[GoobDefinition])
 	_place(b, 5, BOUNCY, O)
 	b.play(3, 0)
@@ -1937,7 +1928,11 @@ func _test_loyal() -> void:
 	t.opponent_deck.hand[0] = FAT
 	t.play(4, 0) # his Fat: (3,0) is its only neighbour
 	_check(t.board.get_owner(3, 0) == P and t.last_effect["fizzled"] and t.last_effect["target"] == Vector2i(3, 0), "loyal: a protected target wastes the destroy")
-	_check(not t.has_status(&"loyal", P), "loyal: the window ends with his turn")
+	_check(t.has_status(&"loyal", P), "loyal: still on during your next turn (2026-11-27)")
+	t.player_deck.hand[0] = FAT
+	t.play(2, 0) # your Fat at (2,0): (3,0) is yours and protected, so it hits nothing else
+	_check(t.board.get_owner(3, 0) == P, "loyal: your own destroy can't hit your Goobs on your next turn")
+	_check(not t.has_status(&"loyal", P), "loyal: the window ends with your next turn")
 
 
 func _test_stalwart() -> void:
@@ -2211,7 +2206,6 @@ func _test_m6f_looks() -> void:
 	for id: String in rings:
 		var goob: GoobDefinition = g.call(id)
 		_check(goob.ring_family() == rings[id] and goob.ring_texture(O) != null, "looks: %s wears the %s ring" % [id, rings[id]])
-		_check(goob.is_legendary() == (goob.category == GoobDefinition.Category.UNIQUE), "looks: %s legendary only if Uniquely powerful" % id)
 	var sparkles := {"bouncy": &"chevrons", "springy": &"chevrons", "slippery": &"crackle", "lopsided": &"crackle_left", "tipsy": &"crackle_right",
 		"generous": &"motes", "plentiful": &"motes", "stalwart": &"stars", "hoarding": &"stars", "steadfast": &"steadfast", "loyal": &"loyal",
 		"spiteful": &"", "fat": &"", "defiant": &""}

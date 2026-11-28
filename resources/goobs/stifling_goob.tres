@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Your opponent's next Goob has no effect."
 effect_type = 35
 category = 2
+rarity = 1
 art_id = "vanilla"
 flips_vertically = true

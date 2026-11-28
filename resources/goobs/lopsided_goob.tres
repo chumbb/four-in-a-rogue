@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "This Goob rolls left when it lands or falls."
 effect_type = 7
 category = 3
+rarity = 1
 art_id = "vanilla"
 flips_vertically = true

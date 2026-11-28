@@ -1,93 +1,111 @@
 class_name DeckBuilder
 extends RefCounted
-## Rolls one side's 21-Goob deck (M6e; M6f, Sean 2026-11-24).
+## Builds both sides' 21-Goob starting decks by rarity, not family (Sean,
+## Special Goobs.xlsx "Example Deck Balance", 2026-11-27): 1 legendary,
+## 4 very rare, 7 rare + 9 plain Goobs.
 ##
-## Two deck types, picked 50/50 per roll and the same for both sides
-## (roll_type): CLASSIC = 10 specials + 11 plain Goobs, LOADED = 14 + 7.
-## Pools follow the family rings (GoobDefinition.ring_family(), so legendary
-## Goobs roll with the family whose ring they wear): 1-2 (LOADED 2-3) from the
-## TECH family "top" pool, the rest split between two different MOVE / DESTROY
-## / DISCARD pools. DRAW Goobs take 0-1 slots of each of those two pools. At
-## most LEGENDARY_MAX legendaries per deck. A pool picks distinct types while
-## it can, cycling when it runs out; an empty pool gives plain Goobs.
-
-enum DeckType { CLASSIC, LOADED }
+## Each scenario both sides get a different deck: a handmade decklist from
+## decklists.json, or (RANDOM_CHANCE) a random deck of the same shape with no
+## repeated types. A draw replay keeps the same decks (the scenario remembers them).
 
 const SIZE := 21
-const SPECIALS := {DeckType.CLASSIC: 10, DeckType.LOADED: 14}
-const TOP_RANGE := {DeckType.CLASSIC: Vector2i(1, 2), DeckType.LOADED: Vector2i(2, 3)}
-const LEGENDARY_MAX := 2
-const TOP_FAMILY := GoobDefinition.Category.TECH
-const MAIN_CATEGORIES: Array[GoobDefinition.Category] = [GoobDefinition.Category.MOVE, GoobDefinition.Category.DESTROY, GoobDefinition.Category.DISCARD]
+const SHAPE := {GoobDefinition.Rarity.LEGENDARY: 1, GoobDefinition.Rarity.VERY_RARE: 4, GoobDefinition.Rarity.RARE: 7}
+const DECKLISTS_PATH := "res://resources/goobs/decklists.json"
+## Chance per side of a random deck instead of a decklist.
+const RANDOM_CHANCE := 0.25
+## The pick key / deck name for a random deck.
+const RANDOM := "Random"
+const JSON_KEYS := {GoobDefinition.Rarity.LEGENDARY: "legendary", GoobDefinition.Rarity.VERY_RARE: "very_rare", GoobDefinition.Rarity.RARE: "rare"}
 
 
-## 50/50 deck type for a new scenario (both sides use it).
-static func roll_type(rng: RandomNumberGenerator) -> DeckType:
-	return DeckType.LOADED if rng.randi_range(0, 1) == 1 else DeckType.CLASSIC
+## The decklists' names, in file order.
+static func decklist_names() -> Array[String]:
+	var names: Array[String] = []
+	for entry: Dictionary in _decklists():
+		names.append(entry.get("name", ""))
+	return names
 
 
-## `forced` keys (all optional, debug/tests): "type" = a DeckType (else 50/50),
-## "main" = two of MOVE / DESTROY / DISCARD.
-static func roll(rng: RandomNumberGenerator, forced := {}) -> Array[GoobDefinition]:
-	return roll_from(rng, GoobRoster.all(), forced)
+## Both sides' decks for a new scenario: {"player": {name, goobs},
+## "opponent": {name, goobs}}. `forced` (debug, optional): "player" /
+## "opponent" = a decklist name or RANDOM.
+static func roll_pair(rng: RandomNumberGenerator, forced := {}) -> Dictionary:
+	var player := _pick_name(rng, forced.get("player", ""), "")
+	var opponent := _pick_name(rng, forced.get("opponent", ""), player)
+	return {"player": named(player, rng), "opponent": named(opponent, rng)}
 
 
-static func roll_from(rng: RandomNumberGenerator, roster: Array[GoobDefinition], forced := {}) -> Array[GoobDefinition]:
-	var type: DeckType = forced["type"] if forced.has("type") else roll_type(rng)
-	var main: Array = forced.get("main", [])
-	if main.size() != 2:
-		var pool: Array = MAIN_CATEGORIES.duplicate()
-		_shuffle(pool, rng)
-		main = pool.slice(0, 2)
-	var top_range: Vector2i = TOP_RANGE[type]
-	var top_count := rng.randi_range(top_range.x, top_range.y)
-	var rest: int = SPECIALS[type] - top_count
-	var first := rest / 2
-	if rest % 2 == 1 and rng.randi_range(0, 1) == 1:
-		first += 1
-	var sizes := [first, rest - first]
-	var draw_counts := [rng.randi_range(0, 1), rng.randi_range(0, 1)]
+## {name, goobs} for a decklist name, or a fresh random deck for RANDOM.
+static func named(deck_name: String, rng: RandomNumberGenerator) -> Dictionary:
+	if deck_name == RANDOM:
+		return {"name": RANDOM, "goobs": random_deck(rng)}
+	return {"name": deck_name, "goobs": decklist(deck_name)}
 
-	var state := {"legendaries": 0}
+
+## A random deck of SHAPE: distinct types per rarity, then plain Goobs.
+static func random_deck(rng: RandomNumberGenerator, roster: Array[GoobDefinition] = []) -> Array[GoobDefinition]:
 	var goobs: Array[GoobDefinition] = []
-	goobs.append_array(_pick(TOP_FAMILY, top_count, roster, rng, state))
-	var draws := _pick(GoobDefinition.Category.DRAW, draw_counts[0] + draw_counts[1], roster, rng, state)
-	var draw_at := 0
-	for i in 2:
-		goobs.append_array(_pick(main[i], sizes[i] - draw_counts[i], roster, rng, state))
-		goobs.append_array(draws.slice(draw_at, draw_at + draw_counts[i]))
-		draw_at += draw_counts[i]
+	for rarity: GoobDefinition.Rarity in SHAPE:
+		var pool := of_rarity(rarity, roster)
+		_shuffle(pool, rng)
+		goobs.append_array(pool.slice(0, SHAPE[rarity]))
 	while goobs.size() < SIZE:
 		goobs.append(GoobRoster.plain())
 	return goobs
 
 
-## `count` Goobs of a ring family (or of several mixed): its types shuffled and
-## taken in order, cycling when exhausted, skipping legendaries once the deck
-## has LEGENDARY_MAX (`state` is shared by one roll); plain Goobs when nothing
-## is left.
-static func _pick(family, count: int, roster: Array[GoobDefinition], rng: RandomNumberGenerator, state: Dictionary) -> Array[GoobDefinition]:
-	var picked: Array[GoobDefinition] = []
-	var types: Array = []
-	for c in (family if family is Array else [family]):
-		types.append_array(GoobRoster.family(c, roster))
-	_shuffle(types, rng)
-	var at := 0
-	for i in count:
-		var goob: GoobDefinition = null
-		for k in types.size():
-			var t: GoobDefinition = types[(at + k) % types.size()]
-			if t.is_legendary() and state["legendaries"] >= LEGENDARY_MAX:
-				continue
-			goob = t
-			at = (at + k + 1) % types.size()
-			break
-		if goob == null:
-			goob = GoobRoster.plain()
-		elif goob.is_legendary():
-			state["legendaries"] += 1
-		picked.append(goob)
-	return picked
+## The 21 Goobs of a decklist (unshuffled); empty if there is none by that name.
+static func decklist(deck_name: String) -> Array[GoobDefinition]:
+	var goobs: Array[GoobDefinition] = []
+	for entry: Dictionary in _decklists():
+		if entry.get("name", "") != deck_name:
+			continue
+		var by_id := {}
+		for goob in GoobRoster.all():
+			by_id[goob.id] = goob
+		for rarity: GoobDefinition.Rarity in SHAPE:
+			var ids = entry.get(JSON_KEYS[rarity], [])
+			for id: String in (ids if ids is Array else [ids]):
+				if by_id.has(id):
+					goobs.append(by_id[id])
+				else:
+					push_error("DeckBuilder: decklist '%s' has unknown Goob '%s'" % [deck_name, id])
+		while goobs.size() < SIZE:
+			goobs.append(GoobRoster.plain())
+		return goobs
+	push_error("DeckBuilder: no decklist named '%s'" % deck_name)
+	return goobs
+
+
+## The special types of one rarity.
+static func of_rarity(rarity: GoobDefinition.Rarity, roster: Array[GoobDefinition] = []) -> Array[GoobDefinition]:
+	var found: Array[GoobDefinition] = []
+	for goob in (roster if not roster.is_empty() else GoobRoster.all()):
+		if goob.rarity == rarity and goob.category != GoobDefinition.Category.NONE:
+			found.append(goob)
+	return found
+
+
+## `wanted` if given, else RANDOM_CHANCE random, else a decklist other than `avoid`.
+static func _pick_name(rng: RandomNumberGenerator, wanted: String, avoid: String) -> String:
+	if wanted != "":
+		return wanted
+	if rng.randf() < RANDOM_CHANCE:
+		return RANDOM
+	var names := decklist_names()
+	names.erase(avoid)
+	if names.is_empty():
+		return RANDOM
+	return names[rng.randi_range(0, names.size() - 1)]
+
+
+static func _decklists() -> Array:
+	var file := FileAccess.open(DECKLISTS_PATH, FileAccess.READ)
+	if file == null:
+		push_error("DeckBuilder: could not open %s" % DECKLISTS_PATH)
+		return []
+	var data = JSON.parse_string(file.get_as_text())
+	return data.get("decklists", []) if data is Dictionary else []
 
 
 static func _shuffle(items: Array, rng: RandomNumberGenerator) -> void:

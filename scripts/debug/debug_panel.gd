@@ -3,10 +3,9 @@ extends Control
 ## F4 debug picker (M6e; debug builds only, the scenario never builds it in a
 ## release build). A plain panel over a scrim that pauses the tree like the
 ## pause menu: pick a side (You / Opponent), give that side any roster Goob,
-## discard a random Goob from its hand, add a test status, or force the
-## category deck roll (deck type Auto / 10 + 11 / 14 + 7, main pool Auto or a pair
-## of Move / Destroy / Discard) and start a new game with it. The scenario
-## does the work through the signals.
+## discard a random Goob from its hand, add a test status, or force each
+## side's deck (Auto, Random or a decklist; DeckBuilder) and start a new game
+## with it. The scenario does the work through the signals.
 
 signal toggle_requested
 signal give_requested(goob: GoobDefinition, side: BoardState.CellOwner)
@@ -19,20 +18,14 @@ signal new_game_requested(forced: Dictionary)
 const BUTTON_H := 96.0
 const GAP := 8
 const EDGE := 24
-const C := GoobDefinition.Category
-const TYPE_CHOICES: Dictionary = {"Auto deck": -1, "10 + 11": DeckBuilder.DeckType.CLASSIC, "14 + 7": DeckBuilder.DeckType.LOADED}
-const MAIN_CHOICES: Dictionary = {
-	"Auto main": [],
-	"Move + Destroy": [C.MOVE, C.DESTROY],
-	"Move + Discard": [C.MOVE, C.DISCARD],
-	"Destroy + Discard": [C.DESTROY, C.DISCARD],
-}
+## Deck rows: button label prefix per forced key (labels must be unique).
+const DECK_ROWS := {"player": "You: ", "opponent": "Him: "}
+const AUTO := "Auto"
 
 var _buttons: Dictionary = {} ## label -> Button
 var _side := BoardState.CellOwner.PLAYER
-## The picked TYPE_CHOICES / MAIN_CHOICES labels.
-var _type := "Auto deck"
-var _main := "Auto main"
+## The picked deck per DECK_ROWS key (AUTO, DeckBuilder.RANDOM or a decklist name).
+var _decks := {"player": AUTO, "opponent": AUTO}
 var _box: VBoxContainer
 
 
@@ -81,10 +74,12 @@ func _build() -> void:
 		close()
 		discard_requested.emit(_side))
 	_button("Add test status", grid).pressed.connect(func() -> void: status_requested.emit(_side))
-	_label("Deck type")
-	_choice_row(TYPE_CHOICES.keys(), 3, func(label: String) -> void: _type = label)
-	_label("Deck main pool")
-	_choice_row(MAIN_CHOICES.keys(), 2, func(label: String) -> void: _main = label)
+	for key: String in DECK_ROWS:
+		_label("Your deck" if key == "player" else "His deck")
+		var labels: Array = []
+		for choice in _deck_choices():
+			labels.append(DECK_ROWS[key] + choice)
+		_choice_row(labels, 2, func(label: String) -> void: _decks[key] = label.trim_prefix(DECK_ROWS[key]))
 	grid = _grid(2)
 	_button("New game with these", grid).pressed.connect(func() -> void:
 		var picked := forced()
@@ -178,30 +173,29 @@ func button(label: String) -> Button:
 	return _buttons[label]
 
 
-## The chosen categories as DeckBuilder's `forced` ({} = all Auto).
+func _deck_choices() -> Array:
+	var choices: Array = [AUTO, DeckBuilder.RANDOM]
+	choices.append_array(DeckBuilder.decklist_names())
+	return choices
+
+
+## The chosen decks as DeckBuilder.roll_pair's `forced` ({} = both Auto).
 func forced() -> Dictionary:
 	var result := {}
-	if TYPE_CHOICES[_type] != -1:
-		result["type"] = TYPE_CHOICES[_type]
-	if not MAIN_CHOICES[_main].is_empty():
-		result["main"] = MAIN_CHOICES[_main].duplicate()
+	for key: String in _decks:
+		if _decks[key] != AUTO:
+			result[key] = _decks[key]
 	return result
 
 
-## Shows `categories` (GameFlow.debug_forced_categories) as the picked choices.
-func set_forced(categories: Dictionary) -> void:
-	_type = "Auto deck"
-	_main = "Auto main"
-	for label: String in TYPE_CHOICES:
-		if categories.has("type") and TYPE_CHOICES[label] == categories["type"]:
-			_type = label
-	var main: Array = categories.get("main", [])
-	for label: String in MAIN_CHOICES:
-		var pair: Array = MAIN_CHOICES[label]
-		if main.size() == 2 and pair.size() == 2 and main.has(pair[0]) and main.has(pair[1]):
-			_main = label
-	_show_picked(_type)
-	_show_picked(_main)
+## Shows `decks` (GameFlow.debug_forced_categories) as the picked choices.
+func set_forced(decks: Dictionary) -> void:
+	for key: String in DECK_ROWS:
+		var picked: String = decks.get(key, AUTO)
+		if not _deck_choices().has(picked):
+			picked = AUTO
+		_decks[key] = picked
+		_show_picked(DECK_ROWS[key] + picked)
 
 
 func _exit_tree() -> void:

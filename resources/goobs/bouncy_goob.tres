@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Goobs that land on this Goob bounce to the next column."
 effect_type = 9
 category = 3
+rarity = 2
 art_id = "vanilla"
 flips_vertically = true

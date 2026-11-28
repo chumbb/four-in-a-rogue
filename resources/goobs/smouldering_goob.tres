@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "At the start of your next turn, destroy a random adjacent Goob."
 effect_type = 19
 category = 4
+rarity = 1
 art_id = "vanilla"
 flips_vertically = true

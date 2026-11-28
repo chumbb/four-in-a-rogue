@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Discard 2 random Goobs, then destroy a random enemy Goob."
 effect_type = 23
 category = 5
+rarity = 1
 art_id = "vanilla"
 flips_vertically = true

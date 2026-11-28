@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "While on the board, your Goobs can't be discarded."
 effect_type = 37
 category = 2
+rarity = 2
 art_id = "vanilla"
 flips_vertically = true

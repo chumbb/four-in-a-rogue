@@ -47,6 +47,9 @@ var opponent_deck := Deck.new()
 ## them back to start() to reshuffle the same decks).
 var player_goobs: Array[GoobDefinition] = []
 var opponent_goobs: Array[GoobDefinition] = []
+## Their decklist names (DeckBuilder: a decklist or "Random"; "" when given).
+var player_deck_name := ""
+var opponent_deck_name := ""
 
 ## The start-of-turn draw of the turn now in progress (empty if nothing was
 ## drawn), and whether it was skipped because the hand was full.
@@ -133,7 +136,7 @@ func _init() -> void:
 ## starting hands of Deck.START_HAND, then the first side's turn begins (with its draw).
 ## `deck` alone replaces the decks of both sides (tests); `deck` and
 ## `opponent_deck_goobs` give one each; neither rolls a deck per side
-## (DeckBuilder, `forced` as in DeckBuilder.roll).
+## (DeckBuilder.roll_pair, with its `forced`).
 func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[GoobDefinition] = [], opponent_deck_goobs: Array[GoobDefinition] = [], forced := {}) -> void:
 	if rng == null:
 		rng = RandomNumberGenerator.new()
@@ -153,15 +156,17 @@ func start(player_first: bool, rng: RandomNumberGenerator = null, deck: Array[Go
 	turn_draw_steps = []
 	result = Result.NONE
 	if deck.is_empty():
-		# One deck type for both sides (M6f, Sean 2026-11-24).
-		var both := forced.duplicate()
-		if not both.has("type"):
-			both["type"] = DeckBuilder.roll_type(rng)
-		player_goobs = DeckBuilder.roll(rng, both)
-		opponent_goobs = DeckBuilder.roll(rng, both)
+		# A different rarity deck per side (Sean, 2026-11-27).
+		var decks := DeckBuilder.roll_pair(rng, forced)
+		player_goobs = decks["player"]["goobs"]
+		opponent_goobs = decks["opponent"]["goobs"]
+		player_deck_name = decks["player"]["name"]
+		opponent_deck_name = decks["opponent"]["name"]
 	else:
 		player_goobs = deck
 		opponent_goobs = opponent_deck_goobs if not opponent_deck_goobs.is_empty() else deck
+		player_deck_name = ""
+		opponent_deck_name = ""
 	player_deck = Deck.shuffled(player_goobs, rng)
 	opponent_deck = Deck.shuffled(opponent_goobs, rng)
 	player_deck.draw(Deck.START_HAND)
@@ -1272,22 +1277,28 @@ func _can_discard(side: BoardState.CellOwner, _index: int) -> bool:
 
 
 # --- Tech effects (M6e; Sean, 2026-11-24: vault Special Goobs "M6e Tech
-# rules"). Windows (Steadfast, Loyal, Territorial's lock) are statuses that
-# last until the end of the opponent's next turn.
+# rules"). Windows are statuses: Territorial's lock lasts until the end of
+# the opponent's next turn, Steadfast / Loyal until the end of your next turn.
 
 ## Turns (status ticks) until the end of the next turn of `side`'s opponent.
 func _window_turns(side: BoardState.CellOwner) -> int:
 	return 2 if current_side() == side else 3
 
 
-## Steadfast / Loyal: the window for `side`'s Goobs.
+## Turns (status ticks) until the end of `side`'s own next turn.
+func _own_window_turns(side: BoardState.CellOwner) -> int:
+	return 3 if current_side() == side else 2
+
+
+## Steadfast / Loyal: the window for `side`'s Goobs, until the end of its own
+## next turn so they combo with its own moves and destroys (Sean, Special
+## Goobs.xlsx 2026-11-27; was the end of the opponent's next turn).
 func _protect(side: BoardState.CellOwner, kind: GoobDefinition.EffectType) -> void:
 	var whose := "your" if side == BoardState.CellOwner.PLAYER else "his"
-	var theirs := "his" if side == BoardState.CellOwner.PLAYER else "your"
 	if kind == GoobDefinition.EffectType.STEADFAST:
-		add_status(&"steadfast", side, "Steadfast", "Steadfast: %s Goobs can't be moved until the end of %s next turn." % [whose, theirs], _window_turns(side))
+		add_status(&"steadfast", side, "Steadfast", "Steadfast: %s Goobs can't be moved until the end of %s next turn." % [whose, whose], _own_window_turns(side))
 	else:
-		add_status(&"loyal", side, "Loyal", "Loyal: %s Goobs can't be destroyed until the end of %s next turn." % [whose, theirs], _window_turns(side))
+		add_status(&"loyal", side, "Loyal", "Loyal: %s Goobs can't be destroyed until the end of %s next turn." % [whose, whose], _own_window_turns(side))
 
 
 ## Territorial: `side` can't play into `column` on its next turn.

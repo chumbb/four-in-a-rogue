@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Roll a random Goob in this row."
 effect_type = 13
 category = 3
+rarity = 1
 art_id = "vanilla"
 flips_vertically = true

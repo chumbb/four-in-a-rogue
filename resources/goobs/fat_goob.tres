@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Destroy a random adjacent Goob."
 effect_type = 2
 category = 4
+rarity = 1
 art_id = "fat"
 flavour_text = "Veterans of Goobert's battle swear it won by sitting down."

@@ -1,0 +1,61 @@
+{
+  "description": "Starting decklists (Sean, Special Goobs.xlsx 2026-11-27: built by rarity, not family). Each: 1 legendary, 4 very rare, 7 rare + 9 plain Goobs = 21. Each scenario both sides get a different list, or sometimes a random deck with the same shape (DeckBuilder.RANDOM_CHANCE). Ids = GoobDefinition.id.",
+  "decklists": [
+    {
+      "name": "Wrecking Crew",
+      "plan": "Loyal shields your Goobs, so Volatile and Desperate only hurt him; Inspiring re-fires a destroy; Occult brings back what you lost; Greedy and Fickle dig for Crushing and Loyal.",
+      "legendary": "crushing",
+      "very_rare": ["loyal", "brawling", "desperate", "greedy"],
+      "rare": ["fat", "volatile", "smouldering", "inspiring", "occult", "fickle", "ruthless"]
+    },
+    {
+      "name": "Shove and Copy",
+      "plan": "Pushes and rolls break up enemy lines; Stalwart and Steadfast anchor your own Goobs; Nostalgic and Inspiring repeat a push; Fickle discards Defiant for a free drop, Thrifty revives a discard.",
+      "legendary": "nostalgic",
+      "very_rare": ["sinister", "dexterous", "blustery", "stalwart"],
+      "rare": ["steadfast", "fidgety", "inspiring", "stifling", "fickle", "defiant", "thrifty"]
+    },
+    {
+      "name": "Bottomless Pockets",
+      "plan": "Plentiful and Greedy keep the hand full; Reckless, Fickle, Ruthless and Desperate turn spare Goobs into value; Defiant drops when discarded; Thrifty returns the best discard; Jinxing and Distracting starve him.",
+      "legendary": "plentiful",
+      "very_rare": ["greedy", "reckless", "desperate", "mocking"],
+      "rare": ["fickle", "ruthless", "thrifty", "defiant", "jinxing", "distracting", "stifling"]
+    },
+    {
+      "name": "Hold the Line",
+      "plan": "Denial: Territorial closes his best column, Stalwart, Loyal and Steadfast keep your four intact, Hoarding protects your hand, Stifling, Distracting and Jinxing blunt his turns, Thieving takes his passives.",
+      "legendary": "territorial",
+      "very_rare": ["stalwart", "loyal", "hoarding", "spiteful"],
+      "rare": ["steadfast", "stifling", "distracting", "jinxing", "thieving", "smouldering", "fat"]
+    },
+    {
+      "name": "Tremors",
+      "plan": "Chaos: Seismic, Sinking and Rowdy rearrange the whole board; Steadfast pins your Goobs while his slide; Bouncy and Slippery send his Goobs astray; Occult and Volatile clean up.",
+      "legendary": "seismic",
+      "very_rare": ["sinking", "rowdy", "bouncy", "slippery"],
+      "rare": ["steadfast", "fidgety", "springy", "volatile", "occult", "inspiring", "fat"]
+    },
+    {
+      "name": "Crowd Pleaser",
+      "plan": "Board presence: Popular drops two Goobs, Inspiring next to it drops another, Occult and Thrifty bring Goobs back; Greedy and Fickle find Popular; Brawling and Fat clear his blockers.",
+      "legendary": "popular",
+      "very_rare": ["greedy", "brawling", "mocking", "blustery"],
+      "rare": ["inspiring", "occult", "thrifty", "fickle", "fat", "fidgety", "distracting"]
+    },
+    {
+      "name": "Turncoat",
+      "plan": "Take what is his: Convincing flips a Goob, Inspiring flips another, Mocking copies his best play, Thieving steals his passives; Spiteful and Brawling punish stacking.",
+      "legendary": "convincing",
+      "very_rare": ["mocking", "spiteful", "brawling", "sinister"],
+      "rare": ["inspiring", "thieving", "stifling", "fat", "distracting", "jinxing", "volatile"]
+    },
+    {
+      "name": "Slow Harvest",
+      "plan": "Generous on the board draws every turn, guarded by Loyal, Stalwart and Steadfast; Hoarding keeps the hand safe; Jinxing and Stifling slow him while you out-draw him.",
+      "legendary": "generous",
+      "very_rare": ["greedy", "hoarding", "loyal", "stalwart"],
+      "rare": ["steadfast", "stifling", "jinxing", "thrifty", "inspiring", "occult", "distracting"]
+    }
+  ]
+}

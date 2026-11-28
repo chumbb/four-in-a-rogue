@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Bring back one of your destroyed Goobs."
 effect_type = 16
 category = 4
+rarity = 1
 art_id = "vanilla"
 flips_vertically = true

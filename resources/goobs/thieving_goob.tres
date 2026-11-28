@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Steal a random enemy Goob's ongoing effect."
 effect_type = 36
 category = 2
+rarity = 1
 art_id = "vanilla"
 flips_vertically = true

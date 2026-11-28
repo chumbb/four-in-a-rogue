@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Your Goobs can't be destroyed next turn."
 effect_type = 31
 category = 2
+rarity = 2
 art_id = "vanilla"
 flips_vertically = true

@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Destroy the next Goob that lands on this Goob."
 effect_type = 15
 category = 4
+rarity = 2
 art_id = "vanilla"
 flips_vertically = true

@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Your opponent skips their next draw."
 effect_type = 27
 category = 6
+rarity = 1
 art_id = "vanilla"
 flips_vertically = true

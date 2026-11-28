@@ -10,6 +10,7 @@ multiplier = 2.0
 effect_description = "Drop a Goob into a random column."
 effect_type = 3
 category = 1
+rarity = 3
 ring = 6
 flavour_text = "A favourite at Gooberina's court. Wherever it lands, others follow."
 art_id = "popular"

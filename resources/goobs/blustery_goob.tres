@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "The highest Goob rolls."
 effect_type = 11
 category = 3
+rarity = 2
 art_id = "vanilla"
 flips_vertically = true

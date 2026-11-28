@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "While on the board, draw an extra Goob each turn."
 effect_type = 28
 category = 6
+rarity = 3
 art_id = "vanilla"
 flips_vertically = true

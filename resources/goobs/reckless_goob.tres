@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Discard your hand. Draw 2 extra Goobs on your next turn."
 effect_type = 24
 category = 5
+rarity = 2
 art_id = "vanilla"
 flips_vertically = true

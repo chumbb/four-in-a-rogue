@@ -101,7 +101,9 @@ Full acceptance list: **§Ship checklist** (A1–A10) and vault `vertical-slice-
 
 ### Starter deck (each side)
 
-**M6f (Sean, 2026-11-24; supersedes the M6e roll below where they differ):** two deck types, **50/50 per scenario, the same for both sides**: **10 specials + 11 Goobs** or **14 specials + 7**. Pools follow the **family rings**: top pool = **Tech family** (Tech + Convincing, Nostalgic, Mocking), 1–2 (14-special deck 2–3); Seismic, Rowdy roll in Move, Sinking in Destroy, Popular with Draw; two random main pools share the rest; **Draw 0–1 slots per main pool**; **≤ 2 legendaries per deck**. F4 can force the type (`DeckBuilder.DeckType`).
+**Rarity decks (Sean, `Special Goobs.xlsx` 2026-11-27; supersedes the M6f / M6e family rolls below):** decks are built by **rarity, not family**: **1 legendary + 4 very rare + 7 rare + 9 Goobs** = 21 (rarity per Goob = xlsx column E, `GoobDefinition.rarity`; the legendary glint follows rarity, rings stay by family). Each scenario **both sides get a different deck**: one of the handmade synergy decklists in `resources/goobs/decklists.json` (Wrecking Crew, Shove and Copy, Bottomless Pockets, Hold the Line, Tremors, Crowd Pleaser, Turncoat, Slow Harvest), or **sometimes (25 %) a random deck** of the same shape with no repeated special (`DeckBuilder.RANDOM_CHANCE`). A draw replay keeps the same decks. F4 can force each side's deck.
+
+**M6f (Sean, 2026-11-24; superseded by the rarity decks above):** two deck types, **50/50 per scenario, the same for both sides**: **10 specials + 11 Goobs** or **14 specials + 7**. Pools follow the **family rings**: top pool = **Tech family** (Tech + Convincing, Nostalgic, Mocking), 1–2 (14-special deck 2–3); Seismic, Rowdy roll in Move, Sinking in Destroy, Popular with Draw; two random main pools share the rest; **Draw 0–1 slots per main pool**; **≤ 2 legendaries per deck**. F4 can force the type (`DeckBuilder.DeckType`).
 
 **M6e (Sean, 2026-11-23; supersedes the 17 + 4 deck and the ×0.5 values):** each side rolls its own deck per scenario: **11 Goobs + 10 specials** = 1–2 from **uniquely powerful + tech** (one pool), then **2 random categories from move / destroy / discard**, 4–5 each; **draw** Goobs fill **0–1 slots in one of those pools and 0–2 in the other**; no duplicate types while the pool has enough; a draw replay reshuffles the same deck. **Every special ×2, a plain Goob ×1.** **Vanilla Goob is shown as "Goob"** (ids stay `vanilla`). Roster + categories: vault `Design/Special Goobs.md` "2026-11-23 update".
 
@@ -373,7 +375,7 @@ Grill + decisions: vault Decision-Log 2026-11-23, spec `Design/Special Goobs.md`
 - [x] **Destroy** ✅ (accepted and merged 2026-11-23; rules: vault spec "M6e Destroy rules"): Volatile, Spiteful (next Goob that lands on it, effect still fires), Occult, Crushing, Brawling, Smouldering (turn-start step) + Fat; per-Goob state as copy-on-write metadata (`TurnLoop._mark`); fuzz `tests/fuzz_m6e_destroy.gd`; code review fixes; new **resurrect** sound (Sean picked A)
 - [x] **Discard** ✅ (accepted and merged 2026-11-23; rules: vault spec "M6e Discard rules"): Distracting, Defiant, Fickle, Ruthless, Reckless, Thrifty, Desperate; one `TurnLoop._discard` path (Defiant drops instead), costs paid in full or fizzle, Reckless `_bonus_draws`, AI `sim_state`; fuzz `tests/fuzz_m6e_discard.gd`
 - [x] **Draw** ✅ (accepted and merged 2026-11-24; rules: vault spec "M6e Draw rules"): **Greedy** (draw 2; was Plentiful), Jinxing (his next turn draw −1 per copy, adds up on one turn; a forced draw after a skip uses it up), Generous (+1 turn draw per copy you own at the turn start), **Plentiful** (new: while on the board you draw 1 for each Goob he draws; keeps the Plentiful art); `TurnLoop._echo_draws`, `turn_draw_steps`, `last_jinx_lost`; fuzz `tests/fuzz_m6e_draw.gd`; code review fixes (Jinxed pill lasts through the jinxed turn, toast counts only Goobs really lost, a full-hand Plentiful draws silently)
-- [x] **Tech** ✅ (accepted and merged 2026-11-24, with code review fixes; rules: vault spec "M6e Tech rules", Sean 2026-11-24): Steadfast / Loyal (your Goobs can't be moved / destroyed until the end of his next turn), Stalwart, Territorial (column locked for his next turn), Inspiring (retrigger an adjacent friendly Goob), Stifling (his next Goob has no effect), Thieving (steals an ongoing effect), Hoarding (no discards, own costs too); `TurnLoop._can_move`, lock / stifle statuses; fuzz `tests/fuzz_m6e_tech.gd`
+- [x] **Tech** ✅ (accepted and merged 2026-11-24, with code review fixes; rules: vault spec "M6e Tech rules", Sean 2026-11-24): Steadfast / Loyal (your Goobs can't be moved / destroyed until the end of his next turn; **until the end of your next turn** since 2026-11-27, Sean), Stalwart, Territorial (column locked for his next turn), Inspiring (retrigger an adjacent friendly Goob), Stifling (his next Goob has no effect), Thieving (steals an ongoing effect), Hoarding (no discards, own costs too); `TurnLoop._can_move`, lock / stifle statuses; fuzz `tests/fuzz_m6e_tech.gd`
 - [x] **Uniquely powerful** ✅ (accepted and merged 2026-11-24, with a Springy rule change and code review fixes; rules: vault spec "M6e Uniquely powerful rules", Sean 2026-11-24): Seismic (shift every Goob, edge column falls off), Sinking (bottom row falls out), Rowdy (top Goobs bounce, left to right), Nostalgic / Mocking (become the last Goob you / he played); Goobs off the board are destroyed; `TurnLoop._shift` / `_sink` / `_bounce_tops` / `_become`, `&"off"` motions; fuzz `tests/fuzz_m6e_unique.gd`
 
 ### M6f — Pre-M7 fixes and changes (Sean, 2026-11-24; before M7) ✅ (accepted by Sean and merged to `main` 2026-11-24)
@@ -395,6 +397,14 @@ Decisions: vault Decision-Log 2026-11-25. **Testers Sean knows only** (store pri
 - [x] `tools/telemetry/goob_stats.py`: Goob win rates (in deck / played / in the four), pair win rates + lift, played at once / held / never played, with sample sizes
 - [x] `export_presets.cfg` in git (Windows; Android with Gradle build, INTERNET, VIBRATE); F4 Test error / Test crash
 - [x] Sean: create Sentry + PostHog projects, fill the keys, export Windows (debug), check both dashboards → accepted 2026-11-25
+
+### Special Goobs feedback (Sean, 2026-11-27; branch `special-goobs-feedback`)
+
+- [x] Rarity per Goob from `Special Goobs.xlsx` (Legendary 8, Very rare 16, Rare 18); legendary glint by rarity
+- [x] Starting decks by rarity (1 L + 4 VR + 7 R + 9), 8 handmade decklists + 25 % random, different per side; F4 "Your deck" / "His deck"; `scenario_start` logs `player_decklist` / `opponent_decklist`
+- [x] Loyal and Steadfast last until the end of your next turn
+- Not built (ideas in the sheet, need Sean's call): Popular's extra Goob in an adjacent column; forcing Lopsided / Tipsy onto the opponent; adjacent vs beside in a tutorial
+- AI vs AI soak `tests/fuzz_decklists.gd` (200 games, 0 failures)
 
 ### M7 — On-device check (**required for v0.1**, Sean 2026-11-20)
 

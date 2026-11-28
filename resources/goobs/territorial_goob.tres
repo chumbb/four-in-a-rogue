@@ -10,5 +10,6 @@ multiplier = 2.0
 effect_description = "Your opponent can't play in this column next turn."
 effect_type = 33
 category = 2
+rarity = 3
 art_id = "vanilla"
 flips_vertically = true

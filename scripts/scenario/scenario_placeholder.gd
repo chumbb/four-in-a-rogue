@@ -241,9 +241,11 @@ func _start_loop() -> void:
 		mine.assign(rolled["player"])
 		his.assign(rolled["opponent"])
 		_loop.start(GameFlow.player_moves_first, _rng, mine, his)
+		_loop.player_deck_name = rolled.get("player_name", "")
+		_loop.opponent_deck_name = rolled.get("opponent_name", "")
 		return
 	_loop.start(GameFlow.player_moves_first, _rng, [], [], GameFlow.debug_forced_categories)
-	GameFlow.rolled_decks = {"player": _loop.player_goobs, "opponent": _loop.opponent_goobs}
+	GameFlow.rolled_decks = {"player": _loop.player_goobs, "opponent": _loop.opponent_goobs, "player_name": _loop.player_deck_name, "opponent_name": _loop.opponent_deck_name}
 
 
 ## "Game start" banner first, a short beat, then the first turn's banner
@@ -1674,6 +1676,8 @@ func _track_start() -> void:
 		"specials": _loop.player_goobs.filter(func(g: GoobDefinition) -> bool: return g.id != "vanilla").size(),
 		"player_deck": _goob_ids(_loop.player_goobs),
 		"opponent_deck": _goob_ids(_loop.opponent_goobs),
+		"player_decklist": _loop.player_deck_name,
+		"opponent_decklist": _loop.opponent_deck_name,
 		"auto_flip": Settings.auto_flip,
 		"autoplay": GameFlow.autoplay,
 		"speed": "fast" if Settings.speed == Settings.Speed.FAST else "normal",

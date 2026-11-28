@@ -53,8 +53,13 @@ enum EffectType {
 	COPY_ENEMY, ## Mocking: becomes the last Goob your opponent played
 }
 
-## Deck-building pool (M6e framework).
+## Effect family (M6e framework): its ring and sparkle. UNIQUE = the M6e
+## "uniquely powerful" Goobs, which wear another family's ring.
 enum Category { NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW }
+
+## Deck building and the legendary glint (Sean, Special Goobs.xlsx 2026-11-27:
+## starting decks are built by rarity, not family). COMMON = the plain Goob.
+enum Rarity { COMMON, RARE, VERY_RARE, LEGENDARY }
 
 @export var id: String = ""
 @export var display_name: String = "Goob"
@@ -65,6 +70,7 @@ enum Category { NONE, UNIQUE, TECH, MOVE, DESTROY, DISCARD, DRAW }
 ## Family ring on its rim (M6f, Sean 2026-11-24). NONE = its category's ring;
 ## Uniquely powerful ("legendary") Goobs wear another family's ring.
 @export var ring: Category = Category.NONE
+@export var rarity: Rarity = Rarity.COMMON
 ## Inspect panel lore line (writing session; vault Design/Lore seed.md).
 @export_multiline var flavour_text: String = ""
 ## Art folder under res://assets/goobs/ (Art pass D2): <team>_yaw/frame_00–07
@@ -101,9 +107,9 @@ func is_special() -> bool:
 	return look().category != Category.NONE
 
 
-## Uniquely powerful: the legendary glint on top of the special look.
+## Legendary rarity: the glint on top of the special look.
 func is_legendary() -> bool:
-	return look().category == Category.UNIQUE
+	return look().rarity == Rarity.LEGENDARY
 
 
 ## The family whose ring it wears (NONE for a plain Goob).
