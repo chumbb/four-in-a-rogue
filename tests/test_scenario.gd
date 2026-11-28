@@ -116,6 +116,7 @@ func _run() -> void:
 	await _test_debug_discard_player_guards()
 	await _test_pills_refresh_on_autoplay_turn_start()
 	await _test_autoplay_no_move_turns_off()
+	await _test_autoplay_off_mid_think()
 	await _test_autoplay_flips_up_from_behind()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
@@ -2174,6 +2175,21 @@ func _test_pills_refresh_on_autoplay_turn_start() -> void:
 	await _free(scenario)
 
 
+## Turning auto-play off while it is still choosing gives you control back
+## (it thinks on a worker thread since 2026-11-28; the timer isn't running yet).
+func _test_autoplay_off_mid_think() -> void:
+	var scenario := await _make(5.0)
+	await _wait_input(scenario)
+	scenario.set_autoplay(true)
+	_check(scenario._autoplay_thinking and not scenario._input_enabled, "autoplay mid-think: thinking, input locked")
+	scenario.set_autoplay(false)
+	_check(scenario._input_enabled and not scenario._autoplay_thinking, "autoplay mid-think: off gives control back at once")
+	await create_timer(0.3).timeout
+	_check(scenario._input_enabled and _count(_board(scenario), P) == 0, "autoplay mid-think: its late move is dropped")
+	_flow().autoplay = false
+	await _free(scenario)
+
+
 ## Auto-play with nothing to play turns itself off, so HUD and flag agree.
 func _test_autoplay_no_move_turns_off() -> void:
 	var scenario := await _make(5.0)
@@ -2181,7 +2197,7 @@ func _test_autoplay_no_move_turns_off() -> void:
 	scenario._hud.set_autoplay_lit(true)
 	scenario._set_input_enabled(false)
 	scenario._loop.player_deck.hand.clear()
-	scenario._run_autoplay_turn()
+	await scenario._run_autoplay_turn() # it thinks on a worker thread (2026-11-28)
 	_check(not _flow().autoplay, "autoplay no move: the flag is off")
 	_check(not scenario._hud.is_autoplay_lit(), "autoplay no move: the button is unlit")
 	_check(scenario._input_enabled, "autoplay no move: your turn as usual")
