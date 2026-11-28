@@ -26,6 +26,7 @@ func _initialize() -> void:
 	_test_open_threes()
 	_test_full_board_returns_minus_one()
 	_test_does_not_mutate()
+	_test_planner_matches_choose_move()
 
 	print("\n%d checks, %d failures" % [_checks, _failures])
 	quit(1 if _failures > 0 else 0)
@@ -213,3 +214,31 @@ func _test_does_not_mutate() -> void:
 	var before := b.to_debug_string()
 	OpponentAI.choose_column(b, _rng(1))
 	_check(b.to_debug_string() == before, "choose_column does not mutate board")
+
+
+## The sliced planner (web builds, Sean 2026-11-28) picks exactly the move
+## choose_move() picks, on real rarity-deck games.
+func _test_planner_matches_choose_move() -> void:
+	var same := true
+	var moves := 0
+	for game in 6:
+		var t := TurnLoop.new()
+		t.start(game % 2 == 0, _rng(900 + game))
+		var turns := 0
+		while t.phase != TurnLoop.Phase.OVER and turns < 60:
+			turns += 1
+			var m := t.current_side() == BoardState.CellOwner.PLAYER
+			var board := t.board.mirrored() if m else t.board
+			var hand := t.current_deck().hand
+			var count := t.current_deck().draw_pile.size()
+			var whole := OpponentAI.choose_move(board, hand, count, _rng(turns), t.cell_goobs(), t.destroyed_piles(m), t.sim_state(m))
+			var planner := OpponentAI.Planner.new(board, hand, count, _rng(turns), t.cell_goobs(), t.destroyed_piles(m), t.sim_state(m))
+			var steps := 0
+			while not planner.step(0):
+				steps += 1
+			moves += 1
+			if planner.move != whole or (steps == 0 and whole["column"] >= 0):
+				same = false
+			if whole["column"] < 0 or t.play(whole["column"], whole["hand_index"]) < 0:
+				break
+	_check(same and moves > 20, "sliced planner = choose_move over %d moves" % moves)

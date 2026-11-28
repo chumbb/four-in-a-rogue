@@ -48,27 +48,100 @@ const _DIRECTIONS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1
 ## GoobDefinition map (TurnLoop.cell_goobs()), so Goobs that act while on
 ## the board (Bouncy, Slippery, Springy, Lopsided, Tipsy) are simulated.
 static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_count: int, rng: RandomNumberGenerator, goobs: Dictionary = {}, piles: Dictionary = {}, state: Dictionary = {}) -> Dictionary:
+	var planner := Planner.new(board, hand, deck_count, rng, goobs, piles, state)
+	planner.step(-1)
+	return planner.move
+
+
+## choose_move() in slices (Sean, 2026-11-28: web builds have no threads, and
+## one AI call could freeze a frame for ~0.9 s). Each step() scores
+## (Goob, column) plays until its time budget runs out; `done` then `move`
+## (the same move choose_move() would pick). Reads its inputs only: the
+## caller must not change them between steps.
+class Planner:
 	var move := {"column": -1, "hand_index": -1, "blocking": false, "close": false}
-	var legal: Array[int] = []
-	var locked: Array = state.get("locked", []) # Territorial (M6e Tech)
-	for column in TurnLoop.open_columns(board):
-		if not column in locked:
-			legal.append(column)
-	if legal.is_empty() or hand.is_empty():
-		return move
-	move["blocking"] = not winning_drops(board, _P, goobs).is_empty()
-	var scored: Array[Dictionary] = []
-	var seen_types: Dictionary = {}
-	for i in hand.size():
-		var goob := hand[i]
-		var key := goob.id if goob.id != "" else str(goob.effect_type)
-		if seen_types.has(key):
-			continue
-		seen_types[key] = true
-		for column in legal:
-			var value := _play_value(board, goob, column, hand.size(), deck_count, goobs, piles, state)
-			scored.append({"column": column, "hand_index": i, "value": value,
-				"vanilla": goob.effect_type == GoobDefinition.EffectType.NONE})
+	var done := false
+	var _board: BoardState
+	var _hand: Array[GoobDefinition]
+	var _deck_count: int
+	var _rng: RandomNumberGenerator
+	var _goobs: Dictionary
+	var _piles: Dictionary
+	var _state: Dictionary
+	var _plays: Array[Vector2i] = [] ## (hand index, column) still to score
+	var _scored: Array[Dictionary] = []
+	var _started := false
+	var _results: Array = [] ## the current play's outcomes (TurnLoop.play_results)
+	var _next := -1 ## next outcome to score; -1 = not simulated yet
+	var _total := 0.0
+	var _weights := 0.0
+
+	func _init(board: BoardState, hand: Array[GoobDefinition], deck_count: int, rng: RandomNumberGenerator, goobs: Dictionary, piles: Dictionary, state: Dictionary) -> void:
+		_board = board
+		_hand = hand
+		_deck_count = deck_count
+		_rng = rng
+		_goobs = goobs
+		_piles = piles
+		_state = state
+		var legal: Array[int] = []
+		var locked: Array = state.get("locked", []) # Territorial (M6e Tech)
+		for column in TurnLoop.open_columns(board):
+			if not column in locked:
+				legal.append(column)
+		if legal.is_empty() or hand.is_empty():
+			done = true
+			return
+		var seen_types: Dictionary = {}
+		for i in hand.size():
+			var goob := hand[i]
+			var key := goob.id if goob.id != "" else str(goob.effect_type)
+			if seen_types.has(key):
+				continue
+			seen_types[key] = true
+			for column in legal:
+				_plays.append(Vector2i(i, column))
+
+	## Works for up to `budget_usec` (at least one simulation or one outcome
+	## score; < 0 = to the end). Returns `done`.
+	func step(budget_usec: int) -> bool:
+		if done:
+			return true
+		var started := Time.get_ticks_usec()
+		if not _started:
+			_started = true
+			move["blocking"] = not OpponentAI.winning_drops(_board, OpponentAI._P, _goobs).is_empty()
+		# One outcome board at a time: one play can have 48 of them.
+		while not _plays.is_empty():
+			var play: Vector2i = _plays[0]
+			var goob := _hand[play.x]
+			if _next < 0: # simulate the play
+				_results = TurnLoop.play_results(_board, _goobs, goob, play.y, OpponentAI._O, 48, _piles, _state)
+				_next = 0
+				_total = 0.0
+				_weights = 0.0
+			elif _next < _results.size(): # score one outcome
+				var result: Dictionary = _results[_next]
+				_next += 1
+				_total += OpponentAI.score_board(result["board"], result["goobs"]) * result["weight"]
+				_weights += result["weight"]
+			else: # the play's value
+				var value := OpponentAI._play_bonus(_board, goob, _total / _weights, _hand.size(), _deck_count, _goobs, _state)
+				_scored.append({"column": play.y, "hand_index": play.x, "value": value,
+					"vanilla": goob.effect_type == GoobDefinition.EffectType.NONE})
+				_plays.pop_front()
+				_results = []
+				_next = -1
+			if budget_usec >= 0 and Time.get_ticks_usec() - started >= budget_usec:
+				break
+		if _plays.is_empty():
+			OpponentAI._pick(_scored, move, _rng)
+			done = true
+		return done
+
+
+## Picks among the scored plays into `move` (choose_move's tie rules).
+static func _pick(scored: Array[Dictionary], move: Dictionary, rng: RandomNumberGenerator) -> void:
 	var best := -INF
 	for s in scored:
 		best = maxf(best, s["value"])
@@ -91,7 +164,6 @@ static func choose_move(board: BoardState, hand: Array[GoobDefinition], deck_cou
 	for s in top:
 		columns[s["column"]] = true
 	move["close"] = absf(best) < WIN * 0.5 and (columns.size() > 1 or best - runner_up <= CLOSE_MARGIN)
-	return move
 
 
 ## Column only, for a hand of plain Goobs (M3 behaviour; tests).
@@ -108,7 +180,11 @@ static func _play_value(board: BoardState, goob: GoobDefinition, column: int, ha
 	for result in TurnLoop.play_results(board, goobs, goob, column, _O, 48, piles, state):
 		total += score_board(result["board"], result["goobs"]) * result["weight"]
 		weights += result["weight"]
-	var value := total / weights
+	return _play_bonus(board, goob, total / weights, hand_size, deck_count, goobs, state)
+
+
+## `value` (the play's averaged board score) plus its flat values.
+static func _play_bonus(board: BoardState, goob: GoobDefinition, value: float, hand_size: int, deck_count: int, goobs: Dictionary, state: Dictionary) -> float:
 	# Nostalgic / Mocking (M6e): flat values for the Goob it becomes.
 	var as_goob := goob
 	if goob.effect_type == GoobDefinition.EffectType.COPY_OWN or goob.effect_type == GoobDefinition.EffectType.COPY_ENEMY:

@@ -147,6 +147,10 @@ var _opponent_hand_index := -1
 ## WorkerThreadPool task of an AI move being chosen (-1 = none): waited for if
 ## the scenario leaves first.
 var _ai_task := -1
+## Choose AI moves on a worker thread. Off on web builds (no threads): the AI
+## then thinks in AI_SLICE_USEC slices, one per frame (tests can force it off).
+var ai_threads := OS.has_feature("threads")
+const AI_SLICE_USEC := 8000
 ## Auto-play is choosing your move (its timer isn't running yet).
 var _autoplay_thinking := false
 ## Debug auto-play (M6e): the AI's think delay on your turn, then its move.
@@ -1412,13 +1416,13 @@ func _run_opponent_turn() -> void:
 	await _play_turn_draw_extras(BoardState.CellOwner.OPPONENT)
 	if not is_inside_tree() or _loop.phase != TurnLoop.Phase.OPPONENT_TURN:
 		return
+	_hud.set_base_face(&"thinking") # web builds may still be choosing
 	var move: Dictionary = await _finish_ai_move(ai)
 	if not is_inside_tree() or _loop.phase != TurnLoop.Phase.OPPONENT_TURN:
 		return
 	_opponent_column = move["column"]
 	_opponent_hand_index = move["hand_index"]
 	var wait := _think_sec(move["blocking"] or move["close"])
-	_hud.set_base_face(&"thinking")
 	if wait > 0.0:
 		_opponent_timer.start(wait)
 	else:
@@ -1437,20 +1441,28 @@ func _start_ai_move(side: BoardState.CellOwner) -> Dictionary:
 	var hand: Array[GoobDefinition] = deck.hand.duplicate()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _rng.randi() # its own rng: the scenario's keeps running meanwhile
-	var job := {"hand": hand, "result": {}}
+	var job := {"hand": hand}
 	var board := _loop.board.mirrored() if mine else _loop.board.copy()
 	var count := deck.draw_pile.size()
 	var goobs := _loop.cell_goobs()
 	var piles := _loop.destroyed_piles(mine).duplicate(true)
 	var state := _loop.sim_state(mine).duplicate(true)
-	var work := func() -> void:
-		job["result"] = OpponentAI.choose_move(board, hand, count, rng, goobs, piles, state)
-	if OS.has_feature("threads"):
-		_ai_task = WorkerThreadPool.add_task(work, false, "OpponentAI.choose_move")
+	var planner := OpponentAI.Planner.new(board, hand, count, rng, goobs, piles, state)
+	job["planner"] = planner
+	if ai_threads:
+		_ai_task = WorkerThreadPool.add_task(planner.step.bind(-1), false, "OpponentAI.choose_move")
 		job["task"] = _ai_task
+	elif opponent_delay_sec <= 0.0:
+		planner.step(-1) # no think delay (tests): nothing to spread it over
 	else:
-		work.call() # web builds without threads: as before
+		_step_planner(planner) # web builds: a slice a frame, behind the banner
 	return job
+
+
+## Thinks a slice per frame until `planner` is done (no-threads builds).
+func _step_planner(planner: OpponentAI.Planner) -> void:
+	while not planner.step(AI_SLICE_USEC) and is_inside_tree():
+		await get_tree().process_frame
 
 
 ## Waits (a frame at a time) for the move _start_ai_move() is choosing. If
@@ -1464,12 +1476,17 @@ func _finish_ai_move(job: Dictionary) -> Dictionary:
 		if _ai_task == job["task"]:
 			WorkerThreadPool.wait_for_task_completion(job["task"])
 			_ai_task = -1
+	var planner: OpponentAI.Planner = job["planner"]
+	while not planner.done and is_inside_tree():
+		await get_tree().process_frame
+	if not planner.done:
+		return planner.move # left the tree mid-think: no move
 	var side := _loop.current_side()
 	if job["hand"] != _loop.deck_of(side).hand:
 		var mine := side == BoardState.CellOwner.PLAYER
 		var deck := _loop.deck_of(side)
 		return OpponentAI.choose_move(_loop.board.mirrored() if mine else _loop.board, deck.hand, deck.draw_pile.size(), _rng, _loop.cell_goobs(), _loop.destroyed_piles(mine), _loop.sim_state(mine))
-	return job["result"]
+	return planner.move
 
 
 func _play_opponent_move() -> void:

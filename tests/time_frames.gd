@@ -2,7 +2,8 @@ extends SceneTree
 ## Dev tool (Sean, 2026-11-28 lag report): plays scenarios with auto-play and
 ## real think delays and prints, per opponent turn, how long his AI call takes
 ## (what used to freeze one frame) and the longest frame while he thinks.
-##   godot --headless -s res://tests/time_frames.gd [-- turns]
+##   godot --headless -s res://tests/time_frames.gd [-- turns [nothreads]]
+## nothreads = the web build's path (the AI thinks a slice per frame).
 
 var _worst_frame_us := 0
 var _last_us := 0
@@ -15,6 +16,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var args := OS.get_cmdline_user_args()
 	var want := int(args[0]) if args.size() > 0 else 40
+	var threads := not (args.size() > 1 and args[1] == "nothreads")
 	var settings := root.get_node("Settings")
 	settings.path = "user://capture_settings.cfg"
 	settings.reset()
@@ -32,6 +34,7 @@ func _run() -> void:
 		flow.autoplay = true
 		var scenario: Control = load("res://scenes/scenario/scenario.tscn").instantiate()
 		scenario.animate_drops = false
+		scenario.ai_threads = threads
 		root.add_child(scenario)
 		current_scene = scenario
 		var was_opp := false

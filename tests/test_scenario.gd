@@ -117,6 +117,7 @@ func _run() -> void:
 	await _test_pills_refresh_on_autoplay_turn_start()
 	await _test_autoplay_no_move_turns_off()
 	await _test_autoplay_off_mid_think()
+	await _test_ai_without_threads()
 	await _test_autoplay_flips_up_from_behind()
 	await _test_layout(PHONE, false)
 	await _test_layout(PHONE, true)
@@ -2187,6 +2188,22 @@ func _test_autoplay_off_mid_think() -> void:
 	await create_timer(0.3).timeout
 	_check(scenario._input_enabled and _count(_board(scenario), P) == 0, "autoplay mid-think: its late move is dropped")
 	_flow().autoplay = false
+	await _free(scenario)
+
+
+## Web builds (no threads, Sean 2026-11-28): the AI thinks a slice per frame
+## behind the banner and still plays his turn, thinking face meanwhile.
+func _test_ai_without_threads() -> void:
+	var scenario := await _make(0.05)
+	scenario.ai_threads = false
+	await _wait_input(scenario)
+	_play_col(scenario, 3)
+	var deadline := Time.get_ticks_msec() + 6000
+	while _count(_board(scenario), O) == 0 and Time.get_ticks_msec() < deadline:
+		await process_frame
+	_check(_count(_board(scenario), O) == 1, "no threads: the opponent still plays (got %d)" % _count(_board(scenario), O))
+	await _wait_input(scenario)
+	_check(scenario._input_enabled and scenario._loop.phase == TurnLoop.Phase.PLAYER_TURN, "no threads: back to your turn")
 	await _free(scenario)
 
 
