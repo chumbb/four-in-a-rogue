@@ -1487,6 +1487,13 @@ func _test_turn_banners() -> void:
 	await _free(scenario)
 
 
+func _mouse_press() -> InputEventMouseButton:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	return ev
+
+
 ## Options "Turn timer" Off (Sean, 2026-11-27): your turns start with no
 ## countdown, no fuse and never time out.
 func _test_turn_timer_off() -> void:
@@ -1526,17 +1533,32 @@ func _test_pause_menu() -> void:
 	settings.set_turn_timer(true)
 	_check(not scenario._turn_timer.is_stopped() and is_equal_approx(scenario._turn_timer.time_left, scenario.turn_seconds), "turn timer on again: a fresh countdown")
 	left_before = scenario._turn_timer.time_left
-	pause.set_deck("Wrecking Crew", DeckBuilder.decklist("Wrecking Crew"))
+	pause.set_deck("Wrecking Crew", DeckBuilder.decklist("Wrecking Crew"), 200.0)
 	pause.button("Decklist").pressed.emit()
 	var texts: Array[String] = []
+	var plates: Array[Button] = []
 	for child in pause._deck.get_children():
 		if child is Label:
 			texts.append(child.text)
+		elif child is Button and String(child.name).begins_with("Deck_"):
+			plates.append(child)
 	_check(pause.is_viewing_deck() and not pause._menu.visible and paused, "pause: Decklist opens the deck window, still paused")
 	_check(texts[0] == "Wrecking Crew" and texts.has("Legendary (1)") and texts.has("Very rare (4)") and texts.has("Rare (7)") and texts.has("Goob (9)"), "pause: deck name and rarity counts (%s)" % [texts])
-	_check(texts.has("Crushing Goob") and texts.has("Ruthless Goob") and texts.size() == 1 + 4 + 12, "pause: every special listed once (%d labels)" % texts.size())
+	var plate_names := plates.map(func(p: Button) -> String: return p.text)
+	_check(plates.size() == 12 and plate_names.has("Crushing") and plate_names.has("Ruthless"), "pause: every special listed once (%d plates)" % plates.size())
+	var small := plates.filter(func(p: Button) -> bool: return p.get_global_rect().size.y < 96.0 - 0.5)
+	_check(small.is_empty(), "pause: deck plates ≥ 96 px tall")
 	_check(pause._deck.get_rect().size.y <= pause._stage.game_size.y, "pause: deck window fits the screen")
 	_check(pause.button("DeckBack").get_global_rect().size.y >= 96.0, "pause: deck Back ≥ 96 px")
+	plates[0].pressed.emit()
+	_check(pause.is_inspecting() and pause._inspect.name_text() == "Crushing Goob" and pause._inspect.effect_text() == "Destroy the Goob below this Goob.", "pause: tapping a deck Goob opens its inspect view")
+	_check(pause._inspect._name_label.text == "Crushing
+Goob", "inspect: one word per line")
+	pause._inspect.open(load("res://resources/goobs/distracting_goob.tres"), P, 200.0)
+	_check(pause._inspect._name_label.text == "Distracting
+Goob" and pause._inspect._name_label.autowrap_mode == TextServer.AUTOWRAP_OFF, "inspect: never splits inside a word (Distracting / Goob)")
+	pause._inspect_blocker.gui_input.emit(_mouse_press())
+	_check(not pause.is_inspecting() and pause.is_viewing_deck(), "pause: the next tap closes the inspect view, deck still shown")
 	pause.button("DeckBack").pressed.emit()
 	_check(not pause.is_viewing_deck() and pause._menu.visible, "pause: deck Back returns to the menu")
 	pause.button("Quit").pressed.emit()

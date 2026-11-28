@@ -58,6 +58,9 @@ func _ready() -> void:
 	top.add_child(text)
 	_name_label = _make_label(&"Mono2", HORIZONTAL_ALIGNMENT_CENTER)
 	_name_label.add_theme_color_override("font_color", COLOR_NAME)
+	# One word per line, never split inside a word (Sean, 2026-11-27: the
+	# smart wrap put "Distractin" / "g Goob"); the panel widens if a word needs it.
+	_name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	text.add_child(_name_label)
 	_effect_label = _make_label(&"", HORIZONTAL_ALIGNMENT_CENTER)
 	text.add_child(_effect_label)
@@ -72,7 +75,8 @@ func open(goob: GoobDefinition, side: BoardState.CellOwner, size_px: float) -> v
 	_goob_rect.texture = goob.still(side)
 	GoobLook.dress(_goob_rect, goob, side)
 	_goob_rect.custom_minimum_size = Vector2(size_px, size_px)
-	_name_label.text = goob.display_name
+	_name_label.text = goob.display_name.replace(" ", "
+")
 	_effect_label.text = goob.effect_description
 	_effect_label.visible = not goob.effect_description.is_empty()
 	_flavour_label.text = goob.flavour_text
@@ -88,7 +92,8 @@ func is_open() -> bool:
 
 
 func name_text() -> String:
-	return _name_label.text
+	return _name_label.text.replace("
+", " ")
 
 
 func effect_text() -> String:

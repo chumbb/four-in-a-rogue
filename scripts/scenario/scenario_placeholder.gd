@@ -549,7 +549,9 @@ func handle_escape() -> bool:
 		_on_debug_toggle()
 		return true
 	if _pause.is_open():
-		if _pause.options().is_open():
+		if _pause.is_inspecting():
+			_pause.close_inspect()
+		elif _pause.options().is_open():
 			_pause.options()._on_back()
 		elif _pause.is_confirming() or _pause.is_viewing_deck():
 			_pause.back_to_menu()
@@ -571,7 +573,7 @@ func handle_escape() -> bool:
 func _on_pause_pressed() -> void:
 	if _end_overlay.visible or GameFlow.is_fading():
 		return
-	_pause.set_deck(_loop.player_deck_name, _loop.player_goobs)
+	_pause.set_deck(_loop.player_deck_name, _loop.player_goobs, HandView.GOOB_PX * _board_view.hand_px() * 2.0)
 	_pause.open()
 
 

@@ -41,6 +41,9 @@ func _run() -> void:
 	scenario._pause.button("Decklist").pressed.emit()
 	await _frames(5)
 	await _shot(dir, "decklist")
+	scenario._pause._deck.get_node("Deck_distracting").pressed.emit()
+	await _frames(5)
+	await _shot(dir, "decklist_inspect")
 	SafeArea.simulate_insets = false
 	root.get_node("GameFlow").debug_forced_categories = {}
 	quit()
