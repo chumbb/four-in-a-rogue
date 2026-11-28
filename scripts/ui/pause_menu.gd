@@ -4,7 +4,8 @@ extends Control
 ## over a scrim. While it is open the scene tree is paused, so the turn timer,
 ## the opponent, every animation and the game's sounds stop (this menu and its
 ## sounds keep running). Quit asks "Quit this scenario?" (Quit / Cancel) and
-## goes to the Title: no scoring, not a loss.
+## goes to the Title: no scoring, not a loss. Decklist (Sean, 2026-11-27) shows
+## your deck: its decklist name, its specials by rarity and each rarity's count.
 
 signal opened
 signal resumed
@@ -14,11 +15,18 @@ const BUTTON_W := 140.0
 const CONFIRM_W := 250.0
 const CONFIRM_BUTTON_W := 100.0
 const GOLD_HI := Color("fbb954")
+const DECK_W := 240.0
+const DECK_ROW_H := 12.0
+const DECK_BUTTON_W := 100.0
+const RARITY_NAMES := {GoobDefinition.Rarity.LEGENDARY: "Legendary", GoobDefinition.Rarity.VERY_RARE: "Very rare", GoobDefinition.Rarity.RARE: "Rare", GoobDefinition.Rarity.COMMON: "Goob"}
 
 var _scrim: ColorRect
 var _stage: PixelStage
 var _menu: NinePatchRect
 var _confirm: NinePatchRect
+var _deck: NinePatchRect
+var _deck_name := ""
+var _deck_goobs: Array[GoobDefinition] = []
 var _options: OptionsPanel
 var _sfx: Sfx
 var _buttons: Dictionary = {} ## label -> Button
@@ -42,14 +50,15 @@ func _init() -> void:
 	add_child(_stage)
 	_sfx = Sfx.new()
 	add_child(_sfx)
-	_menu = _window(Vector2(WIDTH, 172))
+	_menu = _window(Vector2(WIDTH, 212))
 	_title(_menu, "Paused")
-	for i in 3:
-		var label: String = ["Resume", "Options", "Quit"][i]
+	for i in 4:
+		var label: String = ["Resume", "Decklist", "Options", "Quit"][i]
 		var button := _stage.add_button(label, BUTTON_W, _menu)
 		button.position = Vector2((WIDTH - BUTTON_W) * 0.5, 46.0 + i * 40.0)
 		_buttons[label] = button
 	_buttons["Resume"].pressed.connect(resume)
+	_buttons["Decklist"].pressed.connect(_on_decklist)
 	_buttons["Options"].pressed.connect(_on_options)
 	_buttons["Quit"].pressed.connect(_on_quit)
 	_confirm = _window(Vector2(CONFIRM_W, 100))
@@ -92,7 +101,9 @@ func _title(window: NinePatchRect, text: String) -> void:
 
 
 func _layout() -> void:
-	for window: NinePatchRect in [_menu, _confirm]:
+	for window: NinePatchRect in [_menu, _confirm, _deck]:
+		if window == null:
+			continue
 		window.position = (Vector2(_stage.game_size.x - window.size.x, _stage.game_size.y - window.size.y) * 0.5).floor()
 
 
@@ -132,9 +143,73 @@ func is_confirming() -> bool:
 	return visible and _confirm.visible
 
 
+func is_viewing_deck() -> bool:
+	return visible and _deck != null and _deck.visible
+
+
+## Your deck for the Decklist window (`deck_name` "" = no decklist name).
+func set_deck(deck_name: String, goobs: Array[GoobDefinition]) -> void:
+	_deck_name = deck_name
+	_deck_goobs = goobs
+
+
+## Back to the pause menu from the Quit confirm or the Decklist (button / Esc).
+func back_to_menu() -> void:
+	_sfx.play(&"ui_tap")
+	_show(_menu)
+
+
 func _show(window: NinePatchRect) -> void:
 	_menu.visible = window == _menu
 	_confirm.visible = window == _confirm
+	if _deck != null:
+		_deck.visible = window == _deck
+
+
+func _on_decklist() -> void:
+	_sfx.play(&"ui_tap")
+	_build_deck()
+	_show(_deck)
+
+
+## The Decklist window, rebuilt each time: name, then per rarity (legendary
+## first) "<Rarity> (n)" and its specials in deck order, then the plain Goobs.
+func _build_deck() -> void:
+	if _deck != null:
+		_deck.free()
+		_buttons.erase("DeckBack")
+	var groups := {}
+	for rarity in RARITY_NAMES:
+		groups[rarity] = []
+	for goob in _deck_goobs:
+		var rarity: GoobDefinition.Rarity = goob.rarity if goob.is_special() else GoobDefinition.Rarity.COMMON
+		groups[rarity].append(goob)
+	var lines := 0
+	for rarity in groups:
+		if not groups[rarity].is_empty():
+			lines += 1 + (groups[rarity].size() if rarity != GoobDefinition.Rarity.COMMON else 0)
+	var top := 44.0
+	_deck = _window(Vector2(DECK_W, top + lines * DECK_ROW_H + 4.0 * groups.size() + 52.0))
+	_title(_deck, _deck_name if _deck_name != "" else "Your deck")
+	var y := top
+	for rarity in groups:
+		var goobs: Array = groups[rarity]
+		if goobs.is_empty():
+			continue
+		var head := _stage.add_label("%s (%d)" % [RARITY_NAMES[rarity], goobs.size()], GOLD_HI, &"", _deck)
+		head.position = Vector2(16, y)
+		y += DECK_ROW_H
+		if rarity != GoobDefinition.Rarity.COMMON:
+			for goob: GoobDefinition in goobs:
+				var row := _stage.add_label(goob.display_name, PixelStage.CREAM, &"", _deck)
+				row.position = Vector2(28, y)
+				y += DECK_ROW_H
+		y += 4.0
+	var back := _stage.add_button("Back", DECK_BUTTON_W, _deck)
+	back.position = Vector2((DECK_W - DECK_BUTTON_W) * 0.5, y + 6.0)
+	back.pressed.connect(back_to_menu)
+	_buttons["DeckBack"] = back
+	_layout()
 
 
 func _on_options() -> void:
@@ -154,8 +229,7 @@ func _on_quit() -> void:
 
 
 func _on_cancel() -> void:
-	_sfx.play(&"ui_tap")
-	_show(_menu)
+	back_to_menu()
 
 
 ## Not a loss: straight back to the Title (black fade).

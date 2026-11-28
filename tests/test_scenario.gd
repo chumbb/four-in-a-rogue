@@ -1503,6 +1503,19 @@ func _test_pause_menu() -> void:
 	_check(pause.options().is_open() and not pause.options()._scrim.visible, "pause: Options opens over the pause scrim")
 	pause.options()._back.pressed.emit()
 	_check(not pause.options().is_open() and pause._menu.visible, "pause: Back returns to the pause menu")
+	pause.set_deck("Wrecking Crew", DeckBuilder.decklist("Wrecking Crew"))
+	pause.button("Decklist").pressed.emit()
+	var texts: Array[String] = []
+	for child in pause._deck.get_children():
+		if child is Label:
+			texts.append(child.text)
+	_check(pause.is_viewing_deck() and not pause._menu.visible and paused, "pause: Decklist opens the deck window, still paused")
+	_check(texts[0] == "Wrecking Crew" and texts.has("Legendary (1)") and texts.has("Very rare (4)") and texts.has("Rare (7)") and texts.has("Goob (9)"), "pause: deck name and rarity counts (%s)" % [texts])
+	_check(texts.has("Crushing Goob") and texts.has("Ruthless Goob") and texts.size() == 1 + 4 + 12, "pause: every special listed once (%d labels)" % texts.size())
+	_check(pause._deck.get_rect().size.y <= pause._stage.game_size.y, "pause: deck window fits the screen")
+	_check(pause.button("DeckBack").get_global_rect().size.y >= 96.0, "pause: deck Back ≥ 96 px")
+	pause.button("DeckBack").pressed.emit()
+	_check(not pause.is_viewing_deck() and pause._menu.visible, "pause: deck Back returns to the menu")
 	pause.button("Quit").pressed.emit()
 	_check(pause.is_confirming() and pause._confirm.get_child(0).text == "Quit this scenario?", "pause: Quit asks to confirm")
 	pause.button("ConfirmCancel").pressed.emit()
