@@ -402,6 +402,15 @@ Decisions: vault Decision-Log 2026-11-25. **Testers Sean knows only** (store pri
 - The M7 Android build is a debug export, so the » auto-play button and F4 panel exist on the phone; turn Options → Auto-play button off for the A9 check.
 - Art F / G are deferred, so M7 runs with the specials on Vanilla art (told apart by the name under each one in the hand, inspect and the drawn-Goob name) and text pills for effects.
 
+### M7.5 — Balance sim (after M7, before Art F; Sean 2026-11-27 grill)
+
+Spec: vault `Design/Balance sim.md`; Decision-Log 2026-11-27. A tool only: no game code or AI changes.
+
+- [ ] Headless AI vs AI batch (`godot --headless -s res://tools/sim/...`, `TurnLoop` + current `OpponentAI` both sides); flags for AI vs random and random vs random
+- [ ] Decks: meta runs (`DeckBuilder`, default), forced-Goob experiments, fixed decks (JSON per side, any Vanilla/special mix, always 21, legendary/copy limits dropped), `--sweep` over the split 21/0 → 0/21
+- [ ] Every scenario + a match result after draw replays; `scenario` block per game (biome, terrain = none, board size, deck types) so terrain plugs in later; seeded per game; 10k matches default over parallel processes; no timer, no `Telemetry`
+- [ ] JSONL to gitignored `sim_out/`; `goob_stats.py` both-sides flag + game-shape / deck-type / first-mover / sweep section; report to vault `Research/Balance sim YYYY-MM-DD <label>.md`; flags: Goob outside 45–55 % (95 % CI excludes 50 %), pair lift beyond ±5 points
+
 ### Art pass F — special Goob faces (deferred to after M7; Sean 2026-11-24)
 
 - [ ] Type sheets + production for every M6e Goob, like D1/D2
