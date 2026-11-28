@@ -210,6 +210,7 @@ func _ready() -> void:
 	_replay_timer = _make_timer(_auto_replay)
 	_end_overlay.visible = false
 	Settings.changed.connect(_apply_speed)
+	Settings.changed.connect(_apply_turn_timer)
 	_apply_speed()
 	_board_view.item_rect_changed.connect(_layout_table.call_deferred)
 	_layout_table.call_deferred()
@@ -300,10 +301,10 @@ func _refresh_fuse() -> void:
 
 
 ## HUD countdown: the player's seconds left (30 before the turn unlocks, 0 at a
-## timeout), "—" on the opponent's turn, after the end and while auto-play
-## plays your turns.
+## timeout), "—" on the opponent's turn, after the end, while auto-play
+## plays your turns and with Options "Turn timer" Off.
 func _refresh_timer() -> void:
-	if _loop.phase != TurnLoop.Phase.PLAYER_TURN:
+	if _loop.phase != TurnLoop.Phase.PLAYER_TURN or not Settings.turn_timer:
 		_hud.set_timer(ScenarioHud.NO_TIMER)
 	elif _timed_out:
 		_hud.set_seconds(0)
@@ -917,7 +918,8 @@ func _set_input_enabled(enabled: bool) -> void:
 	if enabled:
 		_idle_since_msec = Time.get_ticks_msec()
 		_timed_out = false
-		_turn_timer.start(turn_seconds)
+		if Settings.turn_timer:
+			_turn_timer.start(turn_seconds)
 	else:
 		_turn_timer.stop()
 		_end_touch()
@@ -926,6 +928,17 @@ func _set_input_enabled(enabled: bool) -> void:
 
 
 # --- Turns -------------------------------------------------------------------
+
+## Options "Turn timer" (Sean, 2026-11-27), also changed mid-turn from the
+## pause menu: Off stops your countdown (and the fuse); On gives a fresh one.
+func _apply_turn_timer() -> void:
+	if not Settings.turn_timer:
+		_turn_timer.stop()
+	elif _input_enabled and not _timed_out and _turn_timer.is_stopped() and _loop.phase == TurnLoop.Phase.PLAYER_TURN:
+		_turn_timer.start(turn_seconds)
+	_refresh_timer()
+	_refresh_fuse()
+
 
 ## Player entry point: plays hand Goob `hand_index` into `column`. Returns
 ## the landed row, or -1 if it is not the player's turn (silently), the column
@@ -1680,6 +1693,7 @@ func _track_start() -> void:
 		"player_decklist": _loop.player_deck_name,
 		"opponent_decklist": _loop.opponent_deck_name,
 		"auto_flip": Settings.auto_flip,
+		"turn_timer": Settings.turn_timer,
 		"autoplay": GameFlow.autoplay,
 		"speed": "fast" if Settings.speed == Settings.Speed.FAST else "normal",
 		"debug": _debug_game(),

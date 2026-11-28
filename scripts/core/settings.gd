@@ -22,6 +22,9 @@ var speed := Speed.NORMAL
 var haptics := true
 var screen_shake := true
 var auto_flip := false
+## Turn timer (Sean, 2026-11-27): Off = no 30 s limit on your turns, no fuse,
+## no timeout. A testing option; removed in the full game. Default On.
+var turn_timer := true
 ## Debug builds: the HUD's auto-play button (M6e; default On).
 var autoplay_button := true
 ## Send diagnostics (M6g, Sean 2026-11-25): crash and play data from exported
@@ -45,6 +48,7 @@ func load_file() -> void:
 		haptics = bool(cfg.get_value("play", "haptics", true))
 		screen_shake = bool(cfg.get_value("play", "screen_shake", true))
 		auto_flip = bool(cfg.get_value("play", "auto_flip", false))
+		turn_timer = bool(cfg.get_value("play", "turn_timer", true))
 		autoplay_button = bool(cfg.get_value("play", "autoplay_button", true))
 		diagnostics = bool(cfg.get_value("privacy", "diagnostics", true))
 		for bus in BUSES:
@@ -59,6 +63,7 @@ func save_file() -> void:
 	cfg.set_value("play", "haptics", haptics)
 	cfg.set_value("play", "screen_shake", screen_shake)
 	cfg.set_value("play", "auto_flip", auto_flip)
+	cfg.set_value("play", "turn_timer", turn_timer)
 	cfg.set_value("play", "autoplay_button", autoplay_button)
 	cfg.set_value("privacy", "diagnostics", diagnostics)
 	for bus in BUSES:
@@ -73,6 +78,7 @@ func reset() -> void:
 	haptics = true
 	screen_shake = true
 	auto_flip = false
+	turn_timer = true
 	autoplay_button = true
 	diagnostics = true
 	volume = DEFAULT_VOLUME.duplicate()
@@ -98,6 +104,11 @@ func set_screen_shake(on: bool) -> void:
 
 func set_auto_flip(on: bool) -> void:
 	auto_flip = on
+	_commit()
+
+
+func set_turn_timer(on: bool) -> void:
+	turn_timer = on
 	_commit()
 
 

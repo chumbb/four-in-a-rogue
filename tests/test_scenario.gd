@@ -80,6 +80,7 @@ func _run() -> void:
 	await _test_hud()
 	await _test_turn_banners()
 	await _test_pause_menu()
+	await _test_turn_timer_off()
 	await _test_speed_settings()
 	_test_skip_removed()
 	await _test_screen_shake_option()
@@ -1486,6 +1487,21 @@ func _test_turn_banners() -> void:
 	await _free(scenario)
 
 
+## Options "Turn timer" Off (Sean, 2026-11-27): your turns start with no
+## countdown, no fuse and never time out.
+func _test_turn_timer_off() -> void:
+	var settings = root.get_node("Settings")
+	settings.set_turn_timer(false)
+	var scenario := await _make(5.0, true, 0.3)
+	await _wait_input(scenario)
+	_check(scenario._input_enabled and scenario._turn_timer.is_stopped(), "turn timer off: your turn starts without a countdown")
+	await create_timer(0.6).timeout
+	_check(scenario._input_enabled and not scenario._timed_out and _count(_board(scenario), P) == 0, "turn timer off: no timeout after the 0.3 s limit")
+	_check(not scenario._fuse.visible and scenario._hud.timer_text() == ScenarioHud.NO_TIMER, "turn timer off: no fuse, HUD shows %s" % ScenarioHud.NO_TIMER)
+	settings.set_turn_timer(true)
+	await _free(scenario)
+
+
 func _test_pause_menu() -> void:
 	var scenario := await _make(5.0)
 	var pause = scenario._pause # untyped: PauseMenu names autoloads
@@ -1503,6 +1519,13 @@ func _test_pause_menu() -> void:
 	_check(pause.options().is_open() and not pause.options()._scrim.visible, "pause: Options opens over the pause scrim")
 	pause.options()._back.pressed.emit()
 	_check(not pause.options().is_open() and pause._menu.visible, "pause: Back returns to the pause menu")
+	# Turn timer Off (Sean, 2026-11-27), switched from the pause menu mid-turn.
+	var settings = root.get_node("Settings")
+	settings.set_turn_timer(false)
+	_check(scenario._turn_timer.is_stopped() and scenario._hud.timer_text() == ScenarioHud.NO_TIMER, "turn timer off: countdown stops, HUD shows %s" % ScenarioHud.NO_TIMER)
+	settings.set_turn_timer(true)
+	_check(not scenario._turn_timer.is_stopped() and is_equal_approx(scenario._turn_timer.time_left, scenario.turn_seconds), "turn timer on again: a fresh countdown")
+	left_before = scenario._turn_timer.time_left
 	pause.set_deck("Wrecking Crew", DeckBuilder.decklist("Wrecking Crew"))
 	pause.button("Decklist").pressed.emit()
 	var texts: Array[String] = []

@@ -268,7 +268,7 @@ func _test_coin_toss() -> void:
 func _test_settings_saved() -> void:
 	var st := _settings()
 	st.reset()
-	_check(st.speed == 0 and st.haptics and st.screen_shake and not st.auto_flip, "settings: defaults Normal, haptics on, shake on, auto-flip off")
+	_check(st.speed == 0 and st.haptics and st.screen_shake and not st.auto_flip and st.turn_timer, "settings: defaults Normal, haptics on, shake on, auto-flip off, turn timer on")
 	_check(is_equal_approx(st.volume[&"Master"], 0.8) and is_equal_approx(st.volume[&"Music"], 0.7) and is_equal_approx(st.volume[&"SFX"], 0.8), "settings: volume defaults 80 / 70 / 80 %")
 	for bus: StringName in [&"Master", &"Music", &"SFX"]:
 		_check(AudioServer.get_bus_index(bus) != -1, "settings: %s bus exists" % bus)
@@ -280,6 +280,7 @@ func _test_settings_saved() -> void:
 	st.set_haptics(false)
 	st.set_screen_shake(false)
 	st.set_auto_flip(true)
+	st.set_turn_timer(false)
 	st.set_volume(&"Music", 0.35)
 	st.set_muted(&"SFX", true)
 	var music := AudioServer.get_bus_index(&"Music")
@@ -287,7 +288,7 @@ func _test_settings_saved() -> void:
 	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index(&"SFX")), "settings: SFX mute mutes the bus")
 	st.reset()
 	st.load_file()
-	_check(st.speed == 1 and not st.haptics and not st.screen_shake and st.auto_flip, "settings: options saved and loaded")
+	_check(st.speed == 1 and not st.haptics and not st.screen_shake and st.auto_flip and not st.turn_timer, "settings: options saved and loaded")
 	_check(is_equal_approx(st.volume[&"Music"], 0.35) and st.muted[&"SFX"], "settings: volume and mute saved and loaded")
 	st.reset()
 	st.save_file()
@@ -315,7 +316,7 @@ func _test_title_options() -> void:
 		targets.append(panel._window.get_node("Mute" + String(bus)))
 	targets.append(panel._back)
 	var small := targets.filter(func(c: Control) -> bool: return c.get_global_rect().size.y < 96.0 - 0.5)
-	var want := 14 if OS.is_debug_build() else 13 # + the debug Auto-play button row (Send diagnostics: M6g)
+	var want := 15 if OS.is_debug_build() else 14 # + the debug Auto-play button row (Send diagnostics: M6g; Turn timer: 2026-11-27)
 	_check(targets.size() == want and small.is_empty(), "options: all %d targets ≥ 96 px tall (small: %s)" % [want, str(small)])
 	var window: Rect2 = panel._window.get_global_rect()
 	_check(window.position.y >= 0.0 and window.end.y <= 1280.0 and window.position.x >= 0.0 and window.end.x <= 720.0, "options: window on screen (%s)" % window)
@@ -329,6 +330,8 @@ func _test_title_options() -> void:
 	_check(not st.haptics and panel._toggles[&"haptics"][1].text == "Off", "options: Haptics row turns it Off")
 	panel._window.get_node("screen_shake").pressed.emit()
 	_check(not st.screen_shake, "options: Screen shake row turns it Off")
+	panel._window.get_node("turn_timer").pressed.emit()
+	_check(not st.turn_timer and panel._toggles[&"turn_timer"][1].text == "Off", "options: Turn timer row turns it Off")
 	panel._sliders[&"Master"].value = 0.5
 	_check(is_equal_approx(st.volume[&"Master"], 0.5), "options: Master slider sets the volume")
 	panel._window.get_node("MuteMusic").pressed.emit()
